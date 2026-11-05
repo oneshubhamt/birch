@@ -1,0 +1,36 @@
+# Rust and Dioxus build outputs
+/target/
+/dist/
+
+# Browser build dependencies and generated runtime artifacts
+/node_modules/
+/editor-build/node_modules/
+/assets/prosemirror-editor.js
+/assets/prosemirror-editor-manifest.json
+/src/editor_runtime_generated.rs
+
+# Local environment, credentials, and actual user data
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.key
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+*.bak
+*.log
+
+# OS/editor debris
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Don't ignore Cargo.lock or editor-build/package-lock.json: reproducibility is required.

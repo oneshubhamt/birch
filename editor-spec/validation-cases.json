@@ -1,0 +1,1505 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "minimal paragraph",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "valid heading and note link",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Linked",
+                  "marks": [
+                    {
+                      "type": "note_link",
+                      "attrs": {
+                        "noteId": "note-1"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject envelope schema drift",
+      "valid": false,
+      "state": {
+        "schema_version": 999,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject unknown node",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "mystery"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject unknown paragraph attr",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "bogus": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject heading outside range",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 7
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject font size outside range",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": [
+                    {
+                      "type": "font_size",
+                      "attrs": {
+                        "size": 73
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject superscript subscript overlap",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": [
+                    {
+                      "type": "superscript"
+                    },
+                    {
+                      "type": "subscript"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject semantic link overlap",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com"
+                      }
+                    },
+                    {
+                      "type": "note_link",
+                      "attrs": {
+                        "noteId": "n1"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject marked scientific source",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "math_inline",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "x",
+                      "marks": [
+                        {
+                          "type": "bold"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject duplicate pending request ids",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "attachment_pending",
+              "attrs": {
+                "requestId": "r1",
+                "picker": "file",
+                "label": "Attachment",
+                "status": "Choose a file\u2026",
+                "items": null,
+                "nodeSchemaVersion": 1
+              }
+            },
+            {
+              "type": "attachment_pending",
+              "attrs": {
+                "requestId": "r1",
+                "picker": "file",
+                "label": "Attachment",
+                "status": "Choose a file\u2026",
+                "items": null,
+                "nodeSchemaVersion": 1
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "valid attachment",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "attachment",
+              "attrs": {
+                "attachmentId": "a1",
+                "kind": "image",
+                "displayName": "image.png",
+                "byteSize": 1,
+                "caption": "",
+                "altText": "",
+                "alignment": "center",
+                "widthPercent": 100,
+                "sizeMode": "auto",
+                "nodeSchemaVersion": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject attachment kind",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "attachment",
+              "attrs": {
+                "attachmentId": "a1",
+                "kind": "unknown",
+                "displayName": "image.png",
+                "byteSize": 1,
+                "caption": "",
+                "altText": "",
+                "alignment": "center",
+                "widthPercent": 100,
+                "sizeMode": "auto",
+                "nodeSchemaVersion": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject media trim on image",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "attachment",
+              "attrs": {
+                "attachmentId": "a1",
+                "kind": "image",
+                "displayName": "image.png",
+                "byteSize": 1,
+                "caption": "",
+                "altText": "",
+                "alignment": "center",
+                "widthPercent": 100,
+                "sizeMode": "auto",
+                "nodeSchemaVersion": 2,
+                "mediaTrimStartMs": 1
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "valid one cell table",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "table",
+              "content": [
+                {
+                  "type": "table_row",
+                  "content": [
+                    {
+                      "type": "table_cell",
+                      "attrs": {
+                        "colspan": 1,
+                        "rowspan": 1,
+                        "colwidth": null
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject mismatched table colwidth",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "table",
+              "content": [
+                {
+                  "type": "table_row",
+                  "content": [
+                    {
+                      "type": "table_cell",
+                      "attrs": {
+                        "colspan": 2,
+                        "rowspan": 1,
+                        "colwidth": [
+                          100
+                        ]
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject note id over byte limit",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": [
+                    {
+                      "type": "note_link",
+                      "attrs": {
+                        "noteId": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "valid complete vocabulary contract",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "lineSpacing": "1.15",
+                "boundary": false
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "m0",
+                  "marks": [
+                    {
+                      "type": "strong"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m1",
+                  "marks": [
+                    {
+                      "type": "em"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m2",
+                  "marks": [
+                    {
+                      "type": "underline"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m3",
+                  "marks": [
+                    {
+                      "type": "strike"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m4",
+                  "marks": [
+                    {
+                      "type": "superscript"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m5",
+                  "marks": [
+                    {
+                      "type": "subscript"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m6",
+                  "marks": [
+                    {
+                      "type": "code"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m7",
+                  "marks": [
+                    {
+                      "type": "font_family",
+                      "attrs": {
+                        "family": "serif"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m8",
+                  "marks": [
+                    {
+                      "type": "font_size",
+                      "attrs": {
+                        "size": 12
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m9",
+                  "marks": [
+                    {
+                      "type": "text_color",
+                      "attrs": {
+                        "color": "red"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m10",
+                  "marks": [
+                    {
+                      "type": "highlight",
+                      "attrs": {
+                        "color": "blue"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m11",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com",
+                        "title": null
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m12",
+                  "marks": [
+                    {
+                      "type": "note_link",
+                      "attrs": {
+                        "noteId": "note-1"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "m13",
+                  "marks": [
+                    {
+                      "type": "media_link",
+                      "attrs": {
+                        "noteId": "note-1",
+                        "attachmentId": "audio-1",
+                        "startMs": 1000,
+                        "endMs": 2000
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "hard_break"
+                },
+                {
+                  "type": "math_inline",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2,
+                "lineSpacing": null
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Heading"
+                }
+              ]
+            },
+            {
+              "type": "blockquote",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Quote"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "code_block",
+              "attrs": {
+                "language": "rust",
+                "lineSpacing": "1"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "let x = 1;",
+                  "marks": [
+                    {
+                      "type": "font_family",
+                      "attrs": {
+                        "family": "mono"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "bullet_list",
+              "attrs": {
+                "marker": "dash"
+              },
+              "content": [
+                {
+                  "type": "list_item",
+                  "content": [
+                    {
+                      "type": "paragraph"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "ordered_list",
+              "attrs": {
+                "order": 2,
+                "style": "lower-roman",
+                "restart": true
+              },
+              "content": [
+                {
+                  "type": "list_item",
+                  "content": [
+                    {
+                      "type": "paragraph"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "task_list",
+              "content": [
+                {
+                  "type": "task_item",
+                  "attrs": {
+                    "checked": false
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "horizontal_rule"
+            },
+            {
+              "type": "attachment_pending",
+              "attrs": {
+                "requestId": "req-complete",
+                "picker": "file",
+                "label": "Attachment",
+                "status": "Choose a file\u2026",
+                "items": [
+                  {
+                    "file_name": "a.txt",
+                    "kind": "file",
+                    "status": "Ready",
+                    "ingest_id": "ingest-1"
+                  }
+                ],
+                "nodeSchemaVersion": 1
+              }
+            },
+            {
+              "type": "attachment",
+              "attrs": {
+                "attachmentId": "audio-1",
+                "kind": "audio",
+                "displayName": "audio.m4a",
+                "mediaType": "audio/mp4",
+                "byteSize": 10,
+                "caption": "",
+                "altText": "",
+                "alignment": "center",
+                "widthPercent": 100,
+                "sizeMode": "auto",
+                "mediaAnnotations": [
+                  {
+                    "id": "a",
+                    "startMs": 1000,
+                    "endMs": 1500,
+                    "label": "A",
+                    "tag": "",
+                    "note": ""
+                  },
+                  {
+                    "id": "b",
+                    "startMs": 2000,
+                    "endMs": null,
+                    "label": "B",
+                    "tag": "tag",
+                    "note": "note"
+                  }
+                ],
+                "mediaTrimStartMs": 500,
+                "mediaTrimEndMs": 3000,
+                "nodeSchemaVersion": 2
+              }
+            },
+            {
+              "type": "math_display",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x^2"
+                }
+              ]
+            },
+            {
+              "type": "table",
+              "content": [
+                {
+                  "type": "table_row",
+                  "content": [
+                    {
+                      "type": "table_cell",
+                      "attrs": {
+                        "colspan": 1,
+                        "rowspan": 1,
+                        "colwidth": [
+                          120
+                        ]
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "table_header",
+                      "attrs": {
+                        "colspan": 1,
+                        "rowspan": 1,
+                        "colwidth": [
+                          120
+                        ]
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "valid passthrough compatibility fields",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "attrs": "legacy",
+          "content": [
+            {
+              "type": "task_list",
+              "attrs": 7,
+              "content": [
+                {
+                  "type": "task_item",
+                  "attrs": {
+                    "checked": false,
+                    "legacy": true
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "x",
+                          "attrs": 73,
+                          "marks": [
+                            {
+                              "type": "strong",
+                              "attrs": null
+                            }
+                          ]
+                        },
+                        {
+                          "type": "hard_break",
+                          "attrs": "legacy"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "valid ordered list known attrs with unknown extension",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "ordered_list",
+              "attrs": {
+                "order": 1,
+                "style": "auto",
+                "restart": false,
+                "legacy": {
+                  "x": 1
+                }
+              },
+              "content": [
+                {
+                  "type": "list_item",
+                  "content": [
+                    {
+                      "type": "paragraph"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "valid link with passthrough extension attr",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com",
+                        "title": null,
+                        "legacy": "kept"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject C1 control in note id",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": [
+                    {
+                      "type": "note_link",
+                      "attrs": {
+                        "noteId": "note\u0085id"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject null attachment size mode",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "attachment",
+              "attrs": {
+                "attachmentId": "a1",
+                "kind": "image",
+                "displayName": "image.png",
+                "mediaType": null,
+                "byteSize": 1,
+                "caption": "",
+                "altText": "",
+                "alignment": "center",
+                "widthPercent": 100,
+                "sizeMode": null,
+                "nodeSchemaVersion": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject unknown attachment attr",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "attachment",
+              "attrs": {
+                "attachmentId": "a1",
+                "kind": "image",
+                "displayName": "image.png",
+                "mediaType": null,
+                "byteSize": 1,
+                "caption": "",
+                "altText": "",
+                "alignment": "center",
+                "widthPercent": 100,
+                "sizeMode": "auto",
+                "nodeSchemaVersion": 2,
+                "bogus": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject unsorted media annotations",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "attachment",
+              "attrs": {
+                "attachmentId": "a1",
+                "kind": "audio",
+                "displayName": "audio.m4a",
+                "mediaType": "audio/mp4",
+                "byteSize": 1,
+                "caption": "",
+                "altText": "",
+                "alignment": "center",
+                "widthPercent": 100,
+                "sizeMode": "auto",
+                "mediaAnnotations": [
+                  {
+                    "id": "b",
+                    "startMs": 2,
+                    "endMs": null,
+                    "label": "",
+                    "tag": "",
+                    "note": ""
+                  },
+                  {
+                    "id": "a",
+                    "startMs": 1,
+                    "endMs": null,
+                    "label": "",
+                    "tag": "",
+                    "note": ""
+                  }
+                ],
+                "nodeSchemaVersion": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject duplicate media annotation ids",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "attachment",
+              "attrs": {
+                "attachmentId": "a1",
+                "kind": "audio",
+                "displayName": "audio.m4a",
+                "mediaType": "audio/mp4",
+                "byteSize": 1,
+                "caption": "",
+                "altText": "",
+                "alignment": "center",
+                "widthPercent": 100,
+                "sizeMode": "auto",
+                "mediaAnnotations": [
+                  {
+                    "id": "a",
+                    "startMs": 1,
+                    "endMs": null,
+                    "label": "",
+                    "tag": "",
+                    "note": ""
+                  },
+                  {
+                    "id": "a",
+                    "startMs": 2,
+                    "endMs": null,
+                    "label": "",
+                    "tag": "",
+                    "note": ""
+                  }
+                ],
+                "nodeSchemaVersion": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject table nested in blockquote",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "blockquote",
+              "content": [
+                {
+                  "type": "table",
+                  "content": [
+                    {
+                      "type": "table_row",
+                      "content": [
+                        {
+                          "type": "table_cell",
+                          "attrs": {
+                            "colspan": 1,
+                            "rowspan": 1,
+                            "colwidth": null
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject non typography mark in code block",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "code_block",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "x",
+                  "marks": [
+                    {
+                      "type": "strong"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject horizontal rule attrs",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "horizontal_rule",
+              "attrs": {}
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "valid canonical paragraph layout",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "leftIndent": 36,
+                "rightIndent": 18,
+                "firstLineIndent": 18,
+                "dropCap": false
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Layout"
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "attrs": {
+                "level": 2,
+                "leftIndent": 18,
+                "rightIndent": 0,
+                "firstLineIndent": 0,
+                "dropCap": true
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Heading"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject paragraph indent outside canonical bounds",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "leftIndent": 145
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Too far"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject drop cap with first line indent",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "firstLineIndent": 18,
+                "dropCap": true
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Conflict"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject layout on atomic boundary paragraph",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "boundary": true,
+                "leftIndent": 18
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "valid paragraph text alignment",
+      "valid": true,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "textAlignment": "justify"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Aligned"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject unknown paragraph text alignment",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "textAlignment": "diagonal"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Invalid"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject alignment on atomic boundary paragraph",
+      "valid": false,
+      "state": {
+        "schema_version": 2,
+        "editor_engine": "prosemirror",
+        "document_schema": "rustnote",
+        "document_schema_version": 6,
+        "document": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "boundary": true,
+                "textAlignment": "center"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

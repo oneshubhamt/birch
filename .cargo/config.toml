@@ -1,0 +1,6 @@
+# Rustnote's macOS compatibility contract.
+# Keep Rust, native C/assembly dependencies (including libaegis), and the final
+# linker on one deployment target. `force = true` prevents a caller's ambient
+# MACOSX_DEPLOYMENT_TARGET from silently changing the supported baseline.
+[env]
+MACOSX_DEPLOYMENT_TARGET = { value = "12.0", force = true }

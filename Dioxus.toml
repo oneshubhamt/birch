@@ -1,0 +1,13 @@
+[application]
+name = "Rustnote"
+default_platform = "desktop"
+out_dir = "dist"
+asset_dir = "assets"
+
+[bundle]
+identifier = "local.rustnote.app"
+publisher = "Rustnote"
+icon = []
+
+[bundle.macos]
+info_plist_path = "bundle/macos/Info.plist"

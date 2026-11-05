@@ -1,0 +1,1115 @@
+{
+  "spec_version": 1,
+  "envelope": {
+    "schema_version": 2,
+    "editor_engine": "prosemirror",
+    "document_schema": "rustnote",
+    "document_schema_version": 6
+  },
+  "contexts": [
+    "root",
+    "block",
+    "inline",
+    "list_item",
+    "task_item",
+    "table_row",
+    "table_cell",
+    "table_cell_block",
+    "scientific"
+  ],
+  "domains": {
+    "line_spacing": [
+      "1",
+      "1.15",
+      "1.5",
+      "1.75",
+      "2"
+    ],
+    "bullet_list_marker": [
+      "disc",
+      "dash"
+    ],
+    "ordered_list_style": [
+      "auto",
+      "decimal",
+      "lower-roman",
+      "lower-alpha"
+    ],
+    "font_family": [
+      "system",
+      "serif",
+      "rounded",
+      "mono"
+    ],
+    "text_color_ui": [
+      "default",
+      "grey",
+      "red",
+      "orange",
+      "green",
+      "blue",
+      "purple"
+    ],
+    "text_color_mark": [
+      "grey",
+      "red",
+      "orange",
+      "green",
+      "blue",
+      "purple"
+    ],
+    "highlight_color": [
+      "yellow",
+      "green",
+      "blue",
+      "pink",
+      "purple"
+    ],
+    "attachment_kind": [
+      "image",
+      "pdf",
+      "audio",
+      "video",
+      "file"
+    ],
+    "attachment_alignment": [
+      "left",
+      "center",
+      "right"
+    ],
+    "attachment_size_mode": [
+      "auto",
+      "percent"
+    ],
+    "time_based_attachment_kind": [
+      "audio",
+      "video"
+    ],
+    "text_alignment": [
+      "left",
+      "center",
+      "right",
+      "justify"
+    ]
+  },
+  "limits": {
+    "font_size_min": 8,
+    "font_size_max": 72,
+    "heading_level_min": 1,
+    "heading_level_max": 6,
+    "paragraph_side_indent_max": 144,
+    "paragraph_first_line_indent_max": 72,
+    "attachment_request_id_max_bytes": 128,
+    "attachment_id_max_bytes": 256,
+    "attachment_label_max_bytes": 1024,
+    "attachment_status_max_bytes": 160,
+    "attachment_items_max": 32,
+    "attachment_ingest_id_max_bytes": 256,
+    "attachment_display_name_max_bytes": 1024,
+    "attachment_caption_max_bytes": 4096,
+    "attachment_alt_text_max_bytes": 2048,
+    "attachment_width_percent_min": 20,
+    "attachment_width_percent_max": 100,
+    "media_annotation_limit": 256,
+    "media_annotation_id_max_bytes": 80,
+    "media_annotation_label_max_bytes": 160,
+    "media_annotation_tag_max_bytes": 80,
+    "media_annotation_note_max_bytes": 4096,
+    "media_time_max_ms": 9007199254740991,
+    "table_span_min": 1,
+    "table_span_max": 64,
+    "table_column_width_min": 40,
+    "table_column_width_max": 4000,
+    "json_safe_integer_max": 9007199254740991,
+    "note_id_max_bytes": 256
+  },
+  "nodes": {
+    "doc": {
+      "validator": "doc",
+      "contexts": [
+        "root"
+      ],
+      "prosemirror": {
+        "content": "block+"
+      },
+      "attr_policy": "passthrough",
+      "content_min": 1,
+      "child_context": "block",
+      "invariants": [
+        "children_match_context",
+        "content_minimum"
+      ]
+    },
+    "paragraph": {
+      "validator": "textblock",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "attrs": {
+        "lineSpacing": {
+          "type": "string",
+          "nullable": true,
+          "required": false,
+          "default": null,
+          "enum_domain": "line_spacing"
+        },
+        "textAlignment": {
+          "type": "string",
+          "required": false,
+          "default": "left",
+          "enum_domain": "text_alignment"
+        },
+        "leftIndent": {
+          "type": "integer",
+          "required": false,
+          "default": 0,
+          "min": 0,
+          "max_limit": "paragraph_side_indent_max"
+        },
+        "rightIndent": {
+          "type": "integer",
+          "required": false,
+          "default": 0,
+          "min": 0,
+          "max_limit": "paragraph_side_indent_max"
+        },
+        "firstLineIndent": {
+          "type": "integer",
+          "required": false,
+          "default": 0,
+          "min": 0,
+          "max_limit": "paragraph_first_line_indent_max"
+        },
+        "dropCap": {
+          "type": "boolean",
+          "required": false,
+          "default": false
+        },
+        "boundary": {
+          "type": "boolean",
+          "required": false,
+          "default": false
+        }
+      },
+      "prosemirror": {
+        "content": "inline*",
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "strict",
+      "child_context": "inline",
+      "invariants": [
+        "children_match_context",
+        "boundary_layout_default",
+        "drop_cap_first_line_exclusive"
+      ]
+    },
+    "heading": {
+      "validator": "heading",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "attrs": {
+        "level": {
+          "type": "integer",
+          "required": true,
+          "default": 1,
+          "min_limit": "heading_level_min",
+          "max_limit": "heading_level_max"
+        },
+        "lineSpacing": {
+          "type": "string",
+          "nullable": true,
+          "required": false,
+          "default": null,
+          "enum_domain": "line_spacing"
+        },
+        "textAlignment": {
+          "type": "string",
+          "required": false,
+          "default": "left",
+          "enum_domain": "text_alignment"
+        },
+        "leftIndent": {
+          "type": "integer",
+          "required": false,
+          "default": 0,
+          "min": 0,
+          "max_limit": "paragraph_side_indent_max"
+        },
+        "rightIndent": {
+          "type": "integer",
+          "required": false,
+          "default": 0,
+          "min": 0,
+          "max_limit": "paragraph_side_indent_max"
+        },
+        "firstLineIndent": {
+          "type": "integer",
+          "required": false,
+          "default": 0,
+          "min": 0,
+          "max_limit": "paragraph_first_line_indent_max"
+        },
+        "dropCap": {
+          "type": "boolean",
+          "required": false,
+          "default": false
+        }
+      },
+      "prosemirror": {
+        "content": "inline*",
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "strict",
+      "child_context": "inline",
+      "invariants": [
+        "children_match_context",
+        "drop_cap_first_line_exclusive"
+      ]
+    },
+    "blockquote": {
+      "validator": "blockquote",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "prosemirror": {
+        "content": "table_cell_block+",
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "passthrough",
+      "content_min": 1,
+      "child_context": "table_cell_block",
+      "invariants": [
+        "children_match_context",
+        "content_minimum"
+      ]
+    },
+    "code_block": {
+      "validator": "code_block",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "attrs": {
+        "language": {
+          "type": "string",
+          "nullable": true,
+          "required": false,
+          "default": null
+        },
+        "lineSpacing": {
+          "type": "string",
+          "nullable": true,
+          "required": false,
+          "default": null,
+          "enum_domain": "line_spacing"
+        }
+      },
+      "allowed_marks": [
+        "font_family",
+        "font_size",
+        "text_color",
+        "highlight"
+      ],
+      "prosemirror": {
+        "content": "text*",
+        "marks": "font_family font_size text_color highlight",
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "strict",
+      "child_context": "inline",
+      "child_types": [
+        "text"
+      ],
+      "invariants": [
+        "allowed_mark_restriction",
+        "child_type_restriction",
+        "children_match_context"
+      ]
+    },
+    "bullet_list": {
+      "validator": "list",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "attrs": {
+        "marker": {
+          "type": "string",
+          "required": false,
+          "default": "disc",
+          "enum_domain": "bullet_list_marker"
+        }
+      },
+      "list_item_type": "list_item",
+      "list_item_context": "list_item",
+      "prosemirror": {
+        "content": "list_item+",
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "strict",
+      "content_min": 1,
+      "invariants": [
+        "content_minimum",
+        "list_item_context",
+        "list_item_type"
+      ]
+    },
+    "ordered_list": {
+      "validator": "list",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "attrs": {
+        "order": {
+          "type": "integer",
+          "required": false,
+          "default": 1,
+          "min": 1
+        },
+        "style": {
+          "type": "string",
+          "required": false,
+          "default": "auto",
+          "enum_domain": "ordered_list_style"
+        },
+        "restart": {
+          "type": "boolean",
+          "required": false,
+          "default": false
+        }
+      },
+      "list_item_type": "list_item",
+      "list_item_context": "list_item",
+      "prosemirror": {
+        "content": "list_item+",
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "known",
+      "content_min": 1,
+      "invariants": [
+        "content_minimum",
+        "list_item_context",
+        "list_item_type"
+      ]
+    },
+    "task_list": {
+      "validator": "list",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "list_item_type": "task_item",
+      "list_item_context": "task_item",
+      "prosemirror": {
+        "content": "task_item+",
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "passthrough",
+      "content_min": 1,
+      "invariants": [
+        "content_minimum",
+        "list_item_context",
+        "list_item_type"
+      ]
+    },
+    "list_item": {
+      "validator": "list_item",
+      "contexts": [
+        "list_item"
+      ],
+      "first_child_type": "paragraph",
+      "child_context": "table_cell_block",
+      "prosemirror": {
+        "content": "paragraph table_cell_block*"
+      },
+      "attr_policy": "passthrough",
+      "content_min": 1,
+      "invariants": [
+        "children_match_context",
+        "content_minimum",
+        "first_child_type"
+      ]
+    },
+    "task_item": {
+      "validator": "list_item",
+      "contexts": [
+        "task_item"
+      ],
+      "attrs": {
+        "checked": {
+          "type": "boolean",
+          "required": true,
+          "default": false
+        }
+      },
+      "first_child_type": "paragraph",
+      "child_context": "table_cell_block",
+      "prosemirror": {
+        "content": "paragraph table_cell_block*"
+      },
+      "attr_policy": "known",
+      "content_min": 1,
+      "invariants": [
+        "children_match_context",
+        "content_minimum",
+        "first_child_type"
+      ]
+    },
+    "horizontal_rule": {
+      "validator": "horizontal_rule",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "prosemirror": {
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "strict",
+      "invariants": [
+        "horizontal_rule_leaf"
+      ]
+    },
+    "attachment_pending": {
+      "validator": "pending_attachment",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "attrs": {
+        "requestId": {
+          "type": "string",
+          "required": true,
+          "trim_non_empty": true,
+          "max_bytes_limit": "attachment_request_id_max_bytes",
+          "default": ""
+        },
+        "picker": {
+          "type": "string",
+          "required": true,
+          "enum_domain": "attachment_kind",
+          "default": "file"
+        },
+        "label": {
+          "type": "string",
+          "required": true,
+          "trim_non_empty": true,
+          "max_bytes_limit": "attachment_label_max_bytes",
+          "default": "Attachment"
+        },
+        "status": {
+          "type": "string",
+          "required": true,
+          "max_bytes_limit": "attachment_status_max_bytes",
+          "default": "Choose a file…"
+        },
+        "items": {
+          "type": "array",
+          "nullable": true,
+          "required": true,
+          "max_items_limit": "attachment_items_max",
+          "default": null
+        },
+        "nodeSchemaVersion": {
+          "type": "integer",
+          "required": true,
+          "const": 1,
+          "default": 1
+        }
+      },
+      "item_attrs": {
+        "file_name": {
+          "type": "string",
+          "required": true,
+          "trim_non_empty": true,
+          "max_bytes_limit": "attachment_label_max_bytes"
+        },
+        "kind": {
+          "type": "string",
+          "required": true,
+          "enum_domain": "attachment_kind"
+        },
+        "status": {
+          "type": "string",
+          "required": false,
+          "max_bytes_limit": "attachment_status_max_bytes"
+        },
+        "ingest_id": {
+          "type": "string",
+          "required": false,
+          "max_bytes_limit": "attachment_ingest_id_max_bytes"
+        }
+      },
+      "prosemirror": {
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "strict",
+      "unique_attr": "requestId",
+      "invariants": [
+        "attachment_leaf",
+        "nested_item_attrs",
+        "unique_attribute"
+      ]
+    },
+    "attachment": {
+      "validator": "attachment",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "attrs": {
+        "attachmentId": {
+          "type": "string",
+          "required": true,
+          "trim_non_empty": true,
+          "max_bytes_limit": "attachment_id_max_bytes",
+          "default": ""
+        },
+        "kind": {
+          "type": "string",
+          "required": true,
+          "enum_domain": "attachment_kind",
+          "default": "file"
+        },
+        "displayName": {
+          "type": "string",
+          "required": true,
+          "trim_non_empty": true,
+          "max_bytes_limit": "attachment_display_name_max_bytes",
+          "default": "Attachment"
+        },
+        "mediaType": {
+          "type": "string",
+          "nullable": true,
+          "required": false,
+          "default": null
+        },
+        "byteSize": {
+          "type": "integer",
+          "required": true,
+          "min": 0,
+          "default": 0,
+          "max_limit": "json_safe_integer_max"
+        },
+        "caption": {
+          "type": "string",
+          "required": true,
+          "max_bytes_limit": "attachment_caption_max_bytes",
+          "default": ""
+        },
+        "altText": {
+          "type": "string",
+          "required": true,
+          "max_bytes_limit": "attachment_alt_text_max_bytes",
+          "default": ""
+        },
+        "alignment": {
+          "type": "string",
+          "required": true,
+          "enum_domain": "attachment_alignment",
+          "default": "center"
+        },
+        "widthPercent": {
+          "type": "integer",
+          "required": true,
+          "min_limit": "attachment_width_percent_min",
+          "max_limit": "attachment_width_percent_max",
+          "default": 100
+        },
+        "sizeMode": {
+          "type": "string",
+          "required": false,
+          "enum_domain": "attachment_size_mode",
+          "default": "auto"
+        },
+        "mediaAnnotations": {
+          "type": "array",
+          "nullable": true,
+          "required": false,
+          "max_items_limit": "media_annotation_limit",
+          "default": null
+        },
+        "mediaTrimStartMs": {
+          "type": "integer",
+          "nullable": true,
+          "required": false,
+          "min": 0,
+          "max_limit": "media_time_max_ms",
+          "default": null
+        },
+        "mediaTrimEndMs": {
+          "type": "integer",
+          "nullable": true,
+          "required": false,
+          "min": 1,
+          "max_limit": "media_time_max_ms",
+          "default": null
+        },
+        "nodeSchemaVersion": {
+          "type": "integer",
+          "required": true,
+          "const": 2,
+          "default": 2
+        }
+      },
+      "media_annotation_attrs": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "non_empty": true,
+          "max_bytes_limit": "media_annotation_id_max_bytes",
+          "no_control_chars": true,
+          "trim_stable": true
+        },
+        "startMs": {
+          "type": "integer",
+          "required": true,
+          "min": 0,
+          "max_limit": "media_time_max_ms"
+        },
+        "endMs": {
+          "type": "integer",
+          "nullable": true,
+          "required": false,
+          "min": 0,
+          "max_limit": "media_time_max_ms"
+        },
+        "label": {
+          "type": "string",
+          "required": true,
+          "max_bytes_limit": "media_annotation_label_max_bytes"
+        },
+        "tag": {
+          "type": "string",
+          "required": true,
+          "max_bytes_limit": "media_annotation_tag_max_bytes"
+        },
+        "note": {
+          "type": "string",
+          "required": true,
+          "max_bytes_limit": "media_annotation_note_max_bytes"
+        }
+      },
+      "prosemirror": {
+        "group": "block table_cell_block"
+      },
+      "attr_policy": "strict",
+      "media_annotation_sort_key": [
+        "startMs",
+        "endMs_or_startMs",
+        "id_utf8"
+      ],
+      "time_based_kind_domain": "time_based_attachment_kind",
+      "invariants": [
+        "attachment_leaf",
+        "media_annotation_attrs",
+        "media_annotation_end_after_start",
+        "media_annotation_sort_order",
+        "media_annotation_unique_id",
+        "media_trim_end_after_start",
+        "time_based_annotation_scope",
+        "time_based_trim_scope"
+      ]
+    },
+    "math_inline": {
+      "validator": "scientific",
+      "contexts": [
+        "inline"
+      ],
+      "prosemirror": {
+        "content": "text*",
+        "inline": true,
+        "group": "inline",
+        "marks": ""
+      },
+      "attr_policy": "strict",
+      "child_context": "scientific",
+      "child_types": [
+        "text"
+      ],
+      "invariants": [
+        "child_type_restriction",
+        "children_match_context",
+        "scientific_plain_text_only"
+      ]
+    },
+    "math_display": {
+      "validator": "scientific",
+      "contexts": [
+        "block",
+        "table_cell_block"
+      ],
+      "prosemirror": {
+        "content": "text*",
+        "group": "block table_cell_block",
+        "marks": ""
+      },
+      "attr_policy": "strict",
+      "child_context": "scientific",
+      "child_types": [
+        "text"
+      ],
+      "invariants": [
+        "child_type_restriction",
+        "children_match_context",
+        "scientific_plain_text_only"
+      ]
+    },
+    "text": {
+      "validator": "text",
+      "contexts": [
+        "inline",
+        "scientific"
+      ],
+      "prosemirror": {
+        "group": "inline"
+      },
+      "attr_policy": "passthrough",
+      "markless_contexts": [
+        "scientific"
+      ],
+      "mutually_exclusive_marks": [
+        [
+          "superscript",
+          "subscript"
+        ]
+      ],
+      "max_one_of_marks": [
+        "link",
+        "note_link",
+        "media_link"
+      ],
+      "invariants": [
+        "markless_context",
+        "marks_array",
+        "max_one_of_marks",
+        "mutually_exclusive_marks",
+        "text_leaf",
+        "text_required_non_empty"
+      ]
+    },
+    "hard_break": {
+      "validator": "hard_break",
+      "contexts": [
+        "inline"
+      ],
+      "prosemirror": {
+        "inline": true,
+        "group": "inline"
+      },
+      "attr_policy": "passthrough",
+      "invariants": [
+        "hard_break_leaf"
+      ]
+    },
+    "table": {
+      "validator": "table",
+      "contexts": [
+        "block"
+      ],
+      "prosemirror": {
+        "content": "table_row+",
+        "group": "block"
+      },
+      "attr_policy": "strict",
+      "content_min": 1,
+      "child_context": "table_row",
+      "child_types": [
+        "table_row"
+      ],
+      "invariants": [
+        "child_type_restriction",
+        "children_match_context",
+        "content_minimum",
+        "structural_table_fields",
+        "table_geometry"
+      ]
+    },
+    "table_row": {
+      "validator": "table_row",
+      "contexts": [
+        "table_row"
+      ],
+      "prosemirror": {
+        "content": "(table_cell | table_header)+"
+      },
+      "attr_policy": "strict",
+      "content_min": 1,
+      "child_context": "table_cell",
+      "child_types": [
+        "table_cell",
+        "table_header"
+      ],
+      "invariants": [
+        "child_type_restriction",
+        "children_match_context",
+        "content_minimum",
+        "structural_table_fields"
+      ]
+    },
+    "table_cell": {
+      "validator": "table_cell",
+      "contexts": [
+        "table_cell"
+      ],
+      "attrs": {
+        "colspan": {
+          "type": "integer",
+          "required": true,
+          "min_limit": "table_span_min",
+          "max_limit": "table_span_max",
+          "default": 1
+        },
+        "rowspan": {
+          "type": "integer",
+          "required": true,
+          "min_limit": "table_span_min",
+          "max_limit": "table_span_max",
+          "default": 1
+        },
+        "colwidth": {
+          "type": "array",
+          "nullable": true,
+          "required": false,
+          "default": null
+        }
+      },
+      "child_context": "table_cell_block",
+      "prosemirror": {
+        "content": "table_cell_block+"
+      },
+      "attr_policy": "strict",
+      "content_min": 1,
+      "invariants": [
+        "children_match_context",
+        "column_width_shape",
+        "content_minimum",
+        "table_cell_inline_fields"
+      ]
+    },
+    "table_header": {
+      "validator": "table_cell",
+      "contexts": [
+        "table_cell"
+      ],
+      "attrs": {
+        "colspan": {
+          "type": "integer",
+          "required": true,
+          "min_limit": "table_span_min",
+          "max_limit": "table_span_max",
+          "default": 1
+        },
+        "rowspan": {
+          "type": "integer",
+          "required": true,
+          "min_limit": "table_span_min",
+          "max_limit": "table_span_max",
+          "default": 1
+        },
+        "colwidth": {
+          "type": "array",
+          "nullable": true,
+          "required": false,
+          "default": null
+        }
+      },
+      "child_context": "table_cell_block",
+      "prosemirror": {
+        "content": "table_cell_block+"
+      },
+      "attr_policy": "strict",
+      "content_min": 1,
+      "invariants": [
+        "children_match_context",
+        "column_width_shape",
+        "content_minimum",
+        "table_cell_inline_fields"
+      ]
+    }
+  },
+  "marks": {
+    "strong": {
+      "validator": "simple",
+      "attr_policy": "passthrough",
+      "invariants": []
+    },
+    "em": {
+      "validator": "simple",
+      "attr_policy": "passthrough",
+      "invariants": []
+    },
+    "underline": {
+      "validator": "simple",
+      "attr_policy": "passthrough",
+      "invariants": []
+    },
+    "strike": {
+      "validator": "simple",
+      "attr_policy": "passthrough",
+      "invariants": []
+    },
+    "superscript": {
+      "validator": "simple",
+      "prosemirror": {
+        "excludes": "subscript"
+      },
+      "attr_policy": "passthrough",
+      "invariants": []
+    },
+    "subscript": {
+      "validator": "simple",
+      "prosemirror": {
+        "excludes": "superscript"
+      },
+      "attr_policy": "passthrough",
+      "invariants": []
+    },
+    "font_family": {
+      "validator": "font_family",
+      "attrs": {
+        "family": {
+          "type": "string",
+          "required": true,
+          "enum_domain": "font_family"
+        }
+      },
+      "attr_policy": "strict",
+      "invariants": []
+    },
+    "font_size": {
+      "validator": "font_size",
+      "attrs": {
+        "size": {
+          "type": "integer",
+          "required": true,
+          "min_limit": "font_size_min",
+          "max_limit": "font_size_max"
+        }
+      },
+      "attr_policy": "strict",
+      "invariants": []
+    },
+    "text_color": {
+      "validator": "text_color",
+      "attrs": {
+        "color": {
+          "type": "string",
+          "required": true,
+          "enum_domain": "text_color_mark"
+        }
+      },
+      "attr_policy": "strict",
+      "invariants": []
+    },
+    "highlight": {
+      "validator": "highlight",
+      "attrs": {
+        "color": {
+          "type": "string",
+          "required": false,
+          "default": "yellow",
+          "enum_domain": "highlight_color"
+        }
+      },
+      "attr_policy": "strict",
+      "invariants": [
+        "highlight_explicit_attrs_color"
+      ]
+    },
+    "link": {
+      "validator": "link",
+      "attrs": {
+        "href": {
+          "type": "string",
+          "required": true
+        },
+        "title": {
+          "type": "string",
+          "nullable": true,
+          "required": false,
+          "default": null
+        }
+      },
+      "prosemirror": {
+        "excludes": "note_link media_link"
+      },
+      "attr_policy": "passthrough",
+      "invariants": [
+        "safe_href"
+      ]
+    },
+    "note_link": {
+      "validator": "note_link",
+      "attrs": {
+        "noteId": {
+          "type": "string",
+          "required": true,
+          "non_empty": true,
+          "max_bytes_limit": "note_id_max_bytes",
+          "no_control_chars": true
+        }
+      },
+      "prosemirror": {
+        "excludes": "link media_link"
+      },
+      "attr_policy": "strict",
+      "invariants": [
+        "valid_note_id"
+      ]
+    },
+    "media_link": {
+      "validator": "media_link",
+      "attrs": {
+        "noteId": {
+          "type": "string",
+          "required": true,
+          "non_empty": true,
+          "max_bytes_limit": "note_id_max_bytes",
+          "no_control_chars": true
+        },
+        "attachmentId": {
+          "type": "string",
+          "required": true,
+          "non_empty": true,
+          "max_bytes_limit": "attachment_id_max_bytes",
+          "no_control_chars": true
+        },
+        "startMs": {
+          "type": "integer",
+          "required": true,
+          "min": 0,
+          "max_limit": "media_time_max_ms"
+        },
+        "endMs": {
+          "type": "integer",
+          "nullable": true,
+          "required": false,
+          "min": 0,
+          "max_limit": "media_time_max_ms",
+          "default": null
+        }
+      },
+      "prosemirror": {
+        "excludes": "link note_link"
+      },
+      "attr_policy": "strict",
+      "invariants": [
+        "media_link_end_after_start",
+        "valid_note_id"
+      ]
+    },
+    "code": {
+      "validator": "simple",
+      "prosemirror": {
+        "excludes": "_"
+      },
+      "attr_policy": "passthrough",
+      "invariants": []
+    }
+  }
+}

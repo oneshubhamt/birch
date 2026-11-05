@@ -1,0 +1,47 @@
+[package]
+name = "rustnote"
+version = "0.12.6"
+edition = "2024"
+description = "A local-first, offline notes application built with Rust, Dioxus, and SQLite."
+license = "MIT"
+
+[workspace]
+members = ["crates/rustnote-media-compat", "crates/rustnote-vault"]
+resolver = "3"
+
+[features]
+default = []
+remote-sync = []
+internal-test-support = []
+
+[dependencies]
+dioxus = { version = "=0.7.10", features = ["desktop"] }
+dioxus-desktop = "=0.7.10"
+getrandom = "=0.3.4"
+imagesize = "=0.15.0"
+pulldown-cmark = "=0.13.4"
+rand = "=0.9.5"
+rfd = "=0.17.2"
+rusqlite = { version = "=0.40.1", default-features = false, features = ["backup", "bundled"] }
+rustnote-media-compat = { path = "crates/rustnote-media-compat" }
+rustnote-vault = { path = "crates/rustnote-vault" }
+serde = { version = "=1.0.228", features = ["derive", "rc"] }
+serde_json = "=1.0.145"
+sha2 = "=0.10.9"
+tokio = { version = "=1.48.0", features = ["rt", "sync", "time"] }
+url = "=2.5.8"
+zip = { version = "=2.4.2", default-features = false }
+zeroize = { version = "=1.9.0", features = ["alloc"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "=0.10.1"
+security-framework = { version = "=3.7.0", features = ["OSX_10_15"] }
+security-framework-sys = { version = "=2.17.0", features = ["OSX_10_15"] }
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

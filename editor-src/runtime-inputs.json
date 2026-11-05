@@ -1,0 +1,26 @@
+{
+  "editor_source_inputs": [
+    "editor-src/prosemirror-editor.js",
+    "editor-src/config.js",
+    "editor-src/ui/menu.js",
+    "editor-src/bridge/events.js",
+    "editor-src/runtime/state.js",
+    "editor-src/attachments/import.js",
+    "editor-src/document/spec.js",
+    "editor-src/document/validation.js",
+    "editor-spec/document-spec.json",
+    "editor-src/document/schema.js",
+    "editor-src/editor/clipboard.js",
+    "editor-src/editor/core.js",
+    "editor-src/editor/interactions.js",
+    "editor-src/editor/list_system.js",
+    "editor-src/commands/index.js",
+    "editor-src/attachments/view.js",
+    "editor-src/runtime/controller.js",
+    "editor-src/bridge/host.js"
+  ],
+  "vendored_runtime_inputs": [
+    "editor-src/vendor/katex-0.16.27.mjs",
+    "editor-src/vendor/mhchem-parser-4.2.1.mjs"
+  ]
+}

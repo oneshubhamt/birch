@@ -1,0 +1,9 @@
+[package]
+name = "rustnote-media-compat"
+version = "0.1.0"
+edition = "2024"
+description = "Internal lossless media compatibility engine for Rustnote."
+license = "MIT"
+publish = false
+
+[dependencies]

@@ -1,0 +1,66 @@
+name: Rustnote CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rustnote-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-browser:
+    name: Source and browser contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editor-build/package-lock.json
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Validate source and existing contracts
+        run: bash scripts/ci-source-checks.sh
+      - name: Install pinned editor test dependencies
+        run: npm ci --prefix editor-build --no-audit --no-fund
+      - name: Run full browser behavioral tests
+        run: node scripts/run-browser-behavior-tests.mjs --require-editor-deps
+
+  native-macos:
+    name: Native macOS (build, Clippy, tests)
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editor-build/package-lock.json
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: rustnote-macos
+      - name: Prepare pinned browser runtimes
+        run: bash scripts/prepare-rustnote-browser-runtimes.sh
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Strict Rust Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Rust unit and integration tests
+        run: cargo test --workspace --locked
+      - name: Release build
+        run: cargo build --release --locked
+      - name: Verify macOS deployment target
+        run: bash scripts/validate-macos-binary-deployment-target.sh target/release/rustnote

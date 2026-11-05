@@ -1,0 +1,11 @@
+[package]
+name = "rustnote-vault"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+aegis = "=0.9.15"
+argon2 = { version = "=0.5.3", default-features = false, features = ["alloc", "zeroize"] }
+getrandom = "=0.3.4"
+zeroize = { version = "=1.9.0", features = ["alloc"] }
