@@ -91,7 +91,7 @@ Most passes again separate assistant-side source/static validation from native m
 
 These 29 reports are **historical pass-by-pass compile/Clippy/test repair records**, not one coherent current release certificate. Many were written in a packaging environment without Cargo and explicitly defer authoritative native compile/Clippy/test evidence to macOS; others record targeted source/browser/validator results associated with defects found by native runs.
 
-This series should be read chronologically, not as 29 independent current requirements. Batch 5 will merge it with the paired `NATIVE_COMPILE_*_PLAN/IMPLEMENTATION.md` history into one compact native-toolchain evolution record.
+This series should be read chronologically, not as 29 independent current requirements. Batch 5 merged it with the paired plan/implementation history in [Native compile and toolchain evolution](../development/NATIVE_TOOLCHAIN_HISTORY.md).
 
 ### Editor/list/image/PDF/platform records
 

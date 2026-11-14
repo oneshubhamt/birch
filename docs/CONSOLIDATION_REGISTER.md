@@ -242,3 +242,20 @@ A current evidence gap was also found: the configured macOS CI does not pass `--
 - E0 benchmark README is a living research workflow: **retain**.
 
 **No application source, test, validator or CI behavior is changed by Batch 5.**
+
+
+### Batch 5 post-consolidation closure
+
+- **58/58 native-compile plan/implementation records were read and reconciled chronologically** across 2b.13–2b.41.
+- [Native compile and toolchain evolution](development/NATIVE_TOOLCHAIN_HISTORY.md) contains an immutable baseline link for **all 58** original files plus the durable lesson/supersession timeline.
+- **54 native-compile files remain byte-identical to baseline** because current validators require their exact plan/implementation paths (2b.13–2b.21 and 2b.24–2b.41).
+- **4 unreferenced native-compile files** (2b.22/2b.23 plan + implementation) were removed from the working tree after consolidation.
+- The standalone `VERSION_PROMOTION_V0.12.6_BUILD_2B43.md` was also removed after its durable version/promotion facts were consolidated; the current version authority remains source/configuration plus the version validator.
+- Supplementary audit retained the GitHub templates, bundled welcome-note Markdown asset, editor-spec/editor-src/pdf-src READMEs and E0 benchmark README for their functional/living roles.
+- Current-source/toolchain cross-check confirmed Rust **1.97.1**, macOS **12.0**, AEGIS **0.9.15** native backend, Dioxus **0.7.10**, and the current CI native commands.
+- A current QA coverage gap is explicitly recorded: `internal-test-support`-gated protected PDF lifetime tests exist, while configured CI Clippy/tests do not enable `--all-features`. No CI or test change is made in this documentation project stage.
+- Post-change link QA across all **19 current `docs/*.md` documents** checked **140 relative links** with **zero missing targets**.
+- Markdown count is now **138**, down from the 239-file baseline; root Markdown is **112**, down from 226.
+- **Zero non-Markdown changes** exist versus `main`; source, tests, scripts and CI remain unchanged.
+
+**Batch 5 result: PASS for native-history consolidation, compatibility/toolchain reconstruction, safe deletion, supplementary-content classification, reference integrity and unchanged-code discipline.** The remaining exact-path historical dependencies are intentionally left for Batch 6 storage rationalization and/or the later QA-refinement project.
