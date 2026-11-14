@@ -254,7 +254,7 @@ A current evidence gap was also found: the configured macOS CI does not pass `--
 - Supplementary audit retained the GitHub templates, bundled welcome-note Markdown asset, editor-spec/editor-src/pdf-src READMEs and E0 benchmark README for their functional/living roles.
 - Current-source/toolchain cross-check confirmed Rust **1.97.1**, macOS **12.0**, AEGIS **0.9.15** native backend, Dioxus **0.7.10**, and the current CI native commands.
 - A current QA coverage gap is explicitly recorded: `internal-test-support`-gated protected PDF lifetime tests exist, while configured CI Clippy/tests do not enable `--all-features`. No CI or test change is made in this documentation project stage.
-- Post-change link QA across all **19 current `docs/*.md` documents** checked **140 relative links** with **zero missing targets**.
+- Post-change link QA across all **19 current `docs/*.md` documents** checked **142 relative links** with **zero missing targets**.
 - Markdown count is now **138**, down from the 239-file baseline; root Markdown is **112**, down from 226.
 - **Zero non-Markdown changes** exist versus `main`; source, tests, scripts and CI remain unchanged.
 
