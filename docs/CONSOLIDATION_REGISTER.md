@@ -144,3 +144,20 @@ These are **QA compatibility dependencies, not preferred documentation**. Batch 
 - Historical source/static PASS statements remain time-bounded evidence; they are not promoted into current native-runtime certification.
 
 **No production source change is authorized by Batch 3.**
+
+
+### Batch 3 post-consolidation closure
+
+- **51/51 targeted Batch 3 source records were reviewed chronologically** across the 2a.6–2a.19 E0–E3 closure/remediation sequence, 2b.1–2b.12 Vault architecture sequence, and 2b.42.1–2b.42.11 scoped-publication/final-closure sequence.
+- **40 superseded pass-specific Markdown files were deleted** from the working branch after their durable architecture, defect/fix history, supersession rules and evidence limits were consolidated.
+- **11 historical files remain unchanged only because current validator scripts read them directly.** Their baseline Git blob identities are unchanged. They are scheduled for removal during Batch 4 after QA no longer depends on report prose.
+- Three canonical documents now own the information: [Vault architecture](security/VAULT_ARCHITECTURE.md), [managed plaintext lifetime](security/PLAINTEXT_LIFETIME.md), and [Vault evolution](security/VAULT_EVOLUTION.md).
+- The frozen [document inventory](DOCUMENT_INVENTORY.md) now links **all 239 baseline Markdown documents** to the immutable baseline commit, so deleted originals remain directly inspectable without remaining in the current working tree.
+- Current source was cross-checked for schema **21**, Vault manifest format **2**, Vault note format **3**, RevisionIndex format **1**, granular object persistence, scoped note/multi-note publication authority, typed plaintext ownership, strict NotFound-only absence semantics and the current no-VACUUM SQLite scrub sequence.
+- All **98 repository scripts** were inspected for direct Batch 3 filename dependencies: only the 11 retained files are required by current scripts. All **17 files under `tests/`** were also checked and contain no direct Batch 3 historical-document dependency.
+- The 16 current reader-facing/consolidation/contract/security documents were checked for **132 internal relative links** after deletion; **zero missing relative targets** remain in that current documentation set.
+- There are **zero non-Markdown changes** in the branch versus `main`; application source, tests, CI and validator behavior are unchanged by Batch 3.
+- Markdown count has fallen from the **239-file baseline to 210** even after adding the current-purpose consolidation documents. Root-level Markdown fell from **226 to 186**. The remaining root bloat is now dominated by **104 QA records + 58 native-compile records**, which belong to Batches 4 and 5 rather than Vault documentation.
+- No Rust/native/browser/Keychain/runtime QA was executed by this documentation pass. Historical execution claims remain historical evidence only.
+
+**Batch 3 result: PASS for content consolidation, current-architecture reconstruction, deletion discipline, validator-dependency preservation and targeted link QA.** The remaining 11 historical Vault/security files are an explicit temporary debt owned by Batch 4, not the intended final documentation architecture.
