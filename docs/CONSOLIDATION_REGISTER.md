@@ -133,7 +133,7 @@ VAULT_2B42_8_NO_VACUUM_FORENSIC.md
 VAULT_2B42_9_CLEANUP.md
 ```
 
-These are **QA compatibility dependencies, not preferred documentation**. Batch 4 should redesign the relevant validators around behavioral/source invariants or stable contracts, remove their dependence on historical report prose, and then delete the remaining 11.
+These are **QA compatibility dependencies, not preferred documentation**. Batch 4's governing plan explicitly forbids executable-suite redesign, so their dependency cleanup is deferred to the separate QA-refinement work; Batch 4 may only document that debt, not rewrite validators to erase it.
 
 ### Durable conclusions carried forward
 
@@ -161,3 +161,38 @@ These are **QA compatibility dependencies, not preferred documentation**. Batch 
 - No Rust/native/browser/Keychain/runtime QA was executed by this documentation pass. Historical execution claims remain historical evidence only.
 
 **Batch 3 result: PASS for content consolidation, current-architecture reconstruction, deletion discipline, validator-dependency preservation and targeted link QA.** The remaining 11 historical Vault/security files are an explicit temporary debt owned by Batch 4, not the intended final documentation architecture.
+
+
+## Batch 4 — QA evidence and test scope consolidation (2026-11-15)
+
+**Scope audited:** all **104 baseline `QA_*.md` reports** across architecture, E0–E3 security, Vault, native compile, editor/list/image/PDF, platform/version and backup themes.
+
+### Evidence architecture
+
+The historical reports were read as evidence records, not as present-tense PASS claims. Their durable information is now consolidated into:
+
+- [Current QA and release gates](QA.md): what CI/current commands mean and the evidence-class traceability matrix.
+- [Historical QA evidence](qa/HISTORICAL_EVIDENCE.md): thematic findings, exact recurring command families, limitations and a complete immutable-link ledger for all 104 reports.
+- [Frozen inventory](DOCUMENT_INVENTORY.md): original path/size/blob identity for baseline provenance.
+
+The evidence audit found a recurring pattern: **many historical source/static PASS reports explicitly state that Cargo/Clippy/native Rust tests were not executable in their environment**. Those limitations are preserved rather than silently upgraded into native certification.
+
+### Working-tree retention rule
+
+All 98 scripts, 17 test files and GitHub workflow/templates were checked for direct `QA_*.md` dependencies.
+
+- **35 QA reports are read directly by current validator scripts** and therefore remain temporarily at root, byte-identical to baseline.
+- **69 QA reports have no script/test/CI dependency** and can be deleted from the working tree after consolidation.
+- No test/validator/CI source is changed by Batch 4, in accordance with the governing plan.
+- The 35 retained files are **compatibility inputs for historical validators**, not preferred documentation. Removing those dependencies belongs to the separate QA-suite refinement effort.
+
+### Important historical evidence retained
+
+- Architecture A0–B6 reports are mainly structural/static guards plus manual regression checklists.
+- E0–E3 and most Vault reports distinguish source/static closure from unexecuted native Rust gates.
+- Dependency-free browser-suite counts changed as the suite grew; old counts are not directly comparable.
+- 2b.42.8 uniquely records a native macOS forensic no-VACUUM regression: **1 passed, 0 failed, 290 filtered out**, while still requiring final native closure of the canonicalized production tree.
+- Backup 2b.43.1/2 are contract-only evidence; 2b.43.3 is secure-store/key-authority source/API evidence and does not establish encrypted managed-backup v3 persistence.
+- Native-compile QA 2b.13–2b.41 is pass-by-pass repair history, not one current release certificate; Batch 5 will reconcile it with the paired native-compile plan/implementation records.
+
+**No executable QA-suite behavior is modified in Batch 4.**

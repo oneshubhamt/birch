@@ -10,6 +10,7 @@
 | System ownership and data/security boundaries | [Architecture](ARCHITECTURE.md) |
 | Toolchain, local build and execution commands | [Development](DEVELOPMENT.md) |
 | CI scope, test evidence and release gates | [QA](QA.md) |
+| Historical QA results and limitations | [QA evidence ledger](qa/HISTORICAL_EVIDENCE.md) |
 | Contribution and change discipline | [Contributing](../CONTRIBUTING.md) |
 | Vulnerability reporting and security limitations | [Security policy](../SECURITY.md) |
 | Third-party components, licences and baseline PDF.js caveat | [Third-party notices](../THIRD_PARTY_NOTICES.md) |
