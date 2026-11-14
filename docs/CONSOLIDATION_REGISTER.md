@@ -101,3 +101,46 @@ The 2b.43.2 §20 structural vectors were **independently recomputed** using SHA-
 - **Open reconciliation:** D2-02 (historical E2 mutation model), D2-03 (later no-VACUUM implementation), and D2-04 (scoped UI privacy) require the later Batch 3 full pass-history source and test audit. D2-05 remains a future 2b.43.4+ implementation task, not a documentation defect.
 
 **Batch 2 result:** **PASS** for preservation, clause-level discoverability, structural completeness and internal-link QA; **NOT CERTIFIED** for cryptographic/runtime security or later-version behavioral completeness. Continue to Batch 3 without altering the governing originals.
+
+
+## Batch 3 — Vault/security implementation evolution consolidation (2026-11-15)
+
+Batch 3 changes strategy from temporary preservation to **actual consolidation**. All 51 targeted root-level `VAULT_*.md` and noncontract `SECURITY_E0_E3_*.md` records were reviewed chronologically and reduced into three current-purpose documents:
+
+- [Current Vault architecture](security/VAULT_ARCHITECTURE.md)
+- [Managed plaintext lifetime](security/PLAINTEXT_LIFETIME.md)
+- [Vault implementation evolution](security/VAULT_EVOLUTION.md)
+
+The three documents preserve the durable architecture, I1–I7, important defect discoveries/repairs, supersession history, security boundaries and evidence limitations. The exact originals remain recoverable from the frozen baseline Git commit; [DOCUMENT_INVENTORY.md](DOCUMENT_INVENTORY.md) now links each baseline document to that immutable commit rather than assuming the file remains in the current tree.
+
+### Deletion policy
+
+**40 of the 51 Batch 3 pass-specific documents are superseded and scheduled for deletion in this batch.** Git history is the archive; the working tree should not duplicate it.
+
+Exactly **11** Batch 3 files remain temporarily because current executable validator scripts read them by exact path/content:
+
+```text
+SECURITY_E0_E3_REMEDIATION_2A15.md
+SECURITY_E0_E3_REMEDIATION_2A16.md
+SECURITY_E0_E3_REMEDIATION_2A17.md
+SECURITY_E0_E3_REMEDIATION_2A18.md
+SECURITY_E0_E3_CLOSURE_2A19.md
+VAULT_2B1_AUDIT_PLAN.md
+VAULT_2B8_PLAINTEXT_AUTHORITY_CLOSURE_PLAN.md
+VAULT_2B11_ATOMIC_PRIVACY_AUTHORITY_CLOSURE.md
+VAULT_2B12_AEGIS_PRIVACY_DISCLOSURE_CLOSURE.md
+VAULT_2B42_8_NO_VACUUM_FORENSIC.md
+VAULT_2B42_9_CLEANUP.md
+```
+
+These are **QA compatibility dependencies, not preferred documentation**. Batch 4 should redesign the relevant validators around behavioral/source invariants or stable contracts, remove their dependence on historical report prose, and then delete the remaining 11.
+
+### Durable conclusions carried forward
+
+- 2a.6–2a.19 established crash-safe transitions, canonical plaintext ownership, backup privacy obligations, UI lifetime and independent adversarial closure.
+- 2b.1–2b.4 replaced monolithic protected persistence with granular authenticated Vault objects and coordinator/token authorities.
+- 2b.5–2b.12 consolidated ownership, removed caller-controlled security semantics, introduced strict absence proof, durable namespaces, external backup ownership, compound privacy authorization, RevisionIndex and fixed AEGIS-256 policy.
+- 2b.42 replaced global publication invalidation with note/multi-note/library scopes, separated whole-library snapshot authority, measured the system, removed per-Protect VACUUM after forensic evidence, deleted obsolete development compatibility and independently repaired residual ambiguous-path ownership defects.
+- Historical source/static PASS statements remain time-bounded evidence; they are not promoted into current native-runtime certification.
+
+**No production source change is authorized by Batch 3.**
