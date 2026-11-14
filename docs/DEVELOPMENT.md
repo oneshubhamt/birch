@@ -1,14 +1,16 @@
-# Development guide (macOS primary)
+# Development and local build — macOS primary
 
-## Prerequisites
+This guide owns **build and developer commands**. For the architecture see [Architecture](ARCHITECTURE.md); for interpreting a PASS see [QA](QA.md).
 
-- macOS with Xcode Command Line Tools (`xcode-select --install`). The repository is configured for minimum deployment target **macOS 12.0**.
-- Rust installed using [rustup](https://rustup.rs); `rust-toolchain.toml` selects **1.97.1** including `rustfmt` and `clippy`.
-- Current Node.js LTS with npm. CI installs Node.js **22**. The JavaScript build packages are in `editor-build/`, not the repository root.
-- Python **3.11+** (for `tomllib` in source validators), `curl`, `tar`, `shasum` and standard Apple command-line tools.
-- Optional for creating a `.app`: Dioxus CLI **0.7.10** (`dx`). Do not mix CLI versions with the pinned Dioxus framework.
+## Requirements
 
-## First local build
+- macOS with Xcode Command Line Tools (`xcode-select --install`). Minimum configured deployment target: **macOS 12.0** (`.cargo/config.toml`).
+- Rust installed using [rustup](https://rustup.rs), with `rust-toolchain.toml` selecting **1.97.1**, `rustfmt` and `clippy`.
+- Node.js/npm (CI uses **Node 22**). Pinned JS dependencies are in `editor-build/`, not the repository root.
+- Python **3.11+** (source validators use `tomllib`), `curl`, `tar`, `shasum` and Apple command-line tools.
+- Optional for creating `Rustnote.app`: Dioxus CLI **0.7.10** (`dx`), matching the framework's pinned version.
+
+## Prepare and run locally
 
 ```sh
 cd birch
@@ -17,15 +19,26 @@ chmod +x scripts/*.sh
 ./scripts/run-rustnote-mac.sh
 ```
 
-The preparation script validates the deployment baseline, installs exact npm dependencies as needed, fetches checksum-verified PDF.js assets, generates editor/PDF runtimes, and builds the Rust release target using `--locked`. Generated outputs are excluded from Git; **do not delete the source generators or lockfiles**.
+The preparation script verifies the deployment baseline, installs exact JS dependencies if needed, fetches a checksum-verified PDF.js package, generates the editor/PDF browser runtimes, builds release Rust with `--locked`, and validates the produced binary's macOS deployment target. **An internet connection is needed for the initial dependency/runtime preparation.** Generated artifacts are untracked; retain the source generators and lockfiles.
 
-## Developer QA
+## Diagnostic and QA commands
+
+Source-level checks (also available on Linux with Node.js and Python):
 
 ```sh
 bash scripts/ci-source-checks.sh
+```
+
+Dependency-backed ProseMirror/browser behavior:
+
+```sh
 npm ci --prefix editor-build --no-audit --no-fund
 node scripts/run-browser-behavior-tests.mjs --require-editor-deps
+```
 
+Full native Rust check sequence (macOS, after toolchain setup):
+
+```sh
 ./scripts/prepare-rustnote-browser-runtimes.sh
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
@@ -34,19 +47,19 @@ cargo build --release --locked
 ./scripts/validate-macos-binary-deployment-target.sh target/release/rustnote
 ```
 
-The source-only commands work on Linux with Node.js and Python; Rustnote is currently a **macOS-first desktop application** and Linux source validation does not prove Mac native compatibility.
+The browser preparation step produces generated runtimes needed by Rust build. The source-check runner exercises only a **small baseline subset** of historic shell validators: see [QA](QA.md). Linux-only checks do not demonstrate macOS framework compatibility, Keychain behavior or native runtime privacy.
 
-## macOS application bundle
+## Unsigned local app bundle
 
-Install the exactly matching Dioxus CLI 0.7.10 according to its current installation instructions, check `dx --version`, then run:
+Install the exactly matching Dioxus CLI 0.7.10, confirm `dx --version`, then:
 
 ```sh
 ./scripts/build-rustnote-macos-app.sh
 open dist/Rustnote.app
 ```
 
-This builds an **unsigned local development bundle**. No distribution signing, Apple notarization or release publication is configured.
+The output is a **local unsigned development bundle**. No automated Apple signing, notarization or distribution-release publication is configured here.
 
-## Where to change code
+## Change protocol
 
-Refer to [Architecture](ARCHITECTURE.md). Keep each pass scoped, audit before changes, and verify affected Vault/UI/storage lifetimes. The root-level pass reports are historical evidence and exact-path static-validator inputs; don't move them as an incidental cleanup.
+Before changing code: inspect current source and governing contracts; state objectives, invariants and performance/security implications; implement a coherent minimal change; independently check acceptance criteria; run targeted behavioral/negative tests; then execute broader QA after substantial changes. Do not move root-level historical pass documents as incidental cleanup: source validators may reference their exact filenames. See [Contributing](../CONTRIBUTING.md) and [documentation preservation rules](CONSOLIDATION_PLAN.md).

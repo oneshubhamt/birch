@@ -1,24 +1,29 @@
 # Quality assurance and release gates
 
-## CI checks
+A validator PASS demonstrates only its stated assertions in its stated environment and revision. It does **not** prove cryptographic correctness, implementation completeness or a release-ready application. The [project status](PROJECT_STATUS.md) separates actual source evidence, planned work and outstanding testing.
 
-| Gate | Environment | Purpose |
+## Configured CI jobs
+
+The workflow is [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Triggers: pushes to **`main`**, pull requests, and manual dispatch. A push to this working branch alone does not trigger a workflow run under the current push filter.
+
+| CI job | Environment | Gates |
 | --- | --- | --- |
-| Source, format, and contract checks | Ubuntu, Node 22, Python 3.12 | shell/JavaScript syntax, version and backup authority contracts, source-level JS behavioral tests |
-| Full browser behavior | Ubuntu with `npm ci` | pinned ProseMirror test dependencies; required editor-specific tests |
-| Rust build/test | Hosted macOS with Rust 1.97.1 | prepared browser runtimes; `cargo fmt`, strict Clippy, full locked workspace tests, release build, deployment target check |
+| Source and browser contracts | Ubuntu, Node.js 22, Python 3.12 | Syntax/source checks, dependency-free JS tests; `npm ci` and dependency-backed editor/browser tests |
+| Native macOS build/test | Hosted `macos-15`, Node.js 22, Python 3.12, pinned Rust 1.97.1 | Prepare browser runtimes; `cargo fmt`; strict workspace Clippy; workspace Rust tests; release build; deployment-target binary check |
 
-CI workflows are defined in `.github/workflows/ci.yml`. They need network access to fetch GitHub actions, npm dependencies, PDF.js and Rust crates. They do not assert verified encryption guarantees by merely passing static source checks.
+The `scripts/ci-source-checks.sh` runner checks shell and JS syntax and invokes exactly **four** baseline shell validators: version 2b.43, key-authority 2b.43.1, byte-format 2b.43.2 and secure-key-store 2b.43.3. It then invokes the dependency-free browser/contract test runner. It **does not execute all 80+ historical `validate-*.sh` scripts**. Other static/source-contract-style browser checks are run separately by the JS runner; their PASS should not be confused with an end-to-end native behavior test.
 
-## Manual security checks required before distribution
+See [Development](DEVELOPMENT.md) for exact commands. Record **commit, OS/version, CPU architecture, command, dependencies, exit/result, duration if measured, and untested or skipped surfaces** for every new evidence claim. Historic `QA_*` files are retained as records for their original versions and environments.
 
-1. Execute native macOS **Keychain integration** tests for creation, existing-key retrieval, denied/unavailable store, missing/deleted root, corrupt root/envelope, and platform-version compatibility.
-2. Exercise privacy-lock and async-publication concurrency; ensure no plaintext leaks through dialogs, temporary paths, SQLite/FTS/WAL, backups or UI caches.
-3. Reproduce failed/aborted operations and process-crash/restart recovery paths.
-4. Check restored backup behavior in the format actually deployed; **2b.43.4 is not in the current snapshot**.
-5. Verify `.app` runtime behavior on supported macOS versions and relevant Apple Silicon/Intel hardware. Sign/notarize separately before any distributed release.
-6. Perform dependency review, repository secret scan and QA of the entire affected codebase after substantial architectural changes.
+## Manual and adversarial gates before distribution
 
-## Evidence convention
+1. Exercise native macOS **Keychain** first creation, existing root retrieval, denied/unavailable store, missing/deleted/corrupt root, invalid envelope, and supported-device/OS behavior.
+2. Test privacy lock/unlock and stale async publication under concurrency, including title/body/attachments, dialogs, UI caches, temporary staging, revisions, SQLite/FTS/WAL and backups.
+3. Cover failure, cancellation, interrupted filesystem operations, process-death/restart, recovery and cleanup ownership.
+4. Test the **actual deployed** encrypted-backup persistence/restore format and fail-closed behavior **once the planned 2b.43.4 repository-v3 cutover exists**. Staged keyset tests alone are insufficient.
+5. Validate `Rustnote.app` on supported macOS versions and relevant Apple Silicon and Intel hardware. Audit signing/notarization separately before a distributed release.
+6. Review dependencies and secrets, run targeted QA for each changed surface, and comprehensive source/native/browser/security QA after significant cross-cutting changes.
 
-Document each suite's exact command, OS/architecture, exit code, tested source commit, and uncovered limitations. A validator PASS means its particular assertions passed; it does **not** prove implementation completeness. Historical QA files must not be retroactively presented as results for a new commit.
+## Boundary of this documentation pass
+
+The historical `QA_*` records may mix contract assertions, behavioral tests and point-in-time pass closure. Preserve the original results, limitations and failures until the later QA-suite audit. No QA scripts or CI configuration are changed as part of documentation consolidation.
