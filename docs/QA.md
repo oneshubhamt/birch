@@ -28,12 +28,19 @@ See [Development](DEVELOPMENT.md) for exact commands. Record **commit, OS/versio
 | Vault I1–I7 / privacy authority | `validate-vault-*.sh` + Rust concurrency/ownership tests | Source/static guards + executable Rust tests | Current certification if only static mode ran |
 | Backup 2b.43 key/format authority | `validate-backup-2b43-1/2/3-*.sh` | Contract/static/source tests | Deployed encrypted-v3 writer/restore, which is not yet integrated |
 | Native build quality | `cargo fmt`, `cargo check`, strict `cargo clippy`, `cargo test` | Compiled native/toolchain QA | Supported-device matrix, signing/notarization, manual UI/adversarial behavior |
+| Feature-gated native lifetime tests | `cargo clippy/test --all-features`; notably `internal-test-support` binary tests | Compiled feature-matrix QA | **Not currently included by configured CI's Clippy/test commands** |
 | macOS deployment | prepared-runtime build + Mach-O deployment validator | Native artifact inspection | Keychain privacy semantics or general application correctness |
 | Keychain/OS privacy lifetime | Manual/adversarial supported-device testing | Native integration/manual | Cannot be replaced by source grep or mock secure-store tests |
 
 **Static phrase/presence checks are regression guards, not behavioral proof.** Their strongest use is preventing a known architecture from silently drifting. Where a security requirement depends on ordering, concurrency, crash recovery, filesystem behavior, cryptographic round-trip, or OS integration, closure should include an executable behavioral/property test at the lowest useful boundary and a native integration test when the OS boundary matters.
 
 See [historical evidence](qa/HISTORICAL_EVIDENCE.md) for how older reports mixed these evidence classes.
+
+## Current native feature-coverage finding
+
+The native compile history repeatedly used `--all-features` after 2b.17 introduced the zero-dependency `internal-test-support` feature. Current source still contains protected PDF Lock-lifetime binary tests gated by `#[cfg(feature = "internal-test-support")]`, while the configured macOS CI runs `cargo clippy --workspace --all-targets --locked` and `cargo test --workspace --locked` **without** `--all-features`.
+
+Therefore those feature-gated tests are not part of the configured CI invocation. This is recorded as a **coverage gap**, not an implementation failure. See [native toolchain history](development/NATIVE_TOOLCHAIN_HISTORY.md). Batch 5 does not alter CI.
 
 ## Manual and adversarial gates before distribution
 

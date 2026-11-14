@@ -9,6 +9,7 @@
 | Current implemented/planned state and verification gaps | [Project status](PROJECT_STATUS.md) |
 | System ownership and data/security boundaries | [Architecture](ARCHITECTURE.md) |
 | Toolchain, local build and execution commands | [Development](DEVELOPMENT.md) |
+| Native compile/Clippy/test evolution and persistent compatibility lessons | [Native toolchain history](development/NATIVE_TOOLCHAIN_HISTORY.md) |
 | CI scope, test evidence and release gates | [QA](QA.md) |
 | Historical QA results and limitations | [QA evidence ledger](qa/HISTORICAL_EVIDENCE.md) |
 | Contribution and change discipline | [Contributing](../CONTRIBUTING.md) |

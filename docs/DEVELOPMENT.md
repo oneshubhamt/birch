@@ -49,6 +49,15 @@ cargo build --release --locked
 
 The browser preparation step produces generated runtimes needed by Rust build. The source-check runner exercises only a **small baseline subset** of historic shell validators: see [QA](QA.md). Linux-only checks do not demonstrate macOS framework compatibility, Keychain behavior or native runtime privacy.
 
+For changes involving feature-gated test support or security/native lifetime boundaries, also run the broader feature matrix:
+
+```sh
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked -- --test-threads=1
+```
+
+This broader gate is **not currently part of configured CI**. The reason and native-history context are documented in [Native toolchain history](development/NATIVE_TOOLCHAIN_HISTORY.md).
+
 ## Unsigned local app bundle
 
 Install the exactly matching Dioxus CLI 0.7.10, confirm `dx --version`, then:

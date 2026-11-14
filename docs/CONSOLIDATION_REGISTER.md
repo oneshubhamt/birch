@@ -213,3 +213,32 @@ All 98 scripts, 17 test files and GitHub workflow/templates were checked for dir
 - No Rust/browser/native/Keychain tests were executed as part of this documentation consolidation; only documentary/dependency/link/source-scope checks were performed.
 
 **Batch 4 result: PASS for evidence preservation, QA-report consolidation, safe deletion, traceability, dependency preservation and link QA.** Executable QA-suite redesign is intentionally deferred to the separate QA-refinement effort.
+
+
+## Batch 5 — native compile history and supplementary-document consolidation (2026-11-15)
+
+**Scope audited:** all **58 `NATIVE_COMPILE_*.md` plan/implementation records** (2b.13–2b.41), the v0.12.6/2b.43 promotion record, component READMEs, GitHub templates and bundled Markdown asset content.
+
+The reader-facing replacement is [Native compile and toolchain evolution](development/NATIVE_TOOLCHAIN_HISTORY.md), which preserves the chronological defects/repairs, durable architecture lessons, current macOS/toolchain constraints, exact immutable links for all 58 originals, and the distinction between historical native evidence and current CI.
+
+### Dependency and disposition audit
+
+- Current validator scripts directly require the plan + implementation files for **2b.13–2b.21 and 2b.24–2b.41**: **54/58 native-compile files**.
+- 2b.22 and 2b.23 plan/implementation records (**4 files**) are not required by current scripts/tests/CI and are eligible for Git-only retention after consolidation.
+- `VERSION_PROMOTION_V0.12.6_BUILD_2B43.md` has no current validator dependency found; its durable metadata/evidence is consolidated into the native history and current project status.
+- Batch 5 does **not** rewrite validators to remove the 54 exact-path dependencies because the preservation plan forbids code/QA refactoring at this stage.
+
+### Durable technical conclusions
+
+The native sequence established or exposed: opaque binary/library security façades; Dioxus `FnMut` capture discipline; strict-Clippy cleanup without blanket suppression; test-only `internal-test-support` bridges; correct Lock/Unprotect resource-lifetime tests; note-scoped Protect readiness; ordinary-only tag mutation serialization; macOS 12.0 deployment-target/Mach-O validation; the path-normalization TOCTOU fix; semantic `note_session_is_active`; privacy-safe selection continuity; selected-note-only Vault actions; and final `RunningApp`-scoped Dioxus task ownership.
+
+A current evidence gap was also found: the configured macOS CI does not pass `--all-features`, while protected PDF lifetime binary tests remain gated by `internal-test-support`. This is documented in [QA](QA.md) and [Development](DEVELOPMENT.md), not silently repaired in a documentation pass.
+
+### Supplementary content
+
+- GitHub issue/PR templates are functional repository surfaces: **retain**.
+- `assets/welcome-note.md` is bundled asset content; `Dioxus.toml` declares `asset_dir = "assets"`: **retain**.
+- editor-spec/editor-src/pdf-src READMEs are living component authority/ownership guides: **retain**.
+- E0 benchmark README is a living research workflow: **retain**.
+
+**No application source, test, validator or CI behavior is changed by Batch 5.**
