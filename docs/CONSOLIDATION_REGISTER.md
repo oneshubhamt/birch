@@ -160,7 +160,7 @@ These are **QA compatibility dependencies, not preferred documentation**. Batch 
 - Markdown count has fallen from the **239-file baseline to 210** even after adding the current-purpose consolidation documents. Root-level Markdown fell from **226 to 186**. The remaining root bloat is now dominated by **104 QA records + 58 native-compile records**, which belong to Batches 4 and 5 rather than Vault documentation.
 - No Rust/native/browser/Keychain/runtime QA was executed by this documentation pass. Historical execution claims remain historical evidence only.
 
-**Batch 3 result: PASS for content consolidation, current-architecture reconstruction, deletion discipline, validator-dependency preservation and targeted link QA.** The remaining 11 historical Vault/security files are an explicit temporary debt owned by Batch 4, not the intended final documentation architecture.
+**Batch 3 result: PASS for content consolidation, current-architecture reconstruction, deletion discipline, validator-dependency preservation and targeted link QA.** The remaining 11 historical Vault/security files are explicit temporary validator dependencies; Batch 4 documented rather than rewrote those dependencies because its governing plan forbids executable-suite redesign.
 
 
 ## Batch 4 — QA evidence and test scope consolidation (2026-11-15)
@@ -196,3 +196,20 @@ All 98 scripts, 17 test files and GitHub workflow/templates were checked for dir
 - Native-compile QA 2b.13–2b.41 is pass-by-pass repair history, not one current release certificate; Batch 5 will reconcile it with the paired native-compile plan/implementation records.
 
 **No executable QA-suite behavior is modified in Batch 4.**
+
+
+### Batch 4 post-consolidation closure
+
+- **104/104 baseline QA reports reviewed** by theme: 16 architecture, 18 security/E0–E3, 27 Vault, 29 native-compile QA, and 14 editor/PDF/platform/backup records.
+- The consolidated [historical evidence ledger](qa/HISTORICAL_EVIDENCE.md) contains **104 immutable baseline links**, preserving access to every exact original report after working-tree deletion.
+- **69 QA reports were deleted** from the working tree because no script, test or CI/template file consumes them.
+- **35 QA reports remain byte-identical to baseline** because current validators read them directly. They are compatibility inputs, not current documentation authorities.
+- All **98 scripts**, **17 test files**, and GitHub workflow/templates were checked for direct `QA_*.md` dependencies before deletion.
+- [QA.md](QA.md) now contains a compact requirement/evidence traceability matrix distinguishing static/source guards, executable JS behavior tests, compiled Rust tests, native artifact checks and manual/adversarial OS integration.
+- Historical command/result limitations are preserved: source/static PASS is not promoted to native PASS; dependency-free browser counts are treated as changing-suite snapshots rather than comparable release scores; contract-only backup QA is not represented as encrypted-v3 deployment.
+- Post-deletion link QA across all **18 current `docs/*.md` documents** checked **128 relative links** with **zero missing targets**.
+- Branch scope remains documentation-only: **zero non-Markdown changes** versus `main`.
+- Markdown count is now **142**, down from the 239-file baseline; root Markdown is **117**, down from 226. Remaining root bloat is primarily **58 `NATIVE_COMPILE_*.md` records**, **35 validator-coupled `QA_*.md` files**, and **11 validator-coupled Batch 3 history files**.
+- No Rust/browser/native/Keychain tests were executed as part of this documentation consolidation; only documentary/dependency/link/source-scope checks were performed.
+
+**Batch 4 result: PASS for evidence preservation, QA-report consolidation, safe deletion, traceability, dependency preservation and link QA.** Executable QA-suite redesign is intentionally deferred to the separate QA-refinement effort.
