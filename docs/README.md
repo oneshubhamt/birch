@@ -16,6 +16,10 @@
 
 The exact editor-document authority is [`editor-spec/README.md`](../editor-spec/README.md), with its adjacent JSON specification and cases. The [editor source map](../editor-src/README.md), [PDF viewer source map](../pdf-src/README.md), and [E0 research benchmark guide](../tools/e0-crypto-bench/README.md) retain their own technical responsibilities.
 
+## Authoritative security and backup contracts
+
+Use the [contract authority index](contracts/README.md) to navigate the E0–E3 and 2b.43 security/backup contracts, their **complete section-by-section source maps**, explicit amendment precedence, and unresolved implementation differences. It does not replace the original byte-exact documents.
+
 ## Detailed contracts and historical evidence
 
 E0–E3 security rules remain in [E0](../SECURITY_ENCRYPTION_E0_CONTRACT.md), [E1](../SECURITY_ENCRYPTION_E1_CONTRACT.md), [E2](../SECURITY_ENCRYPTION_E2_CONTRACT.md), and [E3](../SECURITY_ENCRYPTION_E3_CONTRACT.md). The planned encrypted-backup key model and byte format are in [2b.43.1](../BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md) and [2b.43.2](../BACKUP_2B43_2_BYTE_FORMAT_CONTRACT.md), with the staged source implementation documented in [2b.43.3](../BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md). These detailed contracts **are not superseded by a brief overview**.
