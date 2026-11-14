@@ -89,3 +89,15 @@ The 2b.43.2 §20 structural vectors were **independently recomputed** using SHA-
 - The exact bulk-container formula gives encoded lengths **144** (zero-byte blob), **177** (1 byte), **1,048,752** (1 MiB), and **1,048,785** (1 MiB + 1). These are arithmetic cross-checks, **not** v3 implementation round-trip tests.
 
 **Batch 2 security discipline:** No code changes, no existing security contract replacements, no Keychain/device/cryptographic runtime certification, no assumption that future requirements are operational. Refer to each map for all detailed clauses.
+
+### Batch 2 post-implementation targeted documentary QA — closure
+
+- **Completeness of structural trace:** Section-heading counts independently compared against originals: E0=17, E1=11, E2=13, E3=32, 2b.43.1=42, 2b.43.2=45, 2b.43.3=21, original 1a.34 context=15. **196/196 heading-level entries mapped** across the four new contract-folder documents.
+- **Source integrity:** All **eight Batch 2 original documents remain byte-identical** to their baseline Git blobs, including every field table, AAD string, exact-size rule, amendment, original narrative and test requirement. No document was moved or deleted.
+- **Repository scope:** Against `main@514b797`, all **566 baseline tracked files still exist**. The branch holds **574** tracked files (eight additional Markdown references across Batches 0–2), with only **five deliberately edited existing living guides**. **Zero non-Markdown changes**; CI/scripts/tests/source remain identical.
+- **Links:** The six Batch 2 newly added/affected navigation, authority and register documents were checked for **73 internal relative links**, with **zero unresolved paths or checked heading fragments**.
+- **Mathematics:** Canonical 2b.43.2 structural SHA-256/HMAC vectors matched independent calculations; bulk record file-length boundary arithmetic agreed with the specified formula.
+- **Behavioral QA:** **Not run.** No Cargo/Rust, JavaScript runner, macOS Keychain device checks, restore integration or forensic disk verification executed for this documentation-only batch. Historical source-audit/CI PASS claims were not imported as a new test result.
+- **Open reconciliation:** D2-02 (historical E2 mutation model), D2-03 (later no-VACUUM implementation), and D2-04 (scoped UI privacy) require the later Batch 3 full pass-history source and test audit. D2-05 remains a future 2b.43.4+ implementation task, not a documentation defect.
+
+**Batch 2 result:** **PASS** for preservation, clause-level discoverability, structural completeness and internal-link QA; **NOT CERTIFIED** for cryptographic/runtime security or later-version behavioral completeness. Continue to Batch 3 without altering the governing originals.
