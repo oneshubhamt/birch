@@ -40,3 +40,13 @@ The [documentation index](README.md) is new. Existing Vault, security, backup, Q
 | D1-09 | Native Keychain/privacy and end-to-end backup behavior need dedicated verification | Preserved as open release gates |
 
 **Quality standard:** a document's shorter size or newer timestamp is not evidence of better accuracy. Every removed requirement must have a traceable preserved destination; any unresolved contradiction must remain visible. No source, script, test or CI change is authorized in Batch 1.
+
+## Batch 1 post-change audit and closure (2026-11-14)
+
+- **Baseline preservation:** All **239** original Markdown document paths remain present; **234** are byte-identical to baseline Git blob identities, while **five living guides** were intentionally rewritten and mapped above.
+- **Scope discipline:** Exactly **four** new Markdown files exist on this branch compared with `main`: the Batch 0 plan/inventory and Batch 1 index/register. There were **zero deletions** and **zero non-Markdown changes**; source, scripts, tests, CI, contract files and historical QA remain unchanged.
+- **Reference integrity:** Checked **317 relative Markdown links** across the nine added/revised and consolidation-tracking Markdown documents; **zero unresolved paths or checked heading fragments**.
+- **Manual semantic re-audit:** The original guides' build commands, platform/toolchain requirements, app identity, data/source ownership, security and backup limitations, verification caveats and manual release gates remain covered in the new purpose-based references.
+- **No executed runtime QA:** No Rust compilation, Keychain/device test, browser test, complete validator suite, CI-run inspection or release packaging was performed in Batch 1. Those gates are neither claimed nor waived.
+
+**Batch 1 closure: documentation structure and preservation checks PASS; functional and security-runtime verification NOT RUN.** Next is Batch 2: full clause-level security/backup contract audit, preserving byte-precise specifications without premature consolidation.
