@@ -64,7 +64,7 @@ The [documentation index](README.md) is new. Existing Vault, security, backup, Q
 | `BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md` | Normative device-root/key/state/cleanup contract | **Unchanged**, [backup map](contracts/BACKUP_AUTHORITY.md) |
 | `BACKUP_2B43_2_BYTE_FORMAT_CONTRACT.md` | Normative, subordinate exact v3 binary specification | **Unchanged**, [backup map](contracts/BACKUP_AUTHORITY.md) |
 | `BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md` | Historical staged implementation + compile QA narrative, not v3 storage integration | **Unchanged**, [backup map](contracts/BACKUP_AUTHORITY.md) |
-| `E0_E3_ORIGINAL_ARCHITECTURE_CONTEXT.md` | Historical 1a.34 planning discussion (including later-planned search/notebooks) | **Unchanged**, [historical context map](contracts/README.md#original-1a34-context--classified-as-provenance) |
+| `E0_E3_ORIGINAL_ARCHITECTURE_CONTEXT.md` | Historical 1a.34 planning discussion (including later-planned search/notebooks) | **Unchanged**, [historical context map](contracts/README.md) |
 
 **Traceability result:** All eight originals remain the precise, unabridged source of technical clauses. Three purpose-specific authority maps plus one index were added; none substitutes a shortened prose summary for canonical bytes or changes the format. All 2b.43.2 sections, all 2b.43.1 sections, the 2b.43.3 report, and all E3 2a.7–2a.19 amendments are linked by heading and original line interval.
 

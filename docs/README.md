@@ -24,7 +24,7 @@ Use the [contract authority index](contracts/README.md) to navigate the E0–E3 
 
 E0–E3 security rules remain in [E0](../SECURITY_ENCRYPTION_E0_CONTRACT.md), [E1](../SECURITY_ENCRYPTION_E1_CONTRACT.md), [E2](../SECURITY_ENCRYPTION_E2_CONTRACT.md), and [E3](../SECURITY_ENCRYPTION_E3_CONTRACT.md). The planned encrypted-backup key model and byte format are in [2b.43.1](../BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md) and [2b.43.2](../BACKUP_2B43_2_BYTE_FORMAT_CONTRACT.md), with the staged source implementation documented in [2b.43.3](../BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md). These detailed contracts **are not superseded by a brief overview**.
 
-The root `QA_*`, `VAULT_*`, `SECURITY_*`, `BACKUP_*` and `NATIVE_COMPILE_*` records include plans, contracts, implementation reports, revisions and historical QA. Their status differs by document and section; later batches will reconcile them. Preserve their exact paths while validators still depend on them.
+Pass-specific root records are being collapsed into current-purpose documentation. Batch 3 has already consolidated the Vault/security implementation series; exact deleted originals remain accessible from the immutable baseline links in [DOCUMENT_INVENTORY.md](DOCUMENT_INVENTORY.md). Files that remain at old root paths should be assumed to be temporary validator dependencies or not-yet-consolidated batches, not preferred documentation.
 
 [Initial publication instructions](REPOSITORY_SETUP.md) and [the 2026-11-05 bootstrap QA report](BOOTSTRAP_QA.md) describe **historical repository setup**, not instructions to republish a populated `main` or evidence that current checks have passed.
 

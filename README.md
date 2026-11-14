@@ -33,7 +33,7 @@ Start with the **[documentation index](docs/README.md)**, which separates curren
 
 The [consolidation plan](docs/CONSOLIDATION_PLAN.md), [frozen inventory](docs/DOCUMENT_INVENTORY.md) and [change register](docs/CONSOLIDATION_REGISTER.md) track documentation refactoring without losing source history.
 
-**Do not treat historical QA reports as verification of the current branch.** Original `VAULT_*`, `QA_*`, `SECURITY_*`, `BACKUP_*` and `NATIVE_COMPILE_*` files remain at their exact paths: some validators depend on those filenames, and each contract/report has its own authority and historical context.
+**Do not treat historical QA reports as verification of the current branch.** Pass-specific history is being consolidated into current-purpose documentation; exact baseline originals remain available through Git and the frozen inventory. A small number of root historical files remain temporarily only where current validators still read them directly.
 
 ## Licence
 

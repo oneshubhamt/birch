@@ -39,6 +39,6 @@ The original E0/E1 documents contain the explicit 2b.12 product decision selecti
 ## Review and future work
 
 - Map/check current claims against [status](../PROJECT_STATUS.md), not just text similarity.
-- Later Batch 3 must independently adjudicate whether 2b.42 revisions correctly preserve E3 privacy outcomes; current [E2–E3 map](E2_E3_AUTHORITY.md) records method-level changes and pending runtime evidence without erasing the old contract.
+- Batch 3 reconciled the later 2b/2b.42 implementation evolution into [Vault architecture](../security/VAULT_ARCHITECTURE.md), [managed plaintext lifetime](../security/PLAINTEXT_LIFETIME.md), and [Vault evolution](../security/VAULT_EVOLUTION.md). The E2–E3 map preserves the older contract wording while those documents describe the current source-level mechanism and supersession history.
 - Later QA consolidation must classify scripts as behavioral/property/integration/static-source checks and verify the *actual* sensitive-content invariants rather than merely the continued presence of words or phrase snippets.
 - Batch 2 carries **no source/crypto/storage changes** and does not certify security. Exact original contracts remain at their original paths to preserve validator and Git-history references.
