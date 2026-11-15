@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    portability::{ImportPlan, ImportSummary, ImportUndoToken, PortabilityFormat, PortabilityScope},
+    portability::{
+        ImportPlan, ImportSummary, ImportUndoToken, PortabilityFormat, PortabilityScope,
+    },
     storage::{LibraryStore, StorageError},
 };
 
@@ -31,7 +33,9 @@ impl PortabilityService {
     ) -> Result<ImportPlan, PortabilityError> {
         let storage = self.storage.clone();
         ApplicationExecutor::read("portability inspection", move || {
-            storage.prepare_portability_import(&source).map_err(PortabilityError::from)
+            storage
+                .prepare_portability_import(&source)
+                .map_err(PortabilityError::from)
         })
         .await
     }
@@ -44,7 +48,9 @@ impl PortabilityService {
         let storage = self.storage.clone();
         executor
             .execute(ApplicationOperation::ImportPortability, move || {
-                storage.import_portability_plan(&plan).map_err(PortabilityError::from)
+                storage
+                    .import_portability_plan(&plan)
+                    .map_err(PortabilityError::from)
             })
             .await
     }
@@ -57,7 +63,9 @@ impl PortabilityService {
         let storage = self.storage.clone();
         executor
             .execute(ApplicationOperation::UndoPortabilityImport, move || {
-                storage.undo_portability_import(&token).map_err(PortabilityError::from)
+                storage
+                    .undo_portability_import(&token)
+                    .map_err(PortabilityError::from)
             })
             .await
     }
@@ -71,20 +79,24 @@ impl PortabilityService {
     ) -> Result<PathBuf, PortabilityError> {
         let storage = self.storage.clone();
         match scope {
-            PortabilityScope::Note(note_id) => executor
-                .execute(ApplicationOperation::ExportPortability, move || {
-                    storage
-                        .export_portable_note_scope(&note_id, format, &destination)
-                        .map_err(PortabilityError::from)
-                })
-                .await,
-            PortabilityScope::Notebook(notebook_id) => executor
-                .execute(ApplicationOperation::ExportPortability, move || {
-                    storage
-                        .export_portable_notebook_scope(&notebook_id, format, &destination)
-                        .map_err(PortabilityError::from)
-                })
-                .await,
+            PortabilityScope::Note(note_id) => {
+                executor
+                    .execute(ApplicationOperation::ExportPortability, move || {
+                        storage
+                            .export_portable_note_scope(&note_id, format, &destination)
+                            .map_err(PortabilityError::from)
+                    })
+                    .await
+            }
+            PortabilityScope::Notebook(notebook_id) => {
+                executor
+                    .execute(ApplicationOperation::ExportPortability, move || {
+                        storage
+                            .export_portable_notebook_scope(&notebook_id, format, &destination)
+                            .map_err(PortabilityError::from)
+                    })
+                    .await
+            }
             PortabilityScope::Library => Err(PortabilityError::from(StorageError::Validation(
                 "library portability export requires whole-library privacy authority".to_string(),
             ))),
@@ -113,7 +125,10 @@ pub(crate) fn suggested_portable_note_file_name(title: &str, format: Portability
     super::export::suggested_note_file_name(title, format.extension())
 }
 
-pub(crate) fn suggested_collection_directory_name(label: &str, format: PortabilityFormat) -> String {
+pub(crate) fn suggested_collection_directory_name(
+    label: &str,
+    format: PortabilityFormat,
+) -> String {
     let mut stem = label
         .trim()
         .chars()
@@ -125,11 +140,17 @@ pub(crate) fn suggested_collection_directory_name(label: &str, format: Portabili
         .collect::<String>();
     stem = stem.split_whitespace().collect::<Vec<_>>().join(" ");
     let stem = stem.trim_matches(|character| character == '.' || character == ' ');
-    let stem = if stem.is_empty() { "Rustnote export" } else { stem };
+    let stem = if stem.is_empty() {
+        "Rustnote export"
+    } else {
+        stem
+    };
     format!("{stem} ({})", format.label())
 }
 
-pub(crate) fn portable_format_filter(format: PortabilityFormat) -> (&'static str, &'static [&'static str]) {
+pub(crate) fn portable_format_filter(
+    format: PortabilityFormat,
+) -> (&'static str, &'static [&'static str]) {
     match format {
         PortabilityFormat::PlainText => ("Plain text", &["txt"]),
         PortabilityFormat::Markdown => ("Markdown", &["md", "markdown"]),
@@ -154,7 +175,10 @@ pub(crate) fn destination_for_collection(
             return candidate;
         }
     }
-    parent.join(format!("{base} {}", crate::application::persistence::unix_timestamp()))
+    parent.join(format!(
+        "{base} {}",
+        crate::application::persistence::unix_timestamp()
+    ))
 }
 
 #[cfg(test)]
@@ -165,7 +189,11 @@ mod tests {
     fn format_filters_match_portability_extensions() {
         for format in PortabilityFormat::ALL {
             let (_, extensions) = portable_format_filter(format);
-            assert!(extensions.iter().any(|value| value.eq_ignore_ascii_case(format.extension())));
+            assert!(
+                extensions
+                    .iter()
+                    .any(|value| value.eq_ignore_ascii_case(format.extension()))
+            );
         }
     }
 }

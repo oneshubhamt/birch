@@ -73,9 +73,7 @@ pub fn discard_persistent_image_rendition(
         ))
     })?;
     owned.remove_file().map_err(|error| {
-        super::NativeError::operation(format!(
-            "Could not discard image rendition cache: {error}"
-        ))
+        super::NativeError::operation(format!("Could not discard image rendition cache: {error}"))
     })
 }
 
@@ -93,12 +91,7 @@ pub fn create_persistent_screen_image_rendition(
             "Could not establish image rendition plaintext authority: {error}"
         ))
     })?;
-    create_image_rendition_platform(
-        source,
-        destination,
-        Some(max_long_edge),
-        Some(&owner),
-    )
+    create_image_rendition_platform(source, destination, Some(max_long_edge), Some(&owner))
 }
 
 pub(crate) fn persistent_rendition_owner(
@@ -147,7 +140,8 @@ fn create_image_rendition_platform(
                 "Could not reserve image rendition plaintext: {error}"
             ))
         })?;
-        if let Err(error) = crate::platform::render_image_to_png(&source, &temporary, max_long_edge) {
+        if let Err(error) = crate::platform::render_image_to_png(&source, &temporary, max_long_edge)
+        {
             let _ = temporary_owner.remove_file();
             return Err(error.into());
         }
@@ -186,7 +180,8 @@ fn create_image_rendition_platform(
         // Protected ephemeral output is already covered by its enclosing
         // Vault/session plaintext owner. Keep this low-level converter free of
         // a second ownership system for that lifetime.
-        if let Err(error) = crate::platform::render_image_to_png(&source, &temporary, max_long_edge) {
+        if let Err(error) = crate::platform::render_image_to_png(&source, &temporary, max_long_edge)
+        {
             let _ = fs::remove_file(&temporary);
             return Err(error.into());
         }

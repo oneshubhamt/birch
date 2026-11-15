@@ -45,15 +45,21 @@ impl std::error::Error for ApplicationOpenError {
 }
 
 impl From<StorageError> for ApplicationOpenError {
-    fn from(error: StorageError) -> Self { Self::Storage(error) }
+    fn from(error: StorageError) -> Self {
+        Self::Storage(error)
+    }
 }
 
 impl From<AutosaveError> for ApplicationOpenError {
-    fn from(error: AutosaveError) -> Self { Self::Autosave(error) }
+    fn from(error: AutosaveError) -> Self {
+        Self::Autosave(error)
+    }
 }
 
 impl From<LibraryRuntimeError> for ApplicationOpenError {
-    fn from(error: LibraryRuntimeError) -> Self { Self::LibraryRuntime(error) }
+    fn from(error: LibraryRuntimeError) -> Self {
+        Self::LibraryRuntime(error)
+    }
 }
 
 /// Concrete application capabilities for one opened library.

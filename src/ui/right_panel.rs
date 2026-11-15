@@ -1,19 +1,17 @@
-use dioxus::prelude::*;
-use crate::editor_document::{analyze_editor_state, extract_outline};
 use crate::domain::{Attachment, Note};
+use crate::editor_document::{analyze_editor_state, extract_outline};
+use dioxus::prelude::*;
 
-use crate::application::{
-    executor::ApplicationExecutor,
-    privacy::PrivacyPublicationService,
-    settings::SettingsService,
-};
-use crate::application::attachments::{
-    AttachmentFileCommand, AttachmentFileCommandOutcome, AttachmentService,
-};
 use super::live_editor::{
     live_editor_focus_script, live_editor_remove_attachment_from_document_script,
 };
 use super::note_metadata::format_file_size;
+use crate::application::attachments::{
+    AttachmentFileCommand, AttachmentFileCommandOutcome, AttachmentService,
+};
+use crate::application::{
+    executor::ApplicationExecutor, privacy::PrivacyPublicationService, settings::SettingsService,
+};
 
 pub(super) const DEFAULT_RIGHT_PANEL_WIDTH: i32 = 420;
 pub(super) const MIN_RIGHT_PANEL_WIDTH: i32 = 280;
@@ -92,7 +90,9 @@ pub(super) fn persist_right_panel_width(
 
 pub(super) fn focus_live_editor() {
     spawn(async {
-        let _ = document::eval(&live_editor_focus_script()).join::<bool>().await;
+        let _ = document::eval(&live_editor_focus_script())
+            .join::<bool>()
+            .await;
     });
 }
 
@@ -416,7 +416,12 @@ pub(super) fn AttachmentsPanel(
     let AttachmentsPanelActions { onstatus } = actions;
     let note_read_only = draft.read().trashed || draft.read().protection.is_locked();
     let referenced_ids = analyze_editor_state(draft.read().editor_state())
-        .map(|analysis| analysis.attachment_ids.into_iter().collect::<std::collections::HashSet<_>>())
+        .map(|analysis| {
+            analysis
+                .attachment_ids
+                .into_iter()
+                .collect::<std::collections::HashSet<_>>()
+        })
         .unwrap_or_default();
     let attachment_items = attachments
         .read()
@@ -682,11 +687,9 @@ fn dispatch_attachment_action(
     if *busy.read() {
         return;
     }
-    let Some(publication_token) = privacy_epoch.capture_note_publication(
-        &privacy,
-        &attachment.note_id,
-        note_generation,
-    ) else {
+    let Some(publication_token) =
+        privacy_epoch.capture_note_publication(&privacy, &attachment.note_id, note_generation)
+    else {
         return;
     };
     let file_command = match action {
@@ -732,7 +735,10 @@ fn dispatch_attachment_action(
                 return;
             };
             let script = live_editor_remove_attachment_from_document_script(&attachment_id);
-            let removed = document::eval(&script).join::<bool>().await.unwrap_or(false);
+            let removed = document::eval(&script)
+                .join::<bool>()
+                .await
+                .unwrap_or(false);
             busy.set(false);
             if removed {
                 onstatus.call(format!("Removed {attachment_name} from note"));
@@ -748,4 +754,3 @@ fn dispatch_attachment_action(
 fn attachment_kind(attachment: &Attachment) -> &'static str {
     AttachmentService::display_kind(attachment)
 }
-

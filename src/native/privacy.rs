@@ -32,7 +32,8 @@ pub(crate) fn remove_file(path: &Path) -> io::Result<bool> {
         return Ok(false);
     }
 
-    let may_overwrite = metadata.len() <= OVERWRITE_MAX_BYTES && !has_multiple_hard_links(&metadata);
+    let may_overwrite =
+        metadata.len() <= OVERWRITE_MAX_BYTES && !has_multiple_hard_links(&metadata);
     if may_overwrite
         && metadata.len() > 0
         && let Ok(mut file) = fs::OpenOptions::new().write(true).open(path)

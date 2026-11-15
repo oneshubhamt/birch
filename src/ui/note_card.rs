@@ -1,25 +1,29 @@
+use crate::application::{
+    context::ApplicationServices,
+    editor::EditorService,
+    errors::EditorError,
+    executor::{ApplicationExecutionError, ApplicationExecutor, ExecutionFailure},
+    notes::NoteService,
+    vault::VaultProtectionService,
+};
 use dioxus::core::use_drop;
 use dioxus::prelude::*;
-use crate::application::{
-    context::ApplicationServices, editor::EditorService, errors::EditorError, executor::{ApplicationExecutionError, ApplicationExecutor, ExecutionFailure},
-    notes::NoteService, vault::VaultProtectionService,
-};
 
+use crate::application::errors::DataAccessError;
+use crate::application::persistence::{NoteChangeScope, unix_timestamp};
 use crate::domain::{Note, NoteId, NoteSummary, Notebook, Section};
 use crate::search::{ParsedSearch, SearchField, contextual_summary_preview, highlight_segments};
-use crate::application::persistence::{NoteChangeScope, unix_timestamp};
-use crate::application::errors::DataAccessError;
 use crate::security::VaultError;
 use crate::storage::StorageError;
 use crate::vault_profile::{VaultProfileOperation, VaultProfileSpan, VaultProfileStage};
 
+use super::entity_commands::{TagCommand, TagCommandError, execute_tag_command_blocking};
 use super::note_list_data::{
     refresh_note_list, reload_note_list, remove_loaded_note, update_loaded_note,
 };
-use super::entity_commands::{TagCommand, TagCommandError, execute_tag_command_blocking};
-use super::synchronization::{SynchronizationMode, synchronize_for_note_mutation};
-use super::sidebar::indented_notebook_name;
 use super::responsive::focus_selected_note_surface;
+use super::sidebar::indented_notebook_name;
+use super::synchronization::{SynchronizationMode, synchronize_for_note_mutation};
 use super::{NoteCardAction, NoteCardTagAction, NotesListState};
 
 #[derive(Clone, PartialEq)]
@@ -324,8 +328,8 @@ pub(super) fn NoteCard(view: NoteCardView, actions: NoteCardActions) -> Element 
     let preview = contextual_summary_preview(&note, &parsed_search);
     let attachment_match = preview.starts_with("Attachment: ");
     let title_placeholder = note.title.trim().is_empty();
-    let preview_placeholder = note.preview_text.split_whitespace().next().is_none()
-        && !attachment_match;
+    let preview_placeholder =
+        note.preview_text.split_whitespace().next().is_none() && !attachment_match;
     let preview_field = if attachment_match {
         SearchField::Attachment
     } else {
@@ -887,7 +891,10 @@ impl VaultActionBusyGuard {
             return None;
         }
         busy.set(Some(note_id.clone()));
-        Some(Self { busy, note_id: note_id.clone() })
+        Some(Self {
+            busy,
+            note_id: note_id.clone(),
+        })
     }
 }
 
@@ -923,9 +930,7 @@ async fn read_canonical_note_for_vault_publication(
     loop {
         // Capture fresh B authority before the canonical reread. If another B or
         // library transition races the read, reject the snapshot and retry.
-        let publication_token = state
-            .wait_for_note_action_publication_token(&note_id)
-            .await;
+        let publication_token = state.wait_for_note_action_publication_token(&note_id).await;
         let reread_notes = notes.clone();
         let reread_id = note_id.clone();
         let canonical = ApplicationExecutor::read("privacy action canonical reread", move || {
@@ -996,7 +1001,8 @@ pub(super) fn apply_note_card_action(
                 | NoteCardAction::DeletePermanently(_)
         );
         let _vault_action_busy = if vault_visibility_transition {
-            let Some(guard) = VaultActionBusyGuard::begin(state.vault_action_busy, &target_note_id) else {
+            let Some(guard) = VaultActionBusyGuard::begin(state.vault_action_busy, &target_note_id)
+            else {
                 status.set("Another security operation is still finishing".to_string());
                 return;
             };
@@ -1011,7 +1017,8 @@ pub(super) fn apply_note_card_action(
             &action,
             NoteCardAction::DeletePermanently(_) | NoteCardAction::UnlockEncrypted { .. }
         );
-        let Some(pre_action_token) = state.capture_note_action_publication_token(&target_note_id) else {
+        let Some(pre_action_token) = state.capture_note_action_publication_token(&target_note_id)
+        else {
             status.set("Note action blocked while privacy state is changing".to_string());
             return;
         };
@@ -1047,7 +1054,10 @@ pub(super) fn apply_note_card_action(
         // plaintext and therefore need only the immediate boundary snapshot.
         let (revocation_selection_generation, selected_target) =
             if let Some(synchronized) = mutation_synchronization {
-                (synchronized.selection_generation, synchronized.target_selected)
+                (
+                    synchronized.selection_generation,
+                    synchronized.target_selected,
+                )
             } else {
                 (
                     *state.note_selection_generation.peek(),
@@ -1058,7 +1068,9 @@ pub(super) fn apply_note_card_action(
                 )
             };
 
-        if selected_target && (protecting_note || locking_note || unlocking_note || removing_encryption) {
+        if selected_target
+            && (protecting_note || locking_note || unlocking_note || removing_encryption)
+        {
             let public_label = match &action {
                 NoteCardAction::Encrypt { public_label, .. } => {
                     let label = public_label.trim();
@@ -1071,10 +1083,12 @@ pub(super) fn apply_note_card_action(
                 // The selected unlocked note contains the private decrypted title,
                 // not the user-approved public label. Never copy that private title
                 // into transition UI that survives plaintext revocation.
-                NoteCardAction::LockEncrypted(_) | NoteCardAction::UnlockEncrypted { .. } | NoteCardAction::RemoveEncryption { .. } => {
-                    "Encrypted note".to_string()
-                }
-                _ => unreachable!("Vault transition shell is only used for Protect/Lock/Unlock/Remove Encryption"),
+                NoteCardAction::LockEncrypted(_)
+                | NoteCardAction::UnlockEncrypted { .. }
+                | NoteCardAction::RemoveEncryption { .. } => "Encrypted note".to_string(),
+                _ => unreachable!(
+                    "Vault transition shell is only used for Protect/Lock/Unlock/Remove Encryption"
+                ),
             };
             vault_transition.set(Some(super::VaultTransitionUiState {
                 note_id: target_note_id.clone(),
@@ -1088,8 +1102,11 @@ pub(super) fn apply_note_card_action(
         // Revoke B immediately at the UI boundary. A note revocation also
         // invalidates the multi-note generation because aggregate surfaces may
         // retain B-derived plaintext, while unrelated note A remains publishable.
-        let privacy_revocation = vault_visibility_transition
-            .then(|| state.privacy_epoch.begin_note_ui_revocation(target_note_id.clone()));
+        let privacy_revocation = vault_visibility_transition.then(|| {
+            state
+                .privacy_epoch
+                .begin_note_ui_revocation(target_note_id.clone())
+        });
 
         if selected_target && vault_visibility_transition {
             // B was checkpointed before revocation. Remove its selected Note
@@ -1101,8 +1118,8 @@ pub(super) fn apply_note_card_action(
             selected_note.set(None);
         }
 
-        let pin_filter_active = *state.section.read() == Section::Pinned
-            || state.filters.read().pinned;
+        let pin_filter_active =
+            *state.section.read() == Section::Pinned || state.filters.read().pinned;
         let selected_notebook = state.selected_notebook.read().clone();
         // Retain a read capability for post-error reconciliation. Vault protection
         // can commit its canonical encryption transition before a later forensic
@@ -1176,10 +1193,7 @@ pub(super) fn apply_note_card_action(
                         .as_ref()
                         .is_some_and(|selected| selected.id == updated_note.id)
                 {
-                    republish_selected_note_after_external_mutation(
-                        state,
-                        updated_note.clone(),
-                    );
+                    republish_selected_note_after_external_mutation(state, updated_note.clone());
                 }
 
                 if let Some(aggregate_token) = state.capture_multi_note_publication_token()
@@ -1201,13 +1215,12 @@ pub(super) fn apply_note_card_action(
                 if vault_visibility_transition {
                     let _canonical_publication_profile = vault_profiled_action
                         .then(|| VaultProfileSpan::stage(VaultProfileStage::CanonicalPublication));
-                    if let Ok((canonical, _note_lease)) =
-                        read_canonical_note_for_vault_publication(
-                            notes_after_action.clone(),
-                            state,
-                            target_note_id.clone(),
-                        )
-                        .await
+                    if let Ok((canonical, _note_lease)) = read_canonical_note_for_vault_publication(
+                        notes_after_action.clone(),
+                        state,
+                        target_note_id.clone(),
+                    )
+                    .await
                         && let Some(current) = canonical.as_ref()
                         && should_republish_selected_vault_target(
                             state,
@@ -1216,10 +1229,7 @@ pub(super) fn apply_note_card_action(
                             revocation_selection_generation,
                         )
                     {
-                        republish_selected_note_after_external_mutation(
-                            state,
-                            current.clone(),
-                        );
+                        republish_selected_note_after_external_mutation(state, current.clone());
                     }
                 }
                 // Aggregate reconciliation is owned by the centralized multi-note
@@ -1330,7 +1340,9 @@ pub(super) fn apply_note_card_tag_action(
                     }
                     NoteCardTagAction::Delete { name, .. } => {
                         let before = next_filters.tags.len();
-                        next_filters.tags.retain(|tag| !tag.eq_ignore_ascii_case(name));
+                        next_filters
+                            .tags
+                            .retain(|tag| !tag.eq_ignore_ascii_case(name));
                         filter_changed = next_filters.tags.len() != before;
                     }
                     NoteCardTagAction::Remove { .. } => {}
@@ -1340,16 +1352,15 @@ pub(super) fn apply_note_card_tag_action(
                     super::request_note_list_preferences_save(state);
                 }
                 if let Some(fresh_selected) = fresh_selected
-                    && selected_id.as_ref().is_some_and(|id| id == &fresh_selected.id)
+                    && selected_id
+                        .as_ref()
+                        .is_some_and(|id| id == &fresh_selected.id)
                     && selected_note
                         .read()
                         .as_ref()
                         .is_some_and(|note| note.id == fresh_selected.id)
                 {
-                    republish_selected_note_after_external_mutation(
-                        state,
-                        fresh_selected,
-                    );
+                    republish_selected_note_after_external_mutation(state, fresh_selected);
                 }
                 if !super::refresh_tags(&library, tags, status) {
                     return;
@@ -1373,10 +1384,7 @@ fn clear_vault_transition_for_note(mut state: NotesListState, note_id: &NoteId) 
     }
 }
 
-fn republish_selected_note_after_external_mutation(
-    mut state: NotesListState,
-    note: Note,
-) {
+fn republish_selected_note_after_external_mutation(mut state: NotesListState, note: Note) {
     // Every caller holds the authoritative PrivacyPublicationLease for this UI
     // handoff. Do not reacquire a nested lease here: remount identity is local
     // UI state and must not be allowed to invalidate publication authorization.
@@ -1447,15 +1455,21 @@ fn note_action_error_message(
 }
 
 impl From<DataAccessError> for NoteCardActionError {
-    fn from(error: DataAccessError) -> Self { Self::Data(error) }
+    fn from(error: DataAccessError) -> Self {
+        Self::Data(error)
+    }
 }
 
 impl From<EditorError> for NoteCardActionError {
-    fn from(error: EditorError) -> Self { Self::Editor(error) }
+    fn from(error: EditorError) -> Self {
+        Self::Editor(error)
+    }
 }
 
 impl ExecutionFailure for NoteCardActionError {
-    fn from_execution_error(error: ApplicationExecutionError) -> Self { Self::Execution(error) }
+    fn from_execution_error(error: ApplicationExecutionError) -> Self {
+        Self::Execution(error)
+    }
 }
 
 fn apply_note_card_action_blocking(
@@ -1468,7 +1482,9 @@ fn apply_note_card_action_blocking(
 ) -> Result<NoteCardActionOutcome, NoteCardActionError> {
     match action {
         NoteCardAction::Rename { note_id, title } => {
-            let mut current = notes.get(&note_id)?.ok_or(NoteCardActionError::NoteMissing)?;
+            let mut current = notes
+                .get(&note_id)?
+                .ok_or(NoteCardActionError::NoteMissing)?;
             current.title = title;
             current.updated_at = unix_timestamp();
             let current_id = current.id.clone();
@@ -1498,15 +1514,12 @@ fn apply_note_card_action_blocking(
         }
         NoteCardAction::RemoveEncryption { note_id, password } => {
             vault.remove_note_protection(&note_id, password.as_bytes())?;
-            Ok((
-                "Note encryption removed".to_string(),
-                note_id,
-                false,
-                None,
-            ))
+            Ok(("Note encryption removed".to_string(), note_id, false, None))
         }
         NoteCardAction::TogglePin(note_id) => {
-            let mut current = notes.get(&note_id)?.ok_or(NoteCardActionError::NoteMissing)?;
+            let mut current = notes
+                .get(&note_id)?
+                .ok_or(NoteCardActionError::NoteMissing)?;
             let next = !current.pinned;
             let remove_immediately = !next && pin_filter_active;
             current.pinned = next;
@@ -1520,11 +1533,16 @@ fn apply_note_card_action_blocking(
                 Some(updated),
             ))
         }
-        NoteCardAction::Move { note_id, notebook_id } => {
+        NoteCardAction::Move {
+            note_id,
+            notebook_id,
+        } => {
             let remove_immediately = selected_notebook
                 .as_ref()
                 .is_some_and(|selected| selected != &notebook_id);
-            let mut current = notes.get(&note_id)?.ok_or(NoteCardActionError::NoteMissing)?;
+            let mut current = notes
+                .get(&note_id)?
+                .ok_or(NoteCardActionError::NoteMissing)?;
             current.notebook_id = notebook_id;
             current.updated_at = unix_timestamp();
             let current_id = current.id.clone();
@@ -1537,7 +1555,9 @@ fn apply_note_card_action_blocking(
             ))
         }
         NoteCardAction::ToggleArchive(note_id) => {
-            let mut current = notes.get(&note_id)?.ok_or(NoteCardActionError::NoteMissing)?;
+            let mut current = notes
+                .get(&note_id)?
+                .ok_or(NoteCardActionError::NoteMissing)?;
             let next = !current.archived;
             current.archived = next;
             current.trashed = false;
@@ -1546,14 +1566,21 @@ fn apply_note_card_action_blocking(
             let current_id = current.id.clone();
             notes.checkpoint(current, NoteChangeScope::State)?;
             Ok((
-                if next { "Note archived" } else { "Note restored from archive" }.to_string(),
+                if next {
+                    "Note archived"
+                } else {
+                    "Note restored from archive"
+                }
+                .to_string(),
                 current_id,
                 true,
                 None,
             ))
         }
         NoteCardAction::ToggleTrash(note_id) => {
-            let mut current = notes.get(&note_id)?.ok_or(NoteCardActionError::NoteMissing)?;
+            let mut current = notes
+                .get(&note_id)?
+                .ok_or(NoteCardActionError::NoteMissing)?;
             let trashed = !current.trashed;
             current.archived = false;
             current.trashed = trashed;
@@ -1566,8 +1593,12 @@ fn apply_note_card_action_blocking(
             let current_id = current.id.clone();
             notes.checkpoint(current, NoteChangeScope::State)?;
             Ok((
-                if trashed { "Note moved to trash" } else { "Note recovered from trash" }
-                    .to_string(),
+                if trashed {
+                    "Note moved to trash"
+                } else {
+                    "Note recovered from trash"
+                }
+                .to_string(),
                 current_id,
                 true,
                 None,

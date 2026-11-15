@@ -1,17 +1,19 @@
 use std::cmp::Ordering;
 
-use dioxus::prelude::*;
-use crate::application::executor::{ApplicationExecutionError, ApplicationExecutor, ExecutionFailure};
 use crate::application::errors::DataAccessError;
-
-use crate::domain::{
-    NOTE_LIST_PAGE_SIZE, Note, NoteId, NoteListCursor, NoteListPage, NoteListQuery, NoteSort, NoteSummary,
-    Section,
+use crate::application::executor::{
+    ApplicationExecutionError, ApplicationExecutor, ExecutionFailure,
 };
-use crate::application::{editor::EditorService, library::LibraryService};
+use dioxus::prelude::*;
 
-use super::synchronization::SynchronizationMode;
+use crate::application::{editor::EditorService, library::LibraryService};
+use crate::domain::{
+    NOTE_LIST_PAGE_SIZE, Note, NoteId, NoteListCursor, NoteListPage, NoteListQuery, NoteSort,
+    NoteSummary, Section,
+};
+
 use super::NotesListState;
+use super::synchronization::SynchronizationMode;
 
 pub(super) const NOTE_CARD_HEIGHT_PX: f64 = 104.0;
 pub(super) const NOTE_CARD_GAP_PX: f64 = 6.0;
@@ -283,7 +285,9 @@ pub(super) fn virtual_note_window(
     let first_visible = ((virtual_scroll_anchor(scroll_top) / NOTE_CARD_ROW_PX) as usize)
         .min(total_note_count.saturating_sub(1));
     let mut desired_start = first_visible.saturating_sub(NOTE_LIST_OVERSCAN);
-    let mut desired_end = desired_start.saturating_add(window_size).min(total_note_count);
+    let mut desired_end = desired_start
+        .saturating_add(window_size)
+        .min(total_note_count);
     if desired_end.saturating_sub(desired_start) < window_size {
         desired_start = desired_end.saturating_sub(window_size);
         desired_end = total_note_count;
@@ -322,11 +326,15 @@ pub(super) fn page_for_viewport(
         .saturating_add(visible_rows)
         .min(total_note_count.saturating_sub(1));
 
-    if cache.is_empty() || first_visible < cache.start_index() || first_visible >= cache.end_index() {
+    if cache.is_empty() || first_visible < cache.start_index() || first_visible >= cache.end_index()
+    {
         return Some(first_visible / NOTE_LIST_PAGE_SIZE);
     }
 
-    if first_visible < cache.start_index().saturating_add(NOTE_LIST_LOAD_AHEAD_ROWS)
+    if first_visible
+        < cache
+            .start_index()
+            .saturating_add(NOTE_LIST_LOAD_AHEAD_ROWS)
         && cache.start_page() > 0
     {
         return Some(cache.start_page() - 1);
@@ -368,11 +376,7 @@ fn nearest_loadable_page(
     cursors: &[Option<NoteListCursor>],
     requested_page: usize,
 ) -> Option<usize> {
-    if requested_page == 0
-        || cursors
-            .get(requested_page)
-            .is_some_and(Option::is_some)
-    {
+    if requested_page == 0 || cursors.get(requested_page).is_some_and(Option::is_some) {
         return Some(requested_page);
     }
     if cache.is_empty() {
@@ -507,13 +511,15 @@ pub(super) fn navigate_to_note_index(
     if target_index >= *state.note_count.peek() {
         return;
     }
-    if let Some(summary) = state.note_cache.peek().note_at_absolute(target_index).cloned() {
-        select_note(
-            editor,
-            summary.id,
-            state,
-            move |note_id| focus_and_reveal_note_card(note_id, target_index),
-        );
+    if let Some(summary) = state
+        .note_cache
+        .peek()
+        .note_at_absolute(target_index)
+        .cloned()
+    {
+        select_note(editor, summary.id, state, move |note_id| {
+            focus_and_reveal_note_card(note_id, target_index)
+        });
         return;
     }
     let requested_page = target_index / NOTE_LIST_PAGE_SIZE;
@@ -547,11 +553,8 @@ fn fallback_after_empty_replacement(
     if !request.mode.replaces_cache() || request.page_index == 0 {
         return None;
     }
-    let corrected_count = current_total_count.min(
-        request
-            .page_index
-            .saturating_mul(NOTE_LIST_PAGE_SIZE),
-    );
+    let corrected_count =
+        current_total_count.min(request.page_index.saturating_mul(NOTE_LIST_PAGE_SIZE));
     let last_row = corrected_count.saturating_sub(1);
     let last_page = last_row / NOTE_LIST_PAGE_SIZE;
     Some((
@@ -606,7 +609,6 @@ fn selection_reconciliation(
     }
 }
 
-
 #[derive(Debug)]
 enum NotePageLoadError {
     Data(DataAccessError),
@@ -632,11 +634,15 @@ impl std::error::Error for NotePageLoadError {
 }
 
 impl From<DataAccessError> for NotePageLoadError {
-    fn from(error: DataAccessError) -> Self { Self::Data(error) }
+    fn from(error: DataAccessError) -> Self {
+        Self::Data(error)
+    }
 }
 
 impl ExecutionFailure for NotePageLoadError {
-    fn from_execution_error(error: ApplicationExecutionError) -> Self { Self::Execution(error) }
+    fn from_execution_error(error: ApplicationExecutionError) -> Self {
+        Self::Execution(error)
+    }
 }
 
 pub(super) fn execute_note_page_request(
@@ -659,7 +665,8 @@ pub(super) fn execute_note_page_request(
     };
     let generation = *state.list_generation.peek();
     let Some(publication_token) = state
-        .privacy_epoch.capture_multi_note_publication(&state.services.peek().privacy(), state.list_generation)
+        .privacy_epoch
+        .capture_multi_note_publication(&state.services.peek().privacy(), state.list_generation)
     else {
         state.list_loading.set(false);
         return;
@@ -779,12 +786,9 @@ pub(super) fn execute_note_page_request(
                         .note_at_absolute(target_index)
                         .cloned()
                     {
-                        select_note(
-                            editor.clone(),
-                            summary.id,
-                            state,
-                            move |note_id| focus_and_reveal_note_card(note_id, target_index),
-                        );
+                        select_note(editor.clone(), summary.id, state, move |note_id| {
+                            focus_and_reveal_note_card(note_id, target_index)
+                        });
                     } else {
                         navigate_to_note_index(editor.clone(), target_index, state);
                     }
@@ -866,11 +870,10 @@ fn apply_page(
         }
     }
 
-    state.note_cache.write().insert_page(
-        request.page_index,
-        notes,
-        request.mode.replaces_cache(),
-    );
+    state
+        .note_cache
+        .write()
+        .insert_page(request.page_index, notes, request.mode.replaces_cache());
     state.list_loading.set(false);
 }
 
@@ -900,7 +903,9 @@ pub(super) fn select_note<F>(
                 Ok(Some(_)) => {}
                 Ok(None) => return,
                 Err(error) => {
-                    state.status.set(format!("Could not finish saving: {error}"));
+                    state
+                        .status
+                        .set(format!("Could not finish saving: {error}"));
                     return;
                 }
             }
@@ -910,20 +915,18 @@ pub(super) fn select_note<F>(
             if !state.note_selection_is_current(selection_generation) {
                 return;
             }
-            let Some(target_token) = state.capture_note_publication_token(
-                &note_id,
-                state.note_selection_generation,
-            ) else {
+            let Some(target_token) =
+                state.capture_note_publication_token(&note_id, state.note_selection_generation)
+            else {
                 tokio::time::sleep(std::time::Duration::from_millis(25)).await;
                 continue;
             };
 
             let worker = editor.clone();
             let worker_note_id = note_id.clone();
-            let result = ApplicationExecutor::read("note load", move || {
-                worker.load_note(&worker_note_id)
-            })
-            .await;
+            let result =
+                ApplicationExecutor::read("note load", move || worker.load_note(&worker_note_id))
+                    .await;
 
             if !state.note_selection_is_current(selection_generation) {
                 return;
@@ -972,10 +975,7 @@ fn focus_and_reveal_note_card(note_id: &NoteId, target_index: usize) {
     });
 }
 
-pub(super) fn update_loaded_note(
-    saved_note: &Note,
-    mut state: NotesListState,
-) -> CachedNoteUpdate {
+pub(super) fn update_loaded_note(saved_note: &Note, mut state: NotesListState) -> CachedNoteUpdate {
     let sort = *state.sort_order.read();
     state.note_cache.write().update_note(saved_note, sort)
 }
@@ -997,11 +997,9 @@ fn note_ordering_changed(previous: &NoteSummary, updated: &NoteSummary, sort: No
             previous.updated_at != updated.updated_at
         }
         NoteSort::CreatedNewest => previous.created_at != updated.created_at,
-        NoteSort::TitleAscending | NoteSort::TitleDescending => {
-            !previous
-                .display_title()
-                .eq_ignore_ascii_case(updated.display_title())
-        }
+        NoteSort::TitleAscending | NoteSort::TitleDescending => !previous
+            .display_title()
+            .eq_ignore_ascii_case(updated.display_title()),
     }
 }
 

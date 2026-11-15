@@ -72,7 +72,11 @@ fn image_format(file_name: &str, mime_type: Option<&str>) -> Option<&'static str
         _ => {}
     }
 
-    match mime_type.map(str::trim).map(str::to_ascii_lowercase).as_deref() {
+    match mime_type
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
         Some("image/png") => Some("PNG"),
         Some("image/jpeg") => Some("JPEG"),
         Some("image/gif") => Some("GIF"),
@@ -106,7 +110,10 @@ fn image_container_traits(
             orientation: None,
             has_alpha: None,
             animated: Some(matches!(
-                mime_type.map(str::trim).map(str::to_ascii_lowercase).as_deref(),
+                mime_type
+                    .map(str::trim)
+                    .map(str::to_ascii_lowercase)
+                    .as_deref(),
                 Some("image/heic-sequence") | Some("image/heif-sequence")
             )),
         },
@@ -410,10 +417,9 @@ fn read_u32(bytes: &[u8], offset: usize, little_endian: bool) -> Option<u32> {
 }
 
 fn skip_bytes(file: &mut File, bytes: u64) -> std::io::Result<()> {
-    let offset = i64::try_from(bytes)
-        .map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "image chunk is too large")
-        })?;
+    let offset = i64::try_from(bytes).map_err(|_| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, "image chunk is too large")
+    })?;
     file.seek(SeekFrom::Current(offset))?;
     Ok(())
 }

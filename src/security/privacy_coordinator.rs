@@ -494,7 +494,10 @@ impl ProtectedNoteRestoreGuard<'_> {
     /// remains invalid because privacy generation advancement is independent
     /// of this Vault reader lifetime.
     pub(crate) fn into_retained_access(self) -> VaultNoteAccess {
-        let Self { access, _transition } = self;
+        let Self {
+            access,
+            _transition,
+        } = self;
         drop(_transition);
         access
     }
@@ -557,7 +560,6 @@ impl PrivacyCoordinator {
         drop(state);
         Ok(permit)
     }
-
 
     /// Atomically acquire every privacy authority required by a plaintext
     /// operation. Admission remains held while both the derivative gate and
@@ -641,7 +643,10 @@ impl PrivacyCoordinator {
         &self,
     ) -> Result<PlaintextDerivativeCleanupGuard<'_>, &'static str> {
         let state = self.wait_for_all_admission_clear()?;
-        let derivative_transition = self.inner.plaintext_derivatives.begin_library_transition()?;
+        let derivative_transition = self
+            .inner
+            .plaintext_derivatives
+            .begin_library_transition()?;
         drop(state);
         let operation_guard = self.lock_storage()?;
         Ok(PlaintextDerivativeCleanupGuard {
@@ -720,7 +725,11 @@ impl PrivacyCoordinator {
         let derivative_transition = if transition == NotePrivacyTransition::Unlock {
             None
         } else {
-            Some(self.inner.plaintext_derivatives.begin_note_transitions(&ids)?)
+            Some(
+                self.inner
+                    .plaintext_derivatives
+                    .begin_note_transitions(&ids)?,
+            )
         };
 
         let operation_guard = self.lock_storage()?;
@@ -737,7 +746,10 @@ impl PrivacyCoordinator {
         transition: LibraryPrivacyTransition,
     ) -> Result<LibraryPrivacyMutationGuard<'_>, &'static str> {
         let admission = self.admit_library(transition)?;
-        let derivative_transition = self.inner.plaintext_derivatives.begin_library_transition()?;
+        let derivative_transition = self
+            .inner
+            .plaintext_derivatives
+            .begin_library_transition()?;
         let (_removed, vault_transition) = self.inner.vault_runtime.begin_library_revocation()?;
         let operation_guard = self.lock_storage()?;
         Ok(LibraryPrivacyMutationGuard {
@@ -841,7 +853,11 @@ impl PrivacyCoordinator {
         if state.library_transition.is_some() || state.note_transitions.contains_key(note_id) {
             return Ok(None);
         }
-        if !self.inner.vault_runtime.read_permit_is_publishable(access.permit())? {
+        if !self
+            .inner
+            .vault_runtime
+            .read_permit_is_publishable(access.permit())?
+        {
             return Ok(None);
         }
 
@@ -850,7 +866,11 @@ impl PrivacyCoordinator {
         // first wins, and the losing mutation never waits behind the reader it
         // would itself need to release.
         let operation_guard = self.lock_storage()?;
-        if !self.inner.vault_runtime.read_permit_is_publishable(access.permit())? {
+        if !self
+            .inner
+            .vault_runtime
+            .read_permit_is_publishable(access.permit())?
+        {
             drop(operation_guard);
             return Ok(None);
         }
@@ -1067,7 +1087,6 @@ impl PrivacyCoordinator {
         self.inner.vault_runtime.active_permit_count(note_id)
     }
 
-
     fn wait_for_all_admission_clear(
         &self,
     ) -> Result<MutexGuard<'_, PrivacyAdmissionState>, &'static str> {
@@ -1164,7 +1183,9 @@ impl PrivacyCoordinator {
             .lock()
             .map_err(|_| "privacy coordinator admission lock is poisoned")?;
         if state.library_transition.is_some()
-            || note_ids.iter().any(|note_id| state.note_transitions.contains_key(note_id))
+            || note_ids
+                .iter()
+                .any(|note_id| state.note_transitions.contains_key(note_id))
         {
             return Err("privacy transition is already in progress");
         }
@@ -1227,12 +1248,14 @@ impl PrivacyCoordinator {
         state.library_transition = Some(transition);
         // Whole-library replacement invalidates every publication scope and
         // drains all outstanding note-local and multi-note handoffs.
-        state.library_publication_generation =
-            state.library_publication_generation.wrapping_add(1);
+        state.library_publication_generation = state.library_publication_generation.wrapping_add(1);
         state.multi_note_publication_generation =
             state.multi_note_publication_generation.wrapping_add(1);
         while state.active_multi_note_publications != 0
-            || state.active_note_publications.values().any(|count| *count != 0)
+            || state
+                .active_note_publications
+                .values()
+                .any(|count| *count != 0)
         {
             state = self
                 .inner
@@ -1311,7 +1334,9 @@ mod tests {
         label: &str,
     ) {
         let deadline = std::time::Instant::now() + Duration::from_secs(15);
-        while coordinator.multi_note_publication_generation() == before && std::time::Instant::now() < deadline {
+        while coordinator.multi_note_publication_generation() == before
+            && std::time::Instant::now() < deadline
+        {
             thread::sleep(Duration::from_millis(1));
         }
         assert_ne!(
@@ -1653,7 +1678,10 @@ mod tests {
         let operation = coordinator
             .acquire_plaintext_operation(&note_id)
             .expect("compound operation authorization");
-        assert!(operation.access().is_some(), "protected operation retains Vault access");
+        assert!(
+            operation.access().is_some(),
+            "protected operation retains Vault access"
+        );
         let before = coordinator.note_publication_generation(&note_id);
 
         let worker = coordinator.clone();
@@ -1745,7 +1773,10 @@ mod tests {
         let operation = coordinator
             .acquire_plaintext_operation(&note_id)
             .expect("ordinary compound authorization");
-        assert!(operation.access().is_none(), "ordinary note has no Vault reader");
+        assert!(
+            operation.access().is_none(),
+            "ordinary note has no Vault reader"
+        );
         let before = coordinator.note_publication_generation(&note_id);
 
         let worker = coordinator.clone();
@@ -1765,7 +1796,10 @@ mod tests {
             .expect("ordinary compound mutation")
             .expect("pre-admission ordinary operation remains authorized to finish");
         drop(mutation);
-        assert!(done_rx.try_recv().is_err(), "Protect still waits for derivative lifetime");
+        assert!(
+            done_rx.try_recv().is_err(),
+            "Protect still waits for derivative lifetime"
+        );
         drop(operation);
         done_rx
             .recv_timeout(Duration::from_secs(15))
@@ -1802,19 +1836,29 @@ mod tests {
         // then blocked only on storage while still holding admission. A library
         // transition must not be able to admit between reader A and reader B.
         let deadline = std::time::Instant::now() + Duration::from_secs(1);
-        while (coordinator.active_vault_permit_count(&first).expect("first permit count") != 1
-            || coordinator.active_vault_permit_count(&second).expect("second permit count") != 1)
+        while (coordinator
+            .active_vault_permit_count(&first)
+            .expect("first permit count")
+            != 1
+            || coordinator
+                .active_vault_permit_count(&second)
+                .expect("second permit count")
+                != 1)
             && std::time::Instant::now() < deadline
         {
             thread::yield_now();
         }
         assert_eq!(
-            coordinator.active_vault_permit_count(&first).expect("first permit count"),
+            coordinator
+                .active_vault_permit_count(&first)
+                .expect("first permit count"),
             1,
             "first reader must be acquired before testing transition admission",
         );
         assert_eq!(
-            coordinator.active_vault_permit_count(&second).expect("second permit count"),
+            coordinator
+                .active_vault_permit_count(&second)
+                .expect("second permit count"),
             1,
             "second reader must be acquired in the same admission critical section",
         );
@@ -1958,7 +2002,10 @@ mod tests {
                 .is_none(),
             "retained mutation must fail closed once its Vault permit has been revoked"
         );
-        assert!(done_rx.try_recv().is_err(), "Lock still waits for retained reader");
+        assert!(
+            done_rx.try_recv().is_err(),
+            "Lock still waits for retained reader"
+        );
         drop(access);
         done_rx
             .recv_timeout(Duration::from_secs(15))
@@ -2106,7 +2153,9 @@ mod tests {
         started_rx.recv().expect("started");
         assert!(ready_rx.recv_timeout(Duration::from_millis(50)).is_err());
         drop(permit);
-        ready_rx.recv_timeout(Duration::from_secs(2)).expect("protect ready");
+        ready_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("protect ready");
 
         let blocked = coordinator.clone();
         let blocked_note = note_id.clone();
@@ -2117,7 +2166,11 @@ mod tests {
                 .expect("post-transition producer");
             producer_ready_tx.send(()).expect("producer ready");
         });
-        assert!(producer_ready_rx.recv_timeout(Duration::from_millis(50)).is_err());
+        assert!(
+            producer_ready_rx
+                .recv_timeout(Duration::from_millis(50))
+                .is_err()
+        );
         release_tx.send(()).expect("release transition");
         producer_ready_rx
             .recv_timeout(Duration::from_secs(2))
@@ -2225,7 +2278,9 @@ mod tests {
 
         wait_for_note_generation_advance(&coordinator, &note_b, before, "Lock B");
         assert!(
-            !authorization_b.is_current().expect("B authorization invalidated"),
+            !authorization_b
+                .is_current()
+                .expect("B authorization invalidated"),
             "Lock B must invalidate B's pre-admission authorization before draining",
         );
         assert!(
@@ -2365,7 +2420,11 @@ mod tests {
             .expect("fresh aggregate capture")
             .expect("aggregate publishable after Restore");
         assert!(fresh_b.is_current().expect("fresh B current"));
-        assert!(fresh_aggregate.is_current().expect("fresh aggregate current"));
+        assert!(
+            fresh_aggregate
+                .is_current()
+                .expect("fresh aggregate current")
+        );
         assert!(
             !authorization_b.is_current().expect("old B stays stale"),
             "fresh post-Restore authorization must never revive pre-Restore B work",

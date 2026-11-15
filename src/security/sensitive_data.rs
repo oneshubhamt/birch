@@ -61,9 +61,9 @@ impl ProtectedScrubStep {
             ],
             Self::PdfAnnotations => &["note attachment pdf_annotation_pages"],
             Self::SyncQueue => &["note/attachment sync_queue payloads"],
-            Self::PersistedFilterTags => &[
-                "persisted note-list filter tags containing protected-only labels",
-            ],
+            Self::PersistedFilterTags => {
+                &["persisted note-list filter tags containing protected-only labels"]
+            }
         }
     }
 }
@@ -101,13 +101,8 @@ impl ProtectedPublicPersistenceSpec {
         "updated_at",
     ];
 
-    pub(crate) const NOTE_SANITIZED_COLUMNS: &'static [&'static str] = &[
-        "title",
-        "title_style",
-        "body",
-        "editor_state",
-        "plain_text",
-    ];
+    pub(crate) const NOTE_SANITIZED_COLUMNS: &'static [&'static str] =
+        &["title", "title_style", "body", "editor_state", "plain_text"];
 
     #[cfg(test)]
     pub(crate) const ATTACHMENT_COLUMNS: &'static [&'static str] = &[
@@ -541,7 +536,8 @@ impl MetadataState {
             if annotation.attachment_id.is_empty()
                 || annotation.page_index < 0
                 || serde_json::from_str::<serde_json::Value>(&annotation.annotations_json).is_err()
-                || !annotation_keys.insert((annotation.attachment_id.as_str(), annotation.page_index))
+                || !annotation_keys
+                    .insert((annotation.attachment_id.as_str(), annotation.page_index))
             {
                 return Err("metadata contains an invalid PDF annotation");
             }
@@ -768,7 +764,9 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
-    use crate::domain::{NoteDocument, NoteProtectionState, RevisionAttachment, RevisionNoteSnapshot};
+    use crate::domain::{
+        NoteDocument, NoteProtectionState, RevisionAttachment, RevisionNoteSnapshot,
+    };
 
     fn note() -> Note {
         Note {
@@ -779,7 +777,11 @@ mod tests {
             title_style: NoteTitleStyle::default(),
             document: Arc::new(NoteDocument::new(
                 "derived markdown".to_string(),
-                Arc::new(crate::editor_document::EMPTY_EDITOR_STATE.trim().to_string()),
+                Arc::new(
+                    crate::editor_document::EMPTY_EDITOR_STATE
+                        .trim()
+                        .to_string(),
+                ),
                 "derived plain text".to_string(),
             )),
             tags: vec!["private-tag".to_string()],
@@ -842,15 +844,9 @@ mod tests {
             note: RevisionNoteSnapshot::from_note(&note),
             attachments: Vec::<RevisionAttachment>::new(),
         };
-        let revision = RevisionObject::new(
-            note.id.clone(),
-            "rev-1".to_string(),
-            1,
-            None,
-            30,
-            snapshot,
-        )
-        .unwrap();
+        let revision =
+            RevisionObject::new(note.id.clone(), "rev-1".to_string(), 1, None, 30, snapshot)
+                .unwrap();
         revision.validate_for(&note.id).unwrap();
         let mut tampered = revision.clone();
         tampered.snapshot.note.title = "tampered".to_string();
@@ -862,8 +858,13 @@ mod tests {
         for public in ProtectedPublicPersistenceSpec::NOTE_COLUMNS {
             assert!(!ProtectedPublicPersistenceSpec::NOTE_SANITIZED_COLUMNS.contains(public));
         }
-        assert!(ProtectedPublicPersistenceSpec::SENSITIVE_RELATIONAL_SURFACES.contains(&"notes_fts"));
-        assert!(ProtectedPublicPersistenceSpec::DERIVED_SENSITIVE_FIELDS.contains(&"NoteDocument.plain_text"));
+        assert!(
+            ProtectedPublicPersistenceSpec::SENSITIVE_RELATIONAL_SURFACES.contains(&"notes_fts")
+        );
+        assert!(
+            ProtectedPublicPersistenceSpec::DERIVED_SENSITIVE_FIELDS
+                .contains(&"NoteDocument.plain_text")
+        );
 
         // Keep every declarative privacy surface exercised by the test target.
         // These lists intentionally remain out of production code unless they

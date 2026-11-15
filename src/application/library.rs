@@ -20,7 +20,9 @@ impl LibraryService {
     }
 
     pub(crate) fn get_note(&self, note_id: &NoteId) -> DataResult<Option<Note>> {
-        self.storage.get_note(note_id).map_err(DataAccessError::from)
+        self.storage
+            .get_note(note_id)
+            .map_err(DataAccessError::from)
     }
 
     pub(crate) fn list_notes_page(

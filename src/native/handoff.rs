@@ -31,13 +31,7 @@ pub(crate) fn open_managed_file_for_note(
     note_id: &str,
 ) -> super::NativeResult<()> {
     let source_key = note_handoff_source_key(note_id);
-    open_managed_file_with_source_key(
-        handoff_root,
-        path,
-        file_name,
-        mime_type,
-        Some(&source_key),
-    )
+    open_managed_file_with_source_key(handoff_root, path, file_name, mime_type, Some(&source_key))
 }
 
 fn open_managed_file_with_source_key(
@@ -54,7 +48,8 @@ fn open_managed_file_with_source_key(
         // The mobile shell can expose the canonical blob read-only through a native
         // content URI/share mechanism, so do not duplicate multi-gigabyte files here.
         let path = existing_path(path)?;
-        return crate::platform::open_external_file(&path, Some(file_name), mime_type).map_err(Into::into);
+        return crate::platform::open_external_file(&path, Some(file_name), mime_type)
+            .map_err(Into::into);
     }
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -80,7 +75,8 @@ pub fn reveal_managed_file(
         let _ = handoff_root;
         // Sharing likewise delegates the canonical blob to the sandbox-aware shell.
         let path = existing_path(path)?;
-        return crate::platform::reveal_external_file(&path, Some(file_name), mime_type).map_err(Into::into);
+        return crate::platform::reveal_external_file(&path, Some(file_name), mime_type)
+            .map_err(Into::into);
     }
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -130,16 +126,24 @@ pub(crate) fn discard_handoffs_for_source_keys(
     let process_directories = match fs::read_dir(handoff_root) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
-        Err(error) => return super::native_error(format!("Could not inspect attachment handoffs: {error}")),
+        Err(error) => {
+            return super::native_error(format!("Could not inspect attachment handoffs: {error}"));
+        }
     };
     let mut removed = 0;
     for process in process_directories {
         let process = process.map_err(|error| {
             super::NativeError::operation(format!("Could not inspect attachment handoffs: {error}"))
         })?;
-        if !process.file_type().map_err(|error| {
-            super::NativeError::operation(format!("Could not inspect attachment handoffs: {error}"))
-        })?.is_dir() {
+        if !process
+            .file_type()
+            .map_err(|error| {
+                super::NativeError::operation(format!(
+                    "Could not inspect attachment handoffs: {error}"
+                ))
+            })?
+            .is_dir()
+        {
             continue;
         }
         for source_key in source_keys {
@@ -168,9 +172,7 @@ pub(crate) fn discard_all_handoffs(handoff_root: &Path) -> super::NativeResult<u
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
         Err(error) => {
-            return super::native_error(format!(
-                "Could not inspect attachment handoffs: {error}"
-            ));
+            return super::native_error(format!("Could not inspect attachment handoffs: {error}"));
         }
     };
     let mut removed = 0;
@@ -178,9 +180,15 @@ pub(crate) fn discard_all_handoffs(handoff_root: &Path) -> super::NativeResult<u
         let session = session.map_err(|error| {
             super::NativeError::operation(format!("Could not inspect attachment handoffs: {error}"))
         })?;
-        if !session.file_type().map_err(|error| {
-            super::NativeError::operation(format!("Could not inspect attachment handoffs: {error}"))
-        })?.is_dir() {
+        if !session
+            .file_type()
+            .map_err(|error| {
+                super::NativeError::operation(format!(
+                    "Could not inspect attachment handoffs: {error}"
+                ))
+            })?
+            .is_dir()
+        {
             continue;
         }
         let session_path = session.path();
@@ -196,7 +204,9 @@ pub(crate) fn discard_all_handoffs(handoff_root: &Path) -> super::NativeResult<u
         };
         for payload in payloads {
             let payload = payload.map_err(|error| {
-                super::NativeError::operation(format!("Could not inspect attachment handoff session: {error}"))
+                super::NativeError::operation(format!(
+                    "Could not inspect attachment handoff session: {error}"
+                ))
             })?;
             if super::temp_owner::is_owner_artifact_name(&payload.file_name()) {
                 has_owner_artifact = true;
@@ -204,7 +214,9 @@ pub(crate) fn discard_all_handoffs(handoff_root: &Path) -> super::NativeResult<u
             }
             let path = payload.path();
             let file_type = payload.file_type().map_err(|error| {
-                super::NativeError::operation(format!("Could not inspect attachment handoff payload: {error}"))
+                super::NativeError::operation(format!(
+                    "Could not inspect attachment handoff payload: {error}"
+                ))
             })?;
             let result = if file_type.is_dir() {
                 super::privacy::remove_tree(&path)
@@ -252,22 +264,20 @@ fn materialize_handoff_path(
     fs::create_dir_all(&directory)
         .map_err(|error| format!("Could not prepare attachment handoff: {error}"))?;
     let destination = directory.join(file_name);
-    if crate::security::managed_path_is_present(&destination)
-        .map_err(|error| super::NativeError::operation(format!(
+    if crate::security::managed_path_is_present(&destination).map_err(|error| {
+        super::NativeError::operation(format!(
             "Could not inspect attachment handoff destination: {error}"
-        )))?
-    {
+        ))
+    })? {
         let mut prior = crate::security::OwnedPlaintext::process_private(
             process_owner.clone(),
             format!("handoff-refresh-{source_key}"),
             destination.clone(),
         )
         .map_err(super::NativeError::operation)?;
-        prior
-            .remove_file()
-            .map_err(|error| super::NativeError::operation(format!(
-                "Could not refresh attachment handoff: {error}"
-            )))?;
+        prior.remove_file().map_err(|error| {
+            super::NativeError::operation(format!("Could not refresh attachment handoff: {error}"))
+        })?;
     }
     let mut owned = crate::security::OwnedPlaintext::process_private(
         process_owner,
@@ -275,11 +285,9 @@ fn materialize_handoff_path(
         destination,
     )
     .map_err(super::NativeError::operation)?;
-    owned
-        .copy_from(&source)
-        .map_err(|error| super::NativeError::operation(format!(
-            "Could not prepare attachment handoff: {error}"
-        )))?;
+    owned.copy_from(&source).map_err(|error| {
+        super::NativeError::operation(format!("Could not prepare attachment handoff: {error}"))
+    })?;
     owned
         .into_transferred_path()
         .map_err(super::NativeError::operation)
@@ -323,9 +331,7 @@ fn portable_handoff_file_name(file_name: &str) -> String {
             }
         })
         .collect::<String>();
-    let sanitized = sanitized
-        .trim()
-        .trim_end_matches([' ', '.']);
+    let sanitized = sanitized.trim().trim_end_matches([' ', '.']);
     let sanitized = if sanitized.is_empty() || matches!(sanitized, "." | "..") {
         "attachment"
     } else {
@@ -344,11 +350,34 @@ fn portable_handoff_file_name(file_name: &str) -> String {
         .unwrap_or("attachment");
     let reserved = matches!(
         stem.to_ascii_uppercase().as_str(),
-        "CON" | "PRN" | "AUX" | "NUL"
-            | "COM1" | "COM2" | "COM3" | "COM4" | "COM5" | "COM6" | "COM7" | "COM8" | "COM9"
-            | "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5" | "LPT6" | "LPT7" | "LPT8" | "LPT9"
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
     );
-    let stem = if reserved { format!("_{stem}") } else { stem.to_string() };
+    let stem = if reserved {
+        format!("_{stem}")
+    } else {
+        stem.to_string()
+    };
 
     let extension_chars = extension.map_or(0, |value| value.chars().count() + 1);
     let stem_limit = MAX_CHARS.saturating_sub(extension_chars).max(1);
@@ -380,7 +409,10 @@ mod tests {
 
         assert_eq!(discard_all_handoffs(&root).expect("scrub handoffs"), 1);
         assert!(!payload.exists());
-        assert!(owner.root().is_dir(), "live owner directory must survive E3 scrub");
+        assert!(
+            owner.root().is_dir(),
+            "live owner directory must survive E3 scrub"
+        );
         assert!(
             fs::read_dir(owner.root())
                 .expect("owner directory")

@@ -7,22 +7,17 @@ use std::{
 };
 
 use crate::{
-    attachment_media::{
-        AttachmentMediaKind, kind as attachment_kind, resolved_mime_type,
-    },
+    attachment_media::{AttachmentMediaKind, kind as attachment_kind, resolved_mime_type},
     attachment_paths::{
         canonical_blob_relative_path, image_rendition_cache_relative_directory, is_valid_sha256,
     },
-    image_metadata::probe_image_attachment,
     domain::{Attachment, AttachmentAudit, AttachmentRecoveryReport, NoteId},
+    image_metadata::probe_image_attachment,
 };
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use sha2::{Digest, Sha256};
 
-use super::{
-    AttachmentOperation, Storage, StorageError, StorageResult, new_id,
-    unix_timestamp,
-};
+use super::{AttachmentOperation, Storage, StorageError, StorageResult, new_id, unix_timestamp};
 
 pub(super) const COPY_BUFFER_SIZE: usize = 1024 * 1024;
 pub(super) const ORPHAN_QUARANTINE_RETENTION_SECONDS: u64 = 7 * 24 * 60 * 60;
@@ -134,17 +129,17 @@ struct AttachmentBlobReference {
 impl AttachmentBlobReference {
     fn description(&self) -> String {
         if self.is_protected {
-            format!("protected blob {} for note {}", self.record_id, self.owner_id)
+            format!(
+                "protected blob {} for note {}",
+                self.record_id, self.owner_id
+            )
         } else if self.is_revision {
             format!(
                 "revision attachment {} in revision {}",
                 self.record_id, self.owner_id
             )
         } else {
-            format!(
-                "attachment {} for note {}",
-                self.record_id, self.owner_id
-            )
+            format!("attachment {} for note {}", self.record_id, self.owner_id)
         }
     }
 }
@@ -483,10 +478,9 @@ impl Storage {
         let (sha256, byte_size) = match staged_result {
             Ok(result) => result,
             Err(error) => {
-                return Err(self.cleanup_owned_plaintext_after_error(
-                    &mut owned_plaintext,
-                    error.into(),
-                ));
+                return Err(
+                    self.cleanup_owned_plaintext_after_error(&mut owned_plaintext, error.into())
+                );
             }
         };
         let (source_attachment_id, image_edit_recipe) = match origin {
@@ -528,9 +522,12 @@ impl Storage {
         if let Some(access) = authorization.access() {
             let attachments = self
                 .protected_attachments_with_access(note_id, access)?
-                .ok_or_else(|| StorageError::Integrity(
-                    "Vault authorization exists for a note without a protected graph".to_string(),
-                ))?;
+                .ok_or_else(|| {
+                    StorageError::Integrity(
+                        "Vault authorization exists for a note without a protected graph"
+                            .to_string(),
+                    )
+                })?;
             let mut current = source_attachment_id.to_string();
             let mut visited = HashSet::new();
             for _ in 0..32 {
@@ -542,9 +539,11 @@ impl Storage {
                 let source = attachments
                     .iter()
                     .find(|attachment| attachment.id == current)
-                    .ok_or_else(|| StorageError::Validation(
-                        "image edit source attachment no longer exists".to_string(),
-                    ))?;
+                    .ok_or_else(|| {
+                        StorageError::Validation(
+                            "image edit source attachment no longer exists".to_string(),
+                        )
+                    })?;
                 if attachment_kind(&source.file_name, source.mime_type.as_deref())
                     != AttachmentMediaKind::Image
                 {
@@ -576,12 +575,14 @@ impl Storage {
                     "SELECT note_id, file_name, mime_type, source_attachment_id
                      FROM attachments WHERE id = ?1",
                     [&current],
-                    |row| Ok((
-                        row.get::<_, NoteId>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, Option<String>>(2)?,
-                        row.get::<_, Option<String>>(3)?,
-                    )),
+                    |row| {
+                        Ok((
+                            row.get::<_, NoteId>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, Option<String>>(2)?,
+                            row.get::<_, Option<String>>(3)?,
+                        ))
+                    },
                 )
                 .optional()?;
             let Some((source_note_id, file_name, mime_type, parent_source)) = row else {
@@ -659,7 +660,10 @@ impl Storage {
 
         let now = unix_timestamp();
         let attachment = Attachment {
-            id: staged.attachment_id.clone().unwrap_or_else(|| new_id("att")),
+            id: staged
+                .attachment_id
+                .clone()
+                .unwrap_or_else(|| new_id("att")),
             note_id: note_id.clone(),
             file_name: staged.file_name,
             mime_type: staged.mime_type,
@@ -819,7 +823,8 @@ impl Storage {
                 .optional()?;
             if source_note_id.as_ref() != Some(&attachment.note_id) {
                 return Err(StorageError::Validation(
-                    "image edit source attachment is missing or belongs to another note".to_string(),
+                    "image edit source attachment is missing or belongs to another note"
+                        .to_string(),
                 ));
             }
             if attachment.image_edit_recipe.is_none() {
@@ -875,12 +880,7 @@ impl Storage {
         let mut connection = self.connection()?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         self.upsert_attachment(&transaction, attachment)?;
-        self.enqueue_sync_upsert(
-            &transaction,
-            "attachment",
-            &attachment.id,
-            attachment,
-        )?;
+        self.enqueue_sync_upsert(&transaction, "attachment", &attachment.id, attachment)?;
         transaction.execute(
             "DELETE FROM attachment_operations WHERE id = ?1",
             [&operation.id],
@@ -941,12 +941,8 @@ impl Storage {
                 "source image is retained by an edited rendition".to_string(),
             ));
         }
-        let operation = self.insert_attachment_operation(
-            &transaction,
-            "remove",
-            &attachment,
-            None,
-        )?;
+        let operation =
+            self.insert_attachment_operation(&transaction, "remove", &attachment, None)?;
         self.enqueue_sync_delete(&transaction, "attachment", attachment_id)?;
         transaction.execute("DELETE FROM attachments WHERE id = ?1", [attachment_id])?;
         super::plaintext_staging::ensure_unreferenced_canonical_blob_plaintext_stage_in_transaction(
@@ -1110,11 +1106,12 @@ impl Storage {
                 )));
             }
         }
-        let mut owned_staging = crate::security::OwnedPlaintext::durable_attachment_operation_existing(
-            staging_path.clone(),
-            operation.id.clone(),
-            operation.note_id.clone(),
-        );
+        let mut owned_staging =
+            crate::security::OwnedPlaintext::durable_attachment_operation_existing(
+                staging_path.clone(),
+                operation.id.clone(),
+                operation.note_id.clone(),
+            );
         owned_staging.rename_durable_attachment_operation(final_path.clone())?;
         sync_parent_directory(&final_path)?;
         self.mark_attachment_blob_verified(&attachment.sha256, expected_size, &final_path);
@@ -1136,8 +1133,8 @@ impl Storage {
                 continue;
             }
             self.discard_staged_attachment(&operation)?;
-            let attachment: Attachment = serde_json::from_str(&operation.attachment_json)
-                .map_err(|error| {
+            let attachment: Attachment =
+                serde_json::from_str(&operation.attachment_json).map_err(|error| {
                     StorageError::Integrity(format!(
                         "attachment operation {} has invalid ownership metadata: {error}",
                         operation.id
@@ -1242,9 +1239,7 @@ impl Storage {
         validate_staging_relative_path(relative_path)?;
         Ok(self.attachments_directory.join(relative_path))
     }
-    pub(super) fn reconcile_attachment_storage(
-        &self,
-    ) -> StorageResult<AttachmentRecoveryReport> {
+    pub(super) fn reconcile_attachment_storage(&self) -> StorageResult<AttachmentRecoveryReport> {
         // Recovery can delete attachment rows, canonical blobs, quarantine
         // artifacts, and persistent derivatives. Freeze all derivative
         // producers before taking storage mutation authority so a worker that
@@ -1373,12 +1368,11 @@ impl Storage {
         for reference in rows {
             let reference = reference?;
             let description = reference.description();
-            let (canonical_path, normalized_sha256, byte_size) =
-                validate_attachment_blob_identity(
-                    &description,
-                    &reference.sha256,
-                    reference.byte_size,
-                )?;
+            let (canonical_path, normalized_sha256, byte_size) = validate_attachment_blob_identity(
+                &description,
+                &reference.sha256,
+                reference.byte_size,
+            )?;
             if let Some(existing) = current_blob.as_ref()
                 && existing.sha256 == normalized_sha256
             {
@@ -1554,9 +1548,7 @@ impl Storage {
                 .map_err(|_| StorageError::Integrity("invalid incoming path".to_string()))?
                 .to_string_lossy()
                 .replace('\\', "/");
-            if !tracked.contains(&relative)
-                && crate::native::privacy::remove_file(&entry.path())?
-            {
+            if !tracked.contains(&relative) && crate::native::privacy::remove_file(&entry.path())? {
                 removed += 1;
             }
         }
@@ -1582,8 +1574,8 @@ impl Storage {
             if operation.operation != "add" {
                 continue;
             }
-            let attachment: Attachment = serde_json::from_str(&operation.attachment_json)
-                .map_err(|error| {
+            let attachment: Attachment =
+                serde_json::from_str(&operation.attachment_json).map_err(|error| {
                     StorageError::Integrity(format!(
                         "pending attachment Add ownership record is corrupt: {error}"
                     ))
@@ -1650,7 +1642,10 @@ impl Storage {
 
         let relative_path = blob_relative_path(sha256)?;
         let path = self.attachments_directory.join(&relative_path);
-        if self.portability_blob_plaintext_stage_id(&relative_path)?.is_some() {
+        if self
+            .portability_blob_plaintext_stage_id(&relative_path)?
+            .is_some()
+        {
             let mut owned = self.require_canonical_blob_owned_plaintext(&relative_path)?;
             self.discard_owned_plaintext(&mut owned)?;
         } else {
@@ -1670,9 +1665,10 @@ impl Storage {
 
     pub(super) fn discard_image_rendition_cache_strict(&self, sha256: &str) -> StorageResult<()> {
         validate_sha256(sha256)?;
-        let relative_directory = image_rendition_cache_relative_directory(sha256).ok_or_else(|| {
-            StorageError::Validation("invalid image rendition cache identity".to_string())
-        })?;
+        let relative_directory =
+            image_rendition_cache_relative_directory(sha256).ok_or_else(|| {
+                StorageError::Validation("invalid image rendition cache identity".to_string())
+            })?;
         let cache_root = crate::library_paths::image_rendition_directory(&self.data_directory);
         let owner = crate::native::rendition::persistent_rendition_owner(&cache_root)?;
         owner
@@ -1682,13 +1678,17 @@ impl Storage {
     pub(super) fn move_blob_to_quarantine(&self, source: &Path) -> StorageResult<PathBuf> {
         let source_relative = source
             .strip_prefix(&self.attachments_directory)
-            .map_err(|_| StorageError::Integrity("attachment blob escaped library ownership".to_string()))?
+            .map_err(|_| {
+                StorageError::Integrity("attachment blob escaped library ownership".to_string())
+            })?
             .to_string_lossy()
             .replace('\\', "/");
         let file_name = source
             .file_name()
             .and_then(|value| value.to_str())
-            .ok_or_else(|| StorageError::Integrity("attachment blob has no canonical identity".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("attachment blob has no canonical identity".to_string())
+            })?;
         validate_sha256(file_name)?;
         if blob_relative_path(file_name)? != source_relative {
             return Err(StorageError::Integrity(
@@ -1803,8 +1803,8 @@ impl Storage {
             if operation.operation != "add" {
                 continue;
             }
-            let attachment: Attachment = serde_json::from_str(&operation.attachment_json)
-                .map_err(|error| {
+            let attachment: Attachment =
+                serde_json::from_str(&operation.attachment_json).map_err(|error| {
                     StorageError::Integrity(format!(
                         "pending attachment Add ownership record is corrupt: {error}"
                     ))
@@ -1905,9 +1905,11 @@ impl Storage {
                 let relative = entry
                     .path()
                     .strip_prefix(&self.attachments_directory)
-                    .map_err(|_| StorageError::Integrity(
-                        "quarantined attachment escaped library ownership".to_string(),
-                    ))?
+                    .map_err(|_| {
+                        StorageError::Integrity(
+                            "quarantined attachment escaped library ownership".to_string(),
+                        )
+                    })?
                     .to_string_lossy()
                     .replace('\\', "/");
                 let mut owned = self.require_orphan_blob_owned_plaintext(&relative)?;
@@ -1968,9 +1970,11 @@ impl Storage {
                 let relative = entry
                     .path()
                     .strip_prefix(&self.attachments_directory)
-                    .map_err(|_| StorageError::Integrity(
-                        "quarantined attachment escaped library ownership".to_string(),
-                    ))?
+                    .map_err(|_| {
+                        StorageError::Integrity(
+                            "quarantined attachment escaped library ownership".to_string(),
+                        )
+                    })?
                     .to_string_lossy()
                     .replace('\\', "/");
                 let mut owned = self.require_orphan_blob_owned_plaintext(&relative)?;
@@ -2087,9 +2091,8 @@ pub(super) fn validate_attachment_blob_identity(
             "{description} has invalid SHA-256 value {sha256}"
         )));
     }
-    let byte_size = u64::try_from(byte_size).map_err(|_| {
-        StorageError::Integrity(format!("{description} has a negative byte size"))
-    })?;
+    let byte_size = u64::try_from(byte_size)
+        .map_err(|_| StorageError::Integrity(format!("{description} has a negative byte size")))?;
     let canonical_path = canonical_blob_relative_path(sha256)
         .expect("validated SHA-256 must have a canonical attachment path");
     Ok((canonical_path, sha256.to_string(), byte_size))
@@ -2205,8 +2208,6 @@ pub(super) fn sync_parent_directory(path: &Path) -> StorageResult<()> {
     Ok(())
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use std::{fs, path::PathBuf};
@@ -2271,7 +2272,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("owner state");
-        assert_eq!(owner_exists, 0, "ownership may retire only after plaintext deletion");
+        assert_eq!(
+            owner_exists, 0,
+            "ownership may retire only after plaintext deletion"
+        );
         cleanup(storage, root);
     }
 
@@ -2309,7 +2313,8 @@ mod tests {
             canonical_path.exists(),
             "pending Add ownership must prevent canonical blob quarantine/deletion"
         );
-        let canonical_relative = blob_relative_path(&attachment.sha256).expect("canonical relative");
+        let canonical_relative =
+            blob_relative_path(&attachment.sha256).expect("canonical relative");
         let generic_owner_exists: i64 = storage
             .connection()
             .expect("owner verification")
@@ -2361,13 +2366,18 @@ mod tests {
                 [&operation.id],
             )
             .expect("corrupt pending Add owner");
-        transaction.commit().expect("commit corrupt ownership record");
+        transaction
+            .commit()
+            .expect("commit corrupt ownership record");
 
         assert!(
             storage.remove_attachment(&attachment.id).is_err(),
             "uncertain pending Add ownership must fail closed before the last reference is removed"
         );
-        assert!(canonical_path.exists(), "canonical plaintext must remain in place");
+        assert!(
+            canonical_path.exists(),
+            "canonical plaintext must remain in place"
+        );
         assert!(
             storage
                 .list_attachments(&source_note.id)
@@ -2386,8 +2396,12 @@ mod tests {
         let note = storage.create_note(None).expect("create note");
         let source = root.join("unowned-canonical.txt");
         fs::write(&source, b"canonical plaintext must not be adopted late").expect("write source");
-        let attachment = storage.add_attachment(&note.id, &source).expect("add attachment");
-        let canonical = storage.attachment_file_path(&attachment).expect("canonical path");
+        let attachment = storage
+            .add_attachment(&note.id, &source)
+            .expect("add attachment");
+        let canonical = storage
+            .attachment_file_path(&attachment)
+            .expect("canonical path");
 
         storage
             .connection()
@@ -2396,10 +2410,15 @@ mod tests {
             .expect("simulate legacy unowned canonical residue");
 
         assert!(
-            storage.quarantine_blob_if_unreferenced(&attachment.sha256).is_err(),
+            storage
+                .quarantine_blob_if_unreferenced(&attachment.sha256)
+                .is_err(),
             "steady-state quarantine must not manufacture ownership after plaintext exists"
         );
-        assert!(canonical.exists(), "fail-closed quarantine must preserve the unowned path");
+        assert!(
+            canonical.exists(),
+            "fail-closed quarantine must preserve the unowned path"
+        );
         cleanup(storage, root);
     }
 
@@ -2409,8 +2428,12 @@ mod tests {
         let note = storage.create_note(None).expect("create note");
         let source = root.join("unowned-canonical-startup.txt");
         fs::write(&source, b"unowned canonical startup residue").expect("write source");
-        let attachment = storage.add_attachment(&note.id, &source).expect("add attachment");
-        let canonical = storage.attachment_file_path(&attachment).expect("canonical path");
+        let attachment = storage
+            .add_attachment(&note.id, &source)
+            .expect("add attachment");
+        let canonical = storage
+            .attachment_file_path(&attachment)
+            .expect("canonical path");
         storage
             .connection()
             .expect("invariant fixture connection")
@@ -2423,7 +2446,10 @@ mod tests {
                 .is_err(),
             "startup must reject canonical plaintext that has neither a database owner nor a prior cleanup owner"
         );
-        assert!(canonical.exists(), "verification must preserve the unowned evidence");
+        assert!(
+            canonical.exists(),
+            "verification must preserve the unowned evidence"
+        );
         assert!(
             storage
                 .require_canonical_blob_owned_plaintext(
@@ -2444,7 +2470,9 @@ mod tests {
         let note = storage.create_note(None).expect("create note");
         let source = root.join("operation-source.txt");
         fs::write(&source, b"canonical attachment").expect("write source");
-        let mut pending = storage.add_attachment(&note.id, &source).expect("add attachment");
+        let mut pending = storage
+            .add_attachment(&note.id, &source)
+            .expect("add attachment");
         pending.id = new_id("attachment");
 
         let staging_relative = format!(".incoming/{}.tmp", new_id("ambiguous-stage"));
@@ -2458,17 +2486,15 @@ mod tests {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .expect("operation transaction");
         let operation = storage
-            .insert_attachment_operation(
-                &transaction,
-                "add",
-                &pending,
-                Some(&staging_relative),
-            )
+            .insert_attachment_operation(&transaction, "add", &pending, Some(&staging_relative))
             .expect("insert attachment operation");
         transaction.commit().expect("commit operation owner");
         fs::write(&staging_path, b"owned staged plaintext").expect("write stage");
 
-        let incoming = staging_path.parent().expect("incoming parent").to_path_buf();
+        let incoming = staging_path
+            .parent()
+            .expect("incoming parent")
+            .to_path_buf();
         let preserved_incoming = storage.attachments_directory.join(".incoming-preserved-op");
         fs::rename(&incoming, &preserved_incoming).expect("move incoming directory");
         symlink(".incoming", &incoming).expect("symlink loop");
@@ -2508,11 +2534,14 @@ mod tests {
         let attachment = storage
             .add_attachment(&source_note.id, &source)
             .expect("add source attachment");
-        let canonical = storage.attachment_file_path(&attachment).expect("canonical path");
+        let canonical = storage
+            .attachment_file_path(&attachment)
+            .expect("canonical path");
 
         let mut pending = attachment.clone();
         pending.id = new_id("attachment");
-        pending.note_id = crate::domain::NoteId::parse("missing-pending-add-note").expect("valid missing note id");
+        pending.note_id = crate::domain::NoteId::parse("missing-pending-add-note")
+            .expect("valid missing note id");
         let mut connection = storage.connection().expect("pending add connection");
         let transaction = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -2529,7 +2558,10 @@ mod tests {
         storage
             .reconcile_attachment_storage_unlocked()
             .expect("recover abandoned Add");
-        assert!(!canonical.exists(), "abandoned Add successor should move to quarantine");
+        assert!(
+            !canonical.exists(),
+            "abandoned Add successor should move to quarantine"
+        );
         let (operations, orphan_owners): (i64, i64) = storage
             .connection()
             .expect("owner verification")
@@ -2543,7 +2575,10 @@ mod tests {
             )
             .expect("ownership state");
         assert_eq!(operations, 0);
-        assert_eq!(orphan_owners, 1, "quarantined successor must retain durable cleanup ownership");
+        assert_eq!(
+            orphan_owners, 1,
+            "quarantined successor must retain durable cleanup ownership"
+        );
         cleanup(storage, root);
     }
 
@@ -2553,8 +2588,12 @@ mod tests {
         let note = storage.create_note(None).expect("create note");
         let source = root.join("historical-only.txt");
         fs::write(&source, b"historical revision attachment").expect("write source");
-        let attachment = storage.add_attachment(&note.id, &source).expect("add attachment");
-        let canonical = storage.attachment_file_path(&attachment).expect("canonical path");
+        let attachment = storage
+            .add_attachment(&note.id, &source)
+            .expect("add attachment");
+        let canonical = storage
+            .attachment_file_path(&attachment)
+            .expect("canonical path");
 
         let mut connection = storage.connection().expect("revision connection");
         let transaction = connection
@@ -2594,12 +2633,20 @@ mod tests {
         }
         transaction.commit().expect("commit revision fixtures");
 
-        storage.remove_attachment(&attachment.id).expect("remove current attachment row");
-        assert!(canonical.exists(), "revision reference should retain canonical blob");
+        storage
+            .remove_attachment(&attachment.id)
+            .expect("remove current attachment row");
+        assert!(
+            canonical.exists(),
+            "revision reference should retain canonical blob"
+        );
         storage
             .set_revision_retention(10, 0)
             .expect("prune oldest revision");
-        assert!(!canonical.exists(), "pruned historical-only blob should leave canonical path");
+        assert!(
+            !canonical.exists(),
+            "pruned historical-only blob should leave canonical path"
+        );
         let owned_orphan: i64 = storage
             .connection()
             .expect("owner verification")
@@ -2629,7 +2676,12 @@ mod tests {
         fs::remove_file(&canonical_path).expect("remove canonical attachment blob");
 
         let audit = storage.audit_attachments().expect("audit attachments");
-        assert!(audit.missing.iter().any(|name| name == &attachment.file_name));
+        assert!(
+            audit
+                .missing
+                .iter()
+                .any(|name| name == &attachment.file_name)
+        );
         assert!(
             storage
                 .list_attachments(&note.id)

@@ -21,15 +21,12 @@ use crate::application::editor_workflows::{
 use crate::application::errors::EditorWorkflowError;
 use crate::application::persistence::unix_timestamp;
 use crate::application::settings::EditorPreferences;
-use crate::editor_bridge::{
-    AttachmentPickerKind, EditorBridgeDecodeError, EditorDocumentUpdate, EditorImageEditPayload, EditorImageImportPayload,
-};
 use crate::domain::{Attachment, Note, NoteLinkTarget};
-
-use super::{
-    eval_bridge,
-    privacy::{NotePrivacyPublicationScope, PrivacyPublicationToken},
+use crate::editor_bridge::{
+    AttachmentPickerKind, EditorBridgeDecodeError, EditorDocumentUpdate, EditorImageEditPayload,
+    EditorImageImportPayload,
 };
+
 use super::live_editor::{
     EditorInstallRequest, editor_install_script, install_editor_bridge,
     live_editor_begin_attachment_import_script, live_editor_complete_attachment_picker_script,
@@ -42,7 +39,13 @@ use super::live_editor::{
     live_editor_validate_state_script,
 };
 use super::note_metadata::NoteRevisionRestoreRequest;
-use super::synchronization::{SynchronizationError, apply_editor_update, project_editor_update_async};
+use super::synchronization::{
+    SynchronizationError, apply_editor_update, project_editor_update_async,
+};
+use super::{
+    eval_bridge,
+    privacy::{NotePrivacyPublicationScope, PrivacyPublicationToken},
+};
 
 #[derive(Debug)]
 pub(super) enum EditorCoordinatorError {
@@ -60,12 +63,11 @@ impl Display for EditorCoordinatorError {
             Self::Workflow(error) => Display::fmt(error, formatter),
             Self::Bridge(error) => Display::fmt(error, formatter),
             Self::Synchronization(error) => Display::fmt(error, formatter),
-            Self::BridgeUnavailable => formatter.write_str(
-                "could not synchronize the current editor state",
-            ),
-            Self::EditorChanged => formatter.write_str(
-                "the editor changed while version history was preparing the restore",
-            ),
+            Self::BridgeUnavailable => {
+                formatter.write_str("could not synchronize the current editor state")
+            }
+            Self::EditorChanged => formatter
+                .write_str("the editor changed while version history was preparing the restore"),
             Self::UnsupportedRestoredState => formatter.write_str(
                 "the selected version contains an editor state this runtime cannot open",
             ),
@@ -85,15 +87,21 @@ impl std::error::Error for EditorCoordinatorError {
 }
 
 impl From<EditorWorkflowError> for EditorCoordinatorError {
-    fn from(error: EditorWorkflowError) -> Self { Self::Workflow(error) }
+    fn from(error: EditorWorkflowError) -> Self {
+        Self::Workflow(error)
+    }
 }
 
 impl From<EditorBridgeDecodeError> for EditorCoordinatorError {
-    fn from(error: EditorBridgeDecodeError) -> Self { Self::Bridge(error) }
+    fn from(error: EditorBridgeDecodeError) -> Self {
+        Self::Bridge(error)
+    }
 }
 
 impl From<SynchronizationError> for EditorCoordinatorError {
-    fn from(error: SynchronizationError) -> Self { Self::Synchronization(error) }
+    fn from(error: SynchronizationError) -> Self {
+        Self::Synchronization(error)
+    }
 }
 
 #[derive(Debug)]
@@ -271,10 +279,7 @@ pub(super) async fn run_attachment_import(
         return;
     }
     let update_script = live_editor_update_attachment_import_script(&request_id, &staged.prepared);
-    let finalization = workflows.start_attachment_finalization(
-        staged.failure,
-        staged.prepared,
-    );
+    let finalization = workflows.start_attachment_finalization(staged.failure, staged.prepared);
 
     if !publication_token.is_publishable() {
         return;
@@ -285,7 +290,10 @@ pub(super) async fn run_attachment_import(
     }
     onstatus.call("Attachment staged safely; verifying integrity in background…".to_string());
 
-    let completed = match workflows.complete_attachment_finalization(finalization).await {
+    let completed = match workflows
+        .complete_attachment_finalization(finalization)
+        .await
+    {
         Ok(completed) => completed,
         Err(error) => {
             onstatus.call(format!(
@@ -332,19 +340,16 @@ pub(super) async fn run_attachment_import(
     }
     if !all_ready {
         onstatus.call(match failure.as_ref() {
-            Some(message) => format!(
-                "Attachment data is safe; verification will resume later. {message}"
-            ),
+            Some(message) => {
+                format!("Attachment data is safe; verification will resume later. {message}")
+            }
             None => "Attachment data is safe; verification will resume later.".to_string(),
         });
         return;
     }
 
-    let script = live_editor_complete_attachment_picker_script(
-        &request_id,
-        &attachment_service,
-        &ready,
-    );
+    let script =
+        live_editor_complete_attachment_picker_script(&request_id, &attachment_service, &ready);
     if !publication_token.is_publishable() {
         return;
     }
@@ -448,11 +453,8 @@ pub(super) async fn run_pending_attachment_recovery(
     if !published {
         return;
     }
-    let script = live_editor_recover_attachment_imports_script(
-        &attachment_service,
-        &note_id,
-        &refreshed,
-    );
+    let script =
+        live_editor_recover_attachment_imports_script(&attachment_service, &note_id, &refreshed);
     if !publication_token.is_publishable() {
         return;
     }
@@ -485,11 +487,8 @@ pub(super) async fn run_pdf_export(
     }
     match outcome {
         Ok(crate::application::export::PdfExportOutcome::Saved) => {
-            let script = live_editor_complete_pdf_export_script(
-                &request_id,
-                true,
-                "Annotated PDF saved.",
-            );
+            let script =
+                live_editor_complete_pdf_export_script(&request_id, true, "Annotated PDF saved.");
             let _ = publish_editor_bool(&publication_token, &script).await;
             onstatus.call("Annotated PDF saved".to_string());
         }
@@ -499,11 +498,7 @@ pub(super) async fn run_pdf_export(
         }
         Err(error) => {
             let error_message = error.to_string();
-            let script = live_editor_complete_pdf_export_script(
-                &request_id,
-                false,
-                &error_message,
-            );
+            let script = live_editor_complete_pdf_export_script(&request_id, false, &error_message);
             let _ = publish_editor_bool(&publication_token, &script).await;
             onstatus.call(format!("Could not save annotated PDF: {error_message}"));
         }
@@ -817,7 +812,9 @@ pub(super) async fn restore_revision_flow(
             confirmed_update = eval_bridge::join_idempotent::<String>(&sync_script)
                 .await
                 .ok()
-                .and_then(|serialized| crate::editor_bridge::decode_editor_document_update(&serialized).ok())
+                .and_then(|serialized| {
+                    crate::editor_bridge::decode_editor_document_update(&serialized).ok()
+                })
                 .filter(|update| update.generation == generation);
             ensure_privacy_current()?;
         }

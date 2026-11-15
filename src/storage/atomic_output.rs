@@ -63,7 +63,8 @@ impl AtomicDirectoryOutput {
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent)?;
         }
-        let transaction = crate::native::output::ExternalDirectoryOutputTransaction::begin(destination)?;
+        let transaction =
+            crate::native::output::ExternalDirectoryOutputTransaction::begin(destination)?;
         Ok(Self { transaction })
     }
 

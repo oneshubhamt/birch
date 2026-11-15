@@ -14,7 +14,9 @@ pub struct EditorProjections {
 /// Derive Rustnote's Markdown and plain-text projections from the canonical
 /// ProseMirror document. The editor bridge transfers only canonical state;
 /// this module is the single production authority for derived projections.
-pub fn derive_editor_projections(serialized: &str) -> Result<EditorProjections, DocumentValidationError> {
+pub fn derive_editor_projections(
+    serialized: &str,
+) -> Result<EditorProjections, DocumentValidationError> {
     let document = parse_validated_document(serialized)?;
     let markdown = markdown_from_document(&document).trim_end().to_string();
     let plain_text = plain_text_from_document(&document).trim().to_string();
@@ -51,7 +53,11 @@ fn serialize_block(node: &Value) -> String {
         }
         Some("heading") => {
             let level = node_attr_u64(node, "level").unwrap_or(1).clamp(1, 6);
-            format!("{} {}\n\n", "#".repeat(level as usize), serialize_inline(node, false))
+            format!(
+                "{} {}\n\n",
+                "#".repeat(level as usize),
+                serialize_inline(node, false)
+            )
         }
         Some("blockquote") => {
             let mut inner = String::new();
@@ -208,10 +214,15 @@ fn media_trim_projection(node: &Value) -> Option<String> {
     let attrs = node.get("attrs")?;
     let start = attrs.get("mediaTrimStartMs").and_then(Value::as_u64);
     let end = attrs.get("mediaTrimEndMs").and_then(Value::as_u64);
-    match (start.filter(|value| *value > 0), end.filter(|value| *value > 0)) {
-        (Some(start), Some(end)) if end > start => {
-            Some(format!("{}–{}", media_time_label_ms(start), media_time_label_ms(end)))
-        }
+    match (
+        start.filter(|value| *value > 0),
+        end.filter(|value| *value > 0),
+    ) {
+        (Some(start), Some(end)) if end > start => Some(format!(
+            "{}–{}",
+            media_time_label_ms(start),
+            media_time_label_ms(end)
+        )),
         (Some(start), _) => Some(format!("starts at {}", media_time_label_ms(start))),
         (None, Some(end)) => Some(format!("0:00–{}", media_time_label_ms(end))),
         _ => None,
@@ -397,7 +408,10 @@ fn markdown_inline_tokens(node: &Value) -> Vec<MarkdownInlineToken<'_>> {
     for child in node_content(node) {
         match node_type(child) {
             Some("text") => {
-                let text = child.get("text").and_then(Value::as_str).unwrap_or_default();
+                let text = child
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
                 let marks = markdown_export_marks(
                     child
                         .get("marks")
@@ -590,10 +604,7 @@ fn token_last_character(token: &MarkdownInlineToken<'_>) -> Option<char> {
 }
 
 fn previous_token_character(tokens: &[MarkdownInlineToken<'_>], start: usize) -> Option<char> {
-    tokens[..start]
-        .iter()
-        .rev()
-        .find_map(token_last_character)
+    tokens[..start].iter().rev().find_map(token_last_character)
 }
 
 fn next_token_character(tokens: &[MarkdownInlineToken<'_>], end: usize) -> Option<char> {
@@ -624,10 +635,7 @@ fn markdown_punctuation_like(character: char) -> bool {
     !character.is_whitespace() && !character.is_alphanumeric()
 }
 
-fn common_markdown_mark_prefix(
-    left: &[MarkdownExportMark],
-    right: &[MarkdownExportMark],
-) -> usize {
+fn common_markdown_mark_prefix(left: &[MarkdownExportMark], right: &[MarkdownExportMark]) -> usize {
     left.iter()
         .zip(right.iter())
         .take_while(|(left, right)| left == right)
@@ -810,9 +818,7 @@ fn normalize_table_cell_text(value: &str) -> String {
     let mut line_normalized = String::with_capacity(value.len());
     let mut index = 0;
     while index < characters.len() {
-        if characters[index] == '\r'
-            && characters.get(index + 1) == Some(&'\n')
-        {
+        if characters[index] == '\r' && characters.get(index + 1) == Some(&'\n') {
             index += 1;
             while characters.get(index) == Some(&'\n') {
                 index += 1;
@@ -1002,12 +1008,8 @@ where
         for cell in node_content(row) {
             let colspan = node_attr_u64(cell, "colspan").unwrap_or(1).max(1) as usize;
             let rowspan = node_attr_u64(cell, "rowspan").unwrap_or(1).max(1) as usize;
-            while (0..colspan).any(|offset| {
-                reserved
-                    .get(column + offset)
-                    .copied()
-                    .unwrap_or(false)
-            }) {
+            while (0..colspan).any(|offset| reserved.get(column + offset).copied().unwrap_or(false))
+            {
                 column += 1;
             }
             if cells.len() < column + colspan {
@@ -1063,23 +1065,20 @@ fn append_text_between(
     output: &mut String,
 ) {
     if node_type(node) == Some("text") {
-        output.push_str(
-            node.get("text")
-                .and_then(Value::as_str)
-                .unwrap_or_default(),
-        );
+        output.push_str(node.get("text").and_then(Value::as_str).unwrap_or_default());
         return;
     }
 
     let content = node_content(node);
     let is_leaf = content.is_empty();
-    let leaf_text = if is_leaf && matches!(node_type(node), Some("hard_break" | "horizontal_rule")) {
+    let leaf_text = if is_leaf && matches!(node_type(node), Some("hard_break" | "horizontal_rule"))
+    {
         "\n"
     } else {
         ""
     };
-    let separates_block = is_textblock(node)
-        || (node_type(node) == Some("horizontal_rule") && !leaf_text.is_empty());
+    let separates_block =
+        is_textblock(node) || (node_type(node) == Some("horizontal_rule") && !leaf_text.is_empty());
     if separates_block && !block_separator.is_empty() {
         if *first_block {
             *first_block = false;
@@ -1145,7 +1144,10 @@ fn mark_attr_str<'a>(mark: &'a Value, key: &str) -> Option<&'a str> {
 }
 
 fn is_textblock(node: &Value) -> bool {
-    matches!(node_type(node), Some("paragraph" | "heading" | "code_block"))
+    matches!(
+        node_type(node),
+        Some("paragraph" | "heading" | "code_block")
+    )
 }
 
 fn is_atomic_boundary_paragraph(node: &Value) -> bool {
@@ -1178,8 +1180,10 @@ fn escape_markdown_text_with_context(text: &str, escape_trailing_bang: bool) -> 
         None
     };
     for (index, character) in text.char_indices() {
-        if matches!(character, '\\' | '`' | '*' | '_' | '~' | '[' | ']' | '<' | '>' | '&')
-            || trailing_bang_index == Some(index)
+        if matches!(
+            character,
+            '\\' | '`' | '*' | '_' | '~' | '[' | ']' | '<' | '>' | '&'
+        ) || trailing_bang_index == Some(index)
         {
             output.push('\\');
         }
@@ -1241,10 +1245,7 @@ fn markdown_heading_start(value: &str) -> bool {
 }
 
 fn ordered_list_marker_index(value: &str) -> Option<usize> {
-    let digit_count = value
-        .bytes()
-        .take_while(u8::is_ascii_digit)
-        .count();
+    let digit_count = value.bytes().take_while(u8::is_ascii_digit).count();
     if digit_count == 0 {
         return None;
     }
@@ -1266,7 +1267,11 @@ fn markdown_fence_start(value: &str) -> bool {
     if !matches!(first, '`' | '~') {
         return false;
     }
-    value.chars().take_while(|character| *character == first).count() >= 3
+    value
+        .chars()
+        .take_while(|character| *character == first)
+        .count()
+        >= 3
 }
 
 fn markdown_rule_start(value: &str) -> bool {

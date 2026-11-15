@@ -7,23 +7,24 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    portability::{ImportPlan, ImportSummary, ImportUndoToken, PortabilityFormat, PortabilityScope},
     domain::{
         Attachment, BacklinkSummary, BackupRepositoryStatus, Citation, CompleteArchiveSummary,
         Note, NoteCandidate, NoteHierarchy, NoteId, NoteLinkTarget, NoteListCursor, NoteListPage,
         NoteListQuery, NotePropertiesContext, NoteRevisionRestoreResult, NoteRevisionSummary,
-        NoteSourceSummary, Notebook, RevisionRetention, RevisionStorageUsage,
-        Source, SourceId, SourceKind,
+        NoteSourceSummary, Notebook, RevisionRetention, RevisionStorageUsage, Source, SourceId,
+        SourceKind,
     },
     library_paths::{attachment_handoff_directory, media_compat_directory},
+    portability::{
+        ImportPlan, ImportSummary, ImportUndoToken, PortabilityFormat, PortabilityScope,
+    },
 };
 
 use super::{
     AttachmentIngestIntent, AuthorizedDerivedImageAttachment, DeferredMaintenanceReport,
-    NoteSaveScope, OwnedNoteSaveResult,
-    PendingAttachmentIngestResource, PreparedAttachmentImport, ProfiledAttachmentImport,
-    RevisionMode, RevisionRestoreAuthorization, RevisionSnapshotResource, Storage, StorageError,
-    StorageLocations, StorageResult,
+    NoteSaveScope, OwnedNoteSaveResult, PendingAttachmentIngestResource, PreparedAttachmentImport,
+    ProfiledAttachmentImport, RevisionMode, RevisionRestoreAuthorization, RevisionSnapshotResource,
+    Storage, StorageError, StorageLocations, StorageResult,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -263,7 +264,10 @@ impl LibraryStore {
         self.storage.prepare_portability_import(source)
     }
 
-    pub(crate) fn import_portability_plan(&self, plan: &ImportPlan) -> StorageResult<ImportSummary> {
+    pub(crate) fn import_portability_plan(
+        &self,
+        plan: &ImportPlan,
+    ) -> StorageResult<ImportSummary> {
         self.storage.import_portability_plan(plan)
     }
 
@@ -328,7 +332,8 @@ impl LibraryStore {
         query: &NoteListQuery,
         page_index: usize,
     ) -> StorageResult<(Option<NoteListCursor>, NoteListPage)> {
-        self.storage.reanchor_notes_page_with_total(query, page_index)
+        self.storage
+            .reanchor_notes_page_with_total(query, page_index)
     }
 
     pub(crate) fn note_matches_list_query(
@@ -375,7 +380,8 @@ impl LibraryStore {
         &self,
         notebook_id: &str,
     ) -> StorageResult<String> {
-        self.storage.delete_notebook_preserving_contents(notebook_id)
+        self.storage
+            .delete_notebook_preserving_contents(notebook_id)
     }
 
     pub(crate) fn list_tags(&self) -> StorageResult<Vec<String>> {
@@ -594,7 +600,9 @@ impl SettingsStore {
         self.storage.default_archive_path()
     }
 
-    pub(crate) fn editor_preferences(&self) -> StorageResult<(bool, Option<u32>, Option<String>, bool)> {
+    pub(crate) fn editor_preferences(
+        &self,
+    ) -> StorageResult<(bool, Option<u32>, Option<String>, bool)> {
         self.storage.editor_preferences()
     }
 
@@ -605,8 +613,12 @@ impl SettingsStore {
         default_line_spacing: Option<&str>,
         spellcheck: bool,
     ) -> StorageResult<()> {
-        self.storage
-            .set_editor_preferences(auto_indent, auto_first_line_indent, default_line_spacing, spellcheck)
+        self.storage.set_editor_preferences(
+            auto_indent,
+            auto_first_line_indent,
+            default_line_spacing,
+            spellcheck,
+        )
     }
 
     pub(crate) fn dark_mode(&self) -> StorageResult<bool> {
@@ -876,7 +888,6 @@ impl AttachmentStore {
             .pending_attachment_ingest_resource_with_authorization(ingest_id, authorization)
     }
 
-
     pub(crate) fn attachment_file_command_resource(
         &self,
         note_id: &NoteId,
@@ -899,7 +910,9 @@ impl AttachmentStore {
             let resource = self
                 .storage
                 .protected_attachment_with_access(attachment_id, access)?
-                .ok_or_else(|| StorageError::Validation("attachment no longer exists".to_string()))?;
+                .ok_or_else(|| {
+                    StorageError::Validation("attachment no longer exists".to_string())
+                })?;
             if resource.note_id != *note_id {
                 return Err(StorageError::Validation(
                     "attachment belongs to a different note".to_string(),
@@ -959,7 +972,11 @@ impl AttachmentStore {
         authorization: &crate::security::PlaintextOperationPermit,
     ) -> StorageResult<Attachment> {
         self.storage.add_attachment_file_as_authorized(
-            note_id, file_name, mime_type, source, authorization,
+            note_id,
+            file_name,
+            mime_type,
+            source,
+            authorization,
         )
     }
 
@@ -1031,13 +1048,17 @@ impl ExportStore {
             })?;
             self.storage
                 .protected_attachment_metadata_with_access(note_id, attachment_id, access)?
-                .ok_or_else(|| StorageError::Validation("attachment no longer exists".to_string()))?
+                .ok_or_else(|| {
+                    StorageError::Validation("attachment no longer exists".to_string())
+                })?
         } else {
             self.storage
                 .list_attachments(note_id)?
                 .into_iter()
                 .find(|attachment| attachment.id == attachment_id)
-                .ok_or_else(|| StorageError::Validation("attachment no longer exists".to_string()))?
+                .ok_or_else(|| {
+                    StorageError::Validation("attachment no longer exists".to_string())
+                })?
         };
 
         Ok(PdfExportCommandResource {
@@ -1045,7 +1066,6 @@ impl ExportStore {
             _authorization: authorization,
         })
     }
-
 }
 
 impl VaultStore {
@@ -1083,7 +1103,8 @@ impl VaultStore {
         note_id: &NoteId,
         password: &[u8],
     ) -> StorageResult<Note> {
-        self.storage.remove_note_protection_with_password(note_id, password)
+        self.storage
+            .remove_note_protection_with_password(note_id, password)
     }
 }
 
@@ -1130,13 +1151,21 @@ mod tests {
                 .expect("remove protected tag")
         );
         assert_eq!(
-            notes.get_note(&note.id).expect("lookup").expect("note").tags,
+            notes
+                .get_note(&note.id)
+                .expect("lookup")
+                .expect("note")
+                .tags,
             vec!["shared".to_string()]
         );
 
         assert_eq!(notes.rename_tag("shared", "renamed").expect("rename"), 1);
         assert_eq!(
-            notes.get_note(&note.id).expect("lookup").expect("note").tags,
+            notes
+                .get_note(&note.id)
+                .expect("lookup")
+                .expect("note")
+                .tags,
             vec!["renamed".to_string()]
         );
 
@@ -1153,4 +1182,3 @@ mod tests {
         cleanup(storage, root);
     }
 }
-

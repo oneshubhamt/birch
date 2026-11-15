@@ -138,15 +138,11 @@ impl std::fmt::Debug for PrivacyPublicationToken {
     }
 }
 
-
 /// Hook-level reactive view of one note's privacy state. The memo subscribes
 /// to the canonical privacy signal, but components that read the memo are
 /// notified only when this note's derived tuple changes. `use_reactive!` keeps
 /// the non-reactive NoteId prop in the hook dependency set.
-pub(super) fn use_note_privacy(
-    epoch: UiPrivacyEpoch,
-    note_id: NoteId,
-) -> Memo<(u64, u64, bool)> {
+pub(super) fn use_note_privacy(epoch: UiPrivacyEpoch, note_id: NoteId) -> Memo<(u64, u64, bool)> {
     use_memo(use_reactive!(|note_id| epoch.observe_note(&note_id)))
 }
 
@@ -317,10 +313,9 @@ impl UiPrivacyEpoch {
         lifecycle_generation: Signal<u64>,
     ) -> Option<PrivacyPublicationToken> {
         let mut token = self.capture_multi_note_publication(privacy, list_generation)?;
-        token.lifecycle_generations.push((
-            lifecycle_generation,
-            *lifecycle_generation.peek(),
-        ));
+        token
+            .lifecycle_generations
+            .push((lifecycle_generation, *lifecycle_generation.peek()));
         token.is_publishable().then_some(token)
     }
 }
@@ -382,11 +377,9 @@ impl PrivacyPublicationToken {
                 note_id,
                 library_generation,
                 note_generation,
-            } => self.privacy_epoch.note_is_current(
-                note_id,
-                *library_generation,
-                *note_generation,
-            ),
+            } => self
+                .privacy_epoch
+                .note_is_current(note_id, *library_generation, *note_generation),
             UiPublicationScope::MultiNote {
                 library_generation,
                 multi_note_generation,

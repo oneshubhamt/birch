@@ -168,12 +168,27 @@ struct Eac3Config {
 
 #[derive(Clone, Debug)]
 enum CodecConfig {
-    Avc { private: Vec<u8>, nal_length_bytes: usize },
-    Hevc { private: Vec<u8>, nal_length_bytes: usize },
-    Av1 { private: Vec<u8> },
-    Aac { private: Vec<u8>, frame_samples: u32 },
-    Ac3 { config: Option<Ac3Config> },
-    Eac3 { config: Option<Eac3Config> },
+    Avc {
+        private: Vec<u8>,
+        nal_length_bytes: usize,
+    },
+    Hevc {
+        private: Vec<u8>,
+        nal_length_bytes: usize,
+    },
+    Av1 {
+        private: Vec<u8>,
+    },
+    Aac {
+        private: Vec<u8>,
+        frame_samples: u32,
+    },
+    Ac3 {
+        config: Option<Ac3Config>,
+    },
+    Eac3 {
+        config: Option<Eac3Config>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -282,10 +297,17 @@ impl OutputTrack {
             }
             CodecConfig::Ac3 { config } => {
                 let parsed = parse_ac3_frame(data)?;
-                validate_dolby_track_metadata(sample_rate, channels, parsed.sample_rate, parsed.channels)?;
+                validate_dolby_track_metadata(
+                    sample_rate,
+                    channels,
+                    parsed.sample_rate,
+                    parsed.channels,
+                )?;
                 if let Some(existing) = config {
                     if *existing != parsed.config {
-                        return Err(invalid_data("AC-3 stream configuration changes between samples"));
+                        return Err(invalid_data(
+                            "AC-3 stream configuration changes between samples",
+                        ));
                     }
                 } else {
                     *config = Some(parsed.config);
@@ -294,17 +316,23 @@ impl OutputTrack {
             }
             CodecConfig::Eac3 { config } => {
                 let parsed = parse_eac3_frame(data)?;
-                validate_dolby_track_metadata(sample_rate, channels, parsed.sample_rate, parsed.channels)?;
+                validate_dolby_track_metadata(
+                    sample_rate,
+                    channels,
+                    parsed.sample_rate,
+                    parsed.channels,
+                )?;
                 if let Some(existing) = config {
                     if existing.fscod != parsed.config.fscod
                         || existing.bsid != parsed.config.bsid
                         || existing.bsmod != parsed.config.bsmod
                         || existing.acmod != parsed.config.acmod
                         || existing.lfeon != parsed.config.lfeon
-                        || existing.complexity_index_type_a
-                            != parsed.config.complexity_index_type_a
+                        || existing.complexity_index_type_a != parsed.config.complexity_index_type_a
                     {
-                        return Err(invalid_data("E-AC-3 stream configuration changes between samples"));
+                        return Err(invalid_data(
+                            "E-AC-3 stream configuration changes between samples",
+                        ));
                     }
                     existing.max_data_rate_kbps = existing
                         .max_data_rate_kbps
@@ -395,7 +423,9 @@ fn remux_matroska_to_iso_bmff(
     }
 
     if output_tracks.iter().any(|track| track.samples.is_empty()) {
-        return Err(invalid_data("selected Matroska track contained no media samples"));
+        return Err(invalid_data(
+            "selected Matroska track contained no media samples",
+        ));
     }
 
     let global_base_ns = output_tracks
@@ -424,18 +454,13 @@ fn remux_matroska_to_iso_bmff(
     write_u64(&mut output, mdat_size)?;
     output.seek(SeekFrom::Start(mdat_end))?;
 
-    let movie_duration = ns_to_ticks(
-        movie_end_ns.saturating_sub(global_base_ns),
-        MOVIE_TIMESCALE,
-    );
+    let movie_duration = ns_to_ticks(movie_end_ns.saturating_sub(global_base_ns), MOVIE_TIMESCALE);
     let moov = build_moov(&output_tracks, movie_duration)?;
     output.write_all(&moov)?;
     output.flush()?;
     output.get_ref().sync_all()?;
     Ok(())
 }
-
-
 
 fn extract_matroska_audio(
     source_path: &Path,
@@ -449,7 +474,9 @@ fn extract_matroska_audio(
             | CompatibilityProfile::Ac3Audio
             | CompatibilityProfile::Eac3Audio
     ) {
-        return Err(invalid_data("requested compatibility profile is not raw audio"));
+        return Err(invalid_data(
+            "requested compatibility profile is not raw audio",
+        ));
     }
     let mut source = File::open(source_path)?;
     let source_len = source.metadata()?.len();
@@ -462,7 +489,9 @@ fn extract_matroska_audio(
         .iter()
         .any(|track| track.enabled && track.kind == TrackKind::Video)
     {
-        return Err(invalid_data("raw-audio compatibility profile is audio-only"));
+        return Err(invalid_data(
+            "raw-audio compatibility profile is audio-only",
+        ));
     }
     let enabled_audio: Vec<&SourceTrack> = layout
         .tracks
@@ -507,7 +536,9 @@ fn extract_matroska_audio(
         )?);
     }
     if frame_count == 0 {
-        return Err(invalid_data("selected Matroska audio track contained no frames"));
+        return Err(invalid_data(
+            "selected Matroska audio track contained no frames",
+        ));
     }
     output.flush()?;
     output.get_ref().sync_all()?;
@@ -596,17 +627,23 @@ fn write_raw_audio_block<W: Write>(
         match profile {
             CompatibilityProfile::FlacAudio => {
                 if data.len() < 2 || data[0] != 0xFF || data[1] & 0xFC != 0xF8 {
-                    return Err(invalid_data("Matroska FLAC block contains an invalid FLAC frame"));
+                    return Err(invalid_data(
+                        "Matroska FLAC block contains an invalid FLAC frame",
+                    ));
                 }
             }
             CompatibilityProfile::Mp3Audio => {
                 if data.len() < 4 || data[0] != 0xFF || data[1] & 0xE0 != 0xE0 {
-                    return Err(invalid_data("Matroska MP3 block contains an invalid MPEG audio frame"));
+                    return Err(invalid_data(
+                        "Matroska MP3 block contains an invalid MPEG audio frame",
+                    ));
                 }
             }
             CompatibilityProfile::Ac3Audio | CompatibilityProfile::Eac3Audio => {
                 if data.len() < 2 || data[0] != 0x0B || data[1] != 0x77 {
-                    return Err(invalid_data("Matroska Dolby audio block contains an invalid syncframe"));
+                    return Err(invalid_data(
+                        "Matroska Dolby audio block contains an invalid syncframe",
+                    ));
                 }
             }
             _ => return Err(invalid_data("invalid raw-audio compatibility profile")),
@@ -672,7 +709,12 @@ fn remux_matroska_to_webm(
     write_ebml_id(&mut output, ID_TRACKS)?;
     write_ebml_size(&mut output, tracks_size)?;
     for track in &selected_tracks {
-        copy_file_range(&mut source, &mut output, track.element_start, track.element_end)?;
+        copy_file_range(
+            &mut source,
+            &mut output,
+            track.element_start,
+            track.element_end,
+        )?;
     }
 
     let mut cues = Vec::new();
@@ -717,7 +759,9 @@ fn remux_matroska_to_webm(
     }
 
     if cues.is_empty() && video_track.is_some() {
-        return Err(invalid_data("WebM video contains no usable keyframe clusters"));
+        return Err(invalid_data(
+            "WebM video contains no usable keyframe clusters",
+        ));
     }
     if !cues.is_empty() {
         let cues_box = build_webm_cues(&cues)?;
@@ -732,7 +776,10 @@ fn select_webm_tracks(
     source_tracks: &[SourceTrack],
     profile: CompatibilityProfile,
 ) -> io::Result<Vec<&SourceTrack>> {
-    if !matches!(profile, CompatibilityProfile::WebmVideo | CompatibilityProfile::WebmAudio) {
+    if !matches!(
+        profile,
+        CompatibilityProfile::WebmVideo | CompatibilityProfile::WebmAudio
+    ) {
         return Err(invalid_data("requested compatibility profile is not WebM"));
     }
     let enabled_video: Vec<&SourceTrack> = source_tracks
@@ -761,7 +808,9 @@ fn select_webm_tracks(
         }
         CompatibilityProfile::WebmAudio => {
             if !enabled_video.is_empty() {
-                return Err(invalid_data("audio WebM compatibility profile is audio-only"));
+                return Err(invalid_data(
+                    "audio WebM compatibility profile is audio-only",
+                ));
             }
             if audio.is_none() {
                 return Err(invalid_data(
@@ -1110,7 +1159,6 @@ pub fn validate_webm(path: &Path) -> io::Result<bool> {
     Ok(false)
 }
 
-
 fn parse_matroska_segment(source: &mut File, source_len: u64) -> io::Result<ElementHeader> {
     source.seek(SeekFrom::Start(0))?;
     let ebml = read_element_header(source, source_len)?
@@ -1132,7 +1180,9 @@ fn parse_matroska_segment(source: &mut File, source_len: u64) -> io::Result<Elem
             return Ok(header);
         }
         if header.data_len.is_none() {
-            return Err(invalid_data("unknown-sized element before Matroska Segment"));
+            return Err(invalid_data(
+                "unknown-sized element before Matroska Segment",
+            ));
         }
         source.seek(SeekFrom::Start(header.data_end))?;
     }
@@ -1174,7 +1224,8 @@ fn parse_matroska_layout(source: &mut File, source_len: u64) -> io::Result<Matro
         match header.id {
             ID_INFO => {
                 require_known_size(header, "Matroska Info")?;
-                timestamp_scale_ns = parse_info(source, header)?.unwrap_or(DEFAULT_TIMESTAMP_SCALE_NS);
+                timestamp_scale_ns =
+                    parse_info(source, header)?.unwrap_or(DEFAULT_TIMESTAMP_SCALE_NS);
             }
             ID_TRACKS => {
                 require_known_size(header, "Matroska Tracks")?;
@@ -1364,8 +1415,18 @@ fn parse_video_settings(
         };
         require_known_size(child, "Matroska Video child")?;
         match child.id {
-            ID_PIXEL_WIDTH => width = Some(u32::try_from(read_uint(source, child)?).map_err(|_| invalid_data("video width is too large"))?),
-            ID_PIXEL_HEIGHT => height = Some(u32::try_from(read_uint(source, child)?).map_err(|_| invalid_data("video height is too large"))?),
+            ID_PIXEL_WIDTH => {
+                width = Some(
+                    u32::try_from(read_uint(source, child)?)
+                        .map_err(|_| invalid_data("video width is too large"))?,
+                )
+            }
+            ID_PIXEL_HEIGHT => {
+                height = Some(
+                    u32::try_from(read_uint(source, child)?)
+                        .map_err(|_| invalid_data("video height is too large"))?,
+                )
+            }
             _ => {}
         }
         source.seek(SeekFrom::Start(child.data_end))?;
@@ -1393,7 +1454,10 @@ fn parse_audio_settings(
                 }
             }
             ID_CHANNELS => {
-                channels = Some(u16::try_from(read_uint(source, child)?).map_err(|_| invalid_data("audio channel count is too large"))?);
+                channels = Some(
+                    u16::try_from(read_uint(source, child)?)
+                        .map_err(|_| invalid_data("audio channel count is too large"))?,
+                );
             }
             _ => {}
         }
@@ -1424,9 +1488,7 @@ fn build_compatibility_probe(source_tracks: &[SourceTrack]) -> CompatibilityProb
             profile: CompatibilityProfile::Mp4Video,
             mime_type: iso_bmff_mime_type(video, mp4_audio),
         });
-    } else if !has_video
-        && let Some(audio) = mp4_audio
-    {
+    } else if !has_video && let Some(audio) = mp4_audio {
         candidates.push(CompatibilityCandidate {
             profile: CompatibilityProfile::M4aAudio,
             mime_type: iso_bmff_mime_type(audio, None),
@@ -1442,9 +1504,7 @@ fn build_compatibility_probe(source_tracks: &[SourceTrack]) -> CompatibilityProb
             profile: CompatibilityProfile::WebmVideo,
             mime_type: webm_mime_type(Some(video), webm_audio),
         });
-    } else if !has_video
-        && let Some(audio) = webm_audio
-    {
+    } else if !has_video && let Some(audio) = webm_audio {
         candidates.push(CompatibilityCandidate {
             profile: CompatibilityProfile::WebmAudio,
             mime_type: webm_mime_type(None, Some(audio)),
@@ -1489,8 +1549,13 @@ fn select_output_tracks(
     source_tracks: &[SourceTrack],
     profile: CompatibilityProfile,
 ) -> io::Result<Vec<OutputTrack>> {
-    if !matches!(profile, CompatibilityProfile::Mp4Video | CompatibilityProfile::M4aAudio) {
-        return Err(invalid_data("requested compatibility profile is not ISO-BMFF"));
+    if !matches!(
+        profile,
+        CompatibilityProfile::Mp4Video | CompatibilityProfile::M4aAudio
+    ) {
+        return Err(invalid_data(
+            "requested compatibility profile is not ISO-BMFF",
+        ));
     }
     let enabled_video: Vec<&SourceTrack> = source_tracks
         .iter()
@@ -1533,7 +1598,9 @@ fn select_output_tracks(
         | CompatibilityProfile::Mp3Audio
         | CompatibilityProfile::Ac3Audio
         | CompatibilityProfile::Eac3Audio => {
-            return Err(invalid_data("requested compatibility profile is not ISO-BMFF"));
+            return Err(invalid_data(
+                "requested compatibility profile is not ISO-BMFF",
+            ));
         }
     }
 
@@ -1563,7 +1630,9 @@ fn choose_mp4_audio_track<'a>(tracks: &[&'a SourceTrack]) -> Option<&'a SourceTr
     tracks
         .iter()
         .copied()
-        .find(|track| track.default_track && track.codec_id == "A_AAC" && supported_mp4_audio_track(track))
+        .find(|track| {
+            track.default_track && track.codec_id == "A_AAC" && supported_mp4_audio_track(track)
+        })
         .or_else(|| {
             tracks
                 .iter()
@@ -1576,7 +1645,12 @@ fn choose_mp4_audio_track<'a>(tracks: &[&'a SourceTrack]) -> Option<&'a SourceTr
                 .copied()
                 .find(|track| track.default_track && supported_mp4_audio_track(track))
         })
-        .or_else(|| tracks.iter().copied().find(|track| supported_mp4_audio_track(track)))
+        .or_else(|| {
+            tracks
+                .iter()
+                .copied()
+                .find(|track| supported_mp4_audio_track(track))
+        })
 }
 
 fn supported_mp4_audio_track(track: &SourceTrack) -> bool {
@@ -1632,7 +1706,11 @@ fn iso_bmff_mime_type(primary: &SourceTrack, audio: Option<&SourceTrack>) -> Str
     if let Some(audio) = audio {
         codecs.push(mp4_codec_string(audio));
     }
-    let base = if primary.kind == TrackKind::Video { "video/mp4" } else { "audio/mp4" };
+    let base = if primary.kind == TrackKind::Video {
+        "video/mp4"
+    } else {
+        "audio/mp4"
+    };
     format!("{base}; codecs=\"{}\"", codecs.join(", "))
 }
 
@@ -1671,7 +1749,11 @@ fn webm_mime_type(video: Option<&SourceTrack>, audio: Option<&SourceTrack>) -> S
             _ => "unknown",
         });
     }
-    let base = if video.is_some() { "video/webm" } else { "audio/webm" };
+    let base = if video.is_some() {
+        "video/webm"
+    } else {
+        "audio/webm"
+    };
     format!("{base}; codecs=\"{}\"", codecs.join(", "))
 }
 
@@ -1701,10 +1783,18 @@ fn choose_supported_track<'a>(
 }
 
 fn build_video_output_track(track_id: u32, track: &SourceTrack) -> io::Result<OutputTrack> {
-    let width = u16::try_from(track.width.ok_or_else(|| invalid_data("missing video width"))?)
-        .map_err(|_| invalid_data("video width exceeds MP4 compatibility limit"))?;
-    let height = u16::try_from(track.height.ok_or_else(|| invalid_data("missing video height"))?)
-        .map_err(|_| invalid_data("video height exceeds MP4 compatibility limit"))?;
+    let width = u16::try_from(
+        track
+            .width
+            .ok_or_else(|| invalid_data("missing video width"))?,
+    )
+    .map_err(|_| invalid_data("video width exceeds MP4 compatibility limit"))?;
+    let height = u16::try_from(
+        track
+            .height
+            .ok_or_else(|| invalid_data("missing video height"))?,
+    )
+    .map_err(|_| invalid_data("video height exceeds MP4 compatibility limit"))?;
     if width == 0 || height == 0 {
         return Err(invalid_data("video dimensions must be non-zero"));
     }
@@ -1755,13 +1845,17 @@ fn build_audio_output_track(track_id: u32, track: &SourceTrack) -> io::Result<Ou
         .sample_rate
         .ok_or_else(|| invalid_data("missing MP4 audio sample rate"))?;
     if sample_rate == 0 || sample_rate > 65_535 {
-        return Err(invalid_data("audio sample rate exceeds narrow MP4 compatibility limit"));
+        return Err(invalid_data(
+            "audio sample rate exceeds narrow MP4 compatibility limit",
+        ));
     }
     let channels = track
         .channels
         .ok_or_else(|| invalid_data("missing MP4 audio channel count"))?;
     if channels == 0 || channels > 8 {
-        return Err(invalid_data("audio channel count exceeds compatibility limit"));
+        return Err(invalid_data(
+            "audio channel count exceeds compatibility limit",
+        ));
     }
 
     let codec = match track.codec_id.as_str() {
@@ -1770,12 +1864,16 @@ fn build_audio_output_track(track_id: u32, track: &SourceTrack) -> io::Result<Ou
             if let Some(config_rate) = aac.sample_rate
                 && config_rate != sample_rate
             {
-                return Err(invalid_data("AAC CodecPrivate sample rate disagrees with Matroska track"));
+                return Err(invalid_data(
+                    "AAC CodecPrivate sample rate disagrees with Matroska track",
+                ));
             }
             if let Some(config_channels) = aac.channels
                 && config_channels != channels
             {
-                return Err(invalid_data("AAC CodecPrivate channel count disagrees with Matroska track"));
+                return Err(invalid_data(
+                    "AAC CodecPrivate channel count disagrees with Matroska track",
+                ));
             }
             CodecConfig::Aac {
                 private: track.codec_private.clone(),
@@ -1963,21 +2061,26 @@ fn process_block_bytes<W: Write + Seek>(
     let absolute_ticks =
         i128::from(context.cluster_timestamp) + i128::from(parsed.relative_timestamp);
     if absolute_ticks < 0 {
-        return Err(invalid_data("Matroska block has a negative absolute timestamp"));
+        return Err(invalid_data(
+            "Matroska block has a negative absolute timestamp",
+        ));
     }
     let base_pts_ns = u64::try_from(absolute_ticks)
         .ok()
         .and_then(|ticks| ticks.checked_mul(context.timestamp_scale_ns))
         .ok_or_else(|| invalid_data("Matroska timestamp overflows nanoseconds"))?;
 
-    let total_block_duration_ns = context.block_duration_ticks
+    let total_block_duration_ns = context
+        .block_duration_ticks
         .and_then(|ticks| ticks.checked_mul(context.timestamp_scale_ns))
         .filter(|value| *value > 0);
     let per_frame_block_duration = total_block_duration_ns
         .and_then(|duration| duration.checked_div(parsed.frames.len() as u64))
         .filter(|duration| *duration > 0);
     let per_frame_hint = per_frame_block_duration.or_else(|| track.duration_hint_ns());
-    let keyframe = parsed.simple_keyframe.unwrap_or(context.block_group_keyframe);
+    let keyframe = parsed
+        .simple_keyframe
+        .unwrap_or(context.block_group_keyframe);
 
     for (index, frame) in parsed.frames.iter().enumerate() {
         let data = &bytes[frame.start..frame.end];
@@ -2085,7 +2188,9 @@ fn parse_lacing(
                 .checked_add(used)
                 .ok_or_else(|| invalid_data("EBML lace cursor overflow"))?;
             let mut previous = i128::from(first);
-            sizes.push(usize::try_from(first).map_err(|_| invalid_data("EBML lace size too large"))?);
+            sizes.push(
+                usize::try_from(first).map_err(|_| invalid_data("EBML lace size too large"))?,
+            );
             for _ in 1..frame_count - 1 {
                 let (encoded, used, payload_bits) = parse_signed_lace_vint(&bytes[cursor..])?;
                 cursor = cursor
@@ -2097,7 +2202,10 @@ fn parse_lacing(
                 if current <= 0 || current > i128::from(u32::MAX) {
                     return Err(invalid_data("invalid EBML lace size delta"));
                 }
-                sizes.push(usize::try_from(current).map_err(|_| invalid_data("EBML lace size too large"))?);
+                sizes.push(
+                    usize::try_from(current)
+                        .map_err(|_| invalid_data("EBML lace size too large"))?,
+                );
                 previous = current;
             }
         }
@@ -2134,7 +2242,9 @@ fn parse_lacing(
 }
 
 fn parse_signed_lace_vint(bytes: &[u8]) -> io::Result<(u64, usize, u32)> {
-    let first = *bytes.first().ok_or_else(|| invalid_data("truncated EBML lace VINT"))?;
+    let first = *bytes
+        .first()
+        .ok_or_else(|| invalid_data("truncated EBML lace VINT"))?;
     let len = vint_length(first, 8)?;
     if bytes.len() < len {
         return Err(invalid_data("truncated EBML lace VINT"));
@@ -2163,7 +2273,10 @@ fn finalize_track_timing(
         let duration_ns = sample.explicit_duration_ns.unwrap_or(fallback_ns).max(1);
         let duration = u32::try_from(ns_to_ticks(duration_ns, track.timescale).max(1))
             .map_err(|_| invalid_data("sample duration exceeds MP4 limit"))?;
-        let pts_ticks = ns_to_ticks(sample.pts_ns.saturating_sub(global_base_ns), track.timescale);
+        let pts_ticks = ns_to_ticks(
+            sample.pts_ns.saturating_sub(global_base_ns),
+            track.timescale,
+        );
         let composition_offset_i128 = i128::from(pts_ticks) - i128::from(decode_time);
         let composition_offset = i32::try_from(composition_offset_i128)
             .map_err(|_| invalid_data("composition offset exceeds MP4 limit"))?;
@@ -2180,7 +2293,8 @@ fn finalize_track_timing(
             .ok_or_else(|| invalid_data("MP4 decode timeline overflow"))?;
     }
 
-    if track.kind == TrackKind::Video && !any_keyframe
+    if track.kind == TrackKind::Video
+        && !any_keyframe
         && let Some(first) = timed.first_mut()
     {
         first.keyframe = true;
@@ -2198,7 +2312,12 @@ fn finalize_av1_track_timing(
     let pts = track
         .samples
         .iter()
-        .map(|sample| ns_to_ticks(sample.pts_ns.saturating_sub(global_base_ns), track.timescale))
+        .map(|sample| {
+            ns_to_ticks(
+                sample.pts_ns.saturating_sub(global_base_ns),
+                track.timescale,
+            )
+        })
         .collect::<Vec<_>>();
     if pts.first().copied().unwrap_or_default() != 0 {
         return Err(invalid_data(
@@ -2238,9 +2357,7 @@ fn finalize_av1_track_timing(
             .checked_add(u64::from(duration))
             .ok_or_else(|| invalid_data("AV1 MP4 decode timeline overflow"))?;
     }
-    if !any_keyframe
-        && let Some(first) = timed.first_mut()
-    {
+    if !any_keyframe && let Some(first) = timed.first_mut() {
         first.keyframe = true;
     }
     track.media_duration = media_duration;
@@ -2253,7 +2370,9 @@ fn track_duration_fallback_ns(track: &OutputTrack) -> io::Result<u64> {
         return Ok(value);
     }
     if track.kind == TrackKind::Audio {
-        return Err(invalid_data("MP4 audio track has no usable frame-duration information"));
+        return Err(invalid_data(
+            "MP4 audio track has no usable frame-duration information",
+        ));
     }
 
     let mut pts: Vec<u64> = track.samples.iter().map(|sample| sample.pts_ns).collect();
@@ -2278,16 +2397,28 @@ fn write_ftyp<W: Write>(writer: &mut W, tracks: &[OutputTrack]) -> io::Result<()
     for brand in [b"isom".as_slice(), b"iso6".as_slice(), b"mp41".as_slice()] {
         body.extend_from_slice(brand);
     }
-    if tracks.iter().any(|track| matches!(track.codec, CodecConfig::Avc { .. })) {
+    if tracks
+        .iter()
+        .any(|track| matches!(track.codec, CodecConfig::Avc { .. }))
+    {
         body.extend_from_slice(b"avc1");
     }
-    if tracks.iter().any(|track| matches!(track.codec, CodecConfig::Hevc { .. })) {
+    if tracks
+        .iter()
+        .any(|track| matches!(track.codec, CodecConfig::Hevc { .. }))
+    {
         body.extend_from_slice(b"hvc1");
     }
-    if tracks.iter().any(|track| matches!(track.codec, CodecConfig::Av1 { .. })) {
+    if tracks
+        .iter()
+        .any(|track| matches!(track.codec, CodecConfig::Av1 { .. }))
+    {
         body.extend_from_slice(b"av01");
     }
-    if tracks.iter().any(|track| matches!(track.codec, CodecConfig::Eac3 { .. })) {
+    if tracks
+        .iter()
+        .any(|track| matches!(track.codec, CodecConfig::Eac3 { .. }))
+    {
         body.extend_from_slice(b"dby1");
     }
     write_box_to(writer, b"ftyp", &body)
@@ -2315,8 +2446,8 @@ fn build_mvhd(movie_duration: u64, track_count: usize) -> io::Result<Vec<u8>> {
     body.extend_from_slice(&[0_u8; 8]);
     write_identity_matrix(&mut body);
     body.extend_from_slice(&[0_u8; 24]);
-    let next_track = u32::try_from(track_count + 1)
-        .map_err(|_| invalid_data("too many MP4 tracks"))?;
+    let next_track =
+        u32::try_from(track_count + 1).map_err(|_| invalid_data("too many MP4 tracks"))?;
     body.extend_from_slice(&next_track.to_be_bytes());
     boxed(*b"mvhd", body)
 }
@@ -2339,7 +2470,11 @@ fn build_tkhd(track: &OutputTrack, movie_duration: u64) -> io::Result<Vec<u8>> {
     body.extend_from_slice(&[0_u8; 8]);
     body.extend_from_slice(&0_i16.to_be_bytes());
     body.extend_from_slice(&0_i16.to_be_bytes());
-    let volume = if track.kind == TrackKind::Audio { 0x0100_u16 } else { 0_u16 };
+    let volume = if track.kind == TrackKind::Audio {
+        0x0100_u16
+    } else {
+        0_u16
+    };
     body.extend_from_slice(&volume.to_be_bytes());
     body.extend_from_slice(&0_u16.to_be_bytes());
     write_identity_matrix(&mut body);
@@ -2372,7 +2507,11 @@ fn build_hdlr(track: &OutputTrack) -> io::Result<Vec<u8>> {
     let mut body = Vec::new();
     write_full_box_header(&mut body, 0, 0);
     body.extend_from_slice(&0_u32.to_be_bytes());
-    body.extend_from_slice(if track.kind == TrackKind::Video { b"vide" } else { b"soun" });
+    body.extend_from_slice(if track.kind == TrackKind::Video {
+        b"vide"
+    } else {
+        b"soun"
+    });
     body.extend_from_slice(&[0_u8; 12]);
     body.extend_from_slice(if track.kind == TrackKind::Video {
         b"Rustnote Video\0"
@@ -2417,7 +2556,11 @@ fn build_stbl(track: &OutputTrack) -> io::Result<Vec<u8>> {
     let mut body = Vec::new();
     body.extend_from_slice(&build_stsd(track)?);
     body.extend_from_slice(&build_stts(track)?);
-    if track.timed_samples.iter().any(|sample| sample.composition_offset != 0) {
+    if track
+        .timed_samples
+        .iter()
+        .any(|sample| sample.composition_offset != 0)
+    {
         body.extend_from_slice(&build_ctts(track)?);
     }
     body.extend_from_slice(&build_stsc()?);
@@ -2430,24 +2573,41 @@ fn build_stbl(track: &OutputTrack) -> io::Result<Vec<u8>> {
 }
 
 fn build_stsd(track: &OutputTrack) -> io::Result<Vec<u8>> {
-    let sample_entry = match &track.codec {
-        CodecConfig::Avc { private, .. } => build_video_sample_entry(*b"avc1", *b"avcC", private, track.width, track.height)?,
-        CodecConfig::Hevc { private, .. } => build_video_sample_entry(*b"hvc1", *b"hvcC", private, track.width, track.height)?,
-        CodecConfig::Av1 { private } => build_video_sample_entry(*b"av01", *b"av1C", private, track.width, track.height)?,
-        CodecConfig::Aac { private, .. } => build_audio_sample_entry(private, track.channels, track.sample_rate)?,
-        CodecConfig::Ac3 { config } => build_dolby_audio_sample_entry(
-            *b"ac-3",
-            *b"dac3",
-            build_dac3_body(config.as_ref().copied().ok_or_else(|| invalid_data("AC-3 track contained no validated samples"))?),
-            track.sample_rate,
-        )?,
-        CodecConfig::Eac3 { config } => build_dolby_audio_sample_entry(
-            *b"ec-3",
-            *b"dec3",
-            build_dec3_body(config.as_ref().copied().ok_or_else(|| invalid_data("E-AC-3 track contained no validated samples"))?),
-            track.sample_rate,
-        )?,
-    };
+    let sample_entry =
+        match &track.codec {
+            CodecConfig::Avc { private, .. } => {
+                build_video_sample_entry(*b"avc1", *b"avcC", private, track.width, track.height)?
+            }
+            CodecConfig::Hevc { private, .. } => {
+                build_video_sample_entry(*b"hvc1", *b"hvcC", private, track.width, track.height)?
+            }
+            CodecConfig::Av1 { private } => {
+                build_video_sample_entry(*b"av01", *b"av1C", private, track.width, track.height)?
+            }
+            CodecConfig::Aac { private, .. } => {
+                build_audio_sample_entry(private, track.channels, track.sample_rate)?
+            }
+            CodecConfig::Ac3 { config } => {
+                build_dolby_audio_sample_entry(
+                    *b"ac-3",
+                    *b"dac3",
+                    build_dac3_body(config.as_ref().copied().ok_or_else(|| {
+                        invalid_data("AC-3 track contained no validated samples")
+                    })?),
+                    track.sample_rate,
+                )?
+            }
+            CodecConfig::Eac3 { config } => {
+                build_dolby_audio_sample_entry(
+                    *b"ec-3",
+                    *b"dec3",
+                    build_dec3_body(config.as_ref().copied().ok_or_else(|| {
+                        invalid_data("E-AC-3 track contained no validated samples")
+                    })?),
+                    track.sample_rate,
+                )?
+            }
+        };
     let mut body = Vec::new();
     write_full_box_header(&mut body, 0, 0);
     body.extend_from_slice(&1_u32.to_be_bytes());
@@ -2479,7 +2639,11 @@ fn build_video_sample_entry(
     boxed(entry_type, body)
 }
 
-fn build_audio_sample_entry(codec_private: &[u8], channels: u16, sample_rate: u32) -> io::Result<Vec<u8>> {
+fn build_audio_sample_entry(
+    codec_private: &[u8],
+    channels: u16,
+    sample_rate: u32,
+) -> io::Result<Vec<u8>> {
     let mut body = Vec::new();
     body.extend_from_slice(&[0_u8; 6]);
     body.extend_from_slice(&1_u16.to_be_bytes());
@@ -2601,7 +2765,11 @@ fn build_stts(track: &OutputTrack) -> io::Result<Vec<u8>> {
     let entries = run_length_u32(track.timed_samples.iter().map(|sample| sample.duration));
     let mut body = Vec::new();
     write_full_box_header(&mut body, 0, 0);
-    body.extend_from_slice(&u32::try_from(entries.len()).map_err(|_| invalid_data("too many stts entries"))?.to_be_bytes());
+    body.extend_from_slice(
+        &u32::try_from(entries.len())
+            .map_err(|_| invalid_data("too many stts entries"))?
+            .to_be_bytes(),
+    );
     for (count, value) in entries {
         body.extend_from_slice(&count.to_be_bytes());
         body.extend_from_slice(&value.to_be_bytes());
@@ -2618,7 +2786,11 @@ fn build_ctts(track: &OutputTrack) -> io::Result<Vec<u8>> {
     );
     let mut body = Vec::new();
     write_full_box_header(&mut body, 1, 0);
-    body.extend_from_slice(&u32::try_from(entries.len()).map_err(|_| invalid_data("too many ctts entries"))?.to_be_bytes());
+    body.extend_from_slice(
+        &u32::try_from(entries.len())
+            .map_err(|_| invalid_data("too many ctts entries"))?
+            .to_be_bytes(),
+    );
     for (count, value) in entries {
         body.extend_from_slice(&count.to_be_bytes());
         body.extend_from_slice(&value.to_be_bytes());
@@ -2640,7 +2812,11 @@ fn build_stsz(track: &OutputTrack) -> io::Result<Vec<u8>> {
     let mut body = Vec::new();
     write_full_box_header(&mut body, 0, 0);
     body.extend_from_slice(&0_u32.to_be_bytes());
-    body.extend_from_slice(&u32::try_from(track.timed_samples.len()).map_err(|_| invalid_data("too many MP4 samples"))?.to_be_bytes());
+    body.extend_from_slice(
+        &u32::try_from(track.timed_samples.len())
+            .map_err(|_| invalid_data("too many MP4 samples"))?
+            .to_be_bytes(),
+    );
     for sample in &track.timed_samples {
         body.extend_from_slice(&sample.size.to_be_bytes());
     }
@@ -2650,7 +2826,11 @@ fn build_stsz(track: &OutputTrack) -> io::Result<Vec<u8>> {
 fn build_co64(track: &OutputTrack) -> io::Result<Vec<u8>> {
     let mut body = Vec::new();
     write_full_box_header(&mut body, 0, 0);
-    body.extend_from_slice(&u32::try_from(track.timed_samples.len()).map_err(|_| invalid_data("too many MP4 chunk offsets"))?.to_be_bytes());
+    body.extend_from_slice(
+        &u32::try_from(track.timed_samples.len())
+            .map_err(|_| invalid_data("too many MP4 chunk offsets"))?
+            .to_be_bytes(),
+    );
     for sample in &track.timed_samples {
         body.extend_from_slice(&sample.offset.to_be_bytes());
     }
@@ -2672,7 +2852,11 @@ fn build_stss(track: &OutputTrack) -> io::Result<Vec<u8>> {
         .collect();
     let mut body = Vec::new();
     write_full_box_header(&mut body, 0, 0);
-    body.extend_from_slice(&u32::try_from(sync_samples.len()).map_err(|_| invalid_data("too many sync samples"))?.to_be_bytes());
+    body.extend_from_slice(
+        &u32::try_from(sync_samples.len())
+            .map_err(|_| invalid_data("too many sync samples"))?
+            .to_be_bytes(),
+    );
     for sample in sync_samples {
         body.extend_from_slice(&sample.to_be_bytes());
     }
@@ -2741,17 +2925,7 @@ fn write_full_box_header(body: &mut Vec<u8>, version: u8, flags: u32) {
 }
 
 fn write_identity_matrix(body: &mut Vec<u8>) {
-    for value in [
-        0x0001_0000_u32,
-        0,
-        0,
-        0,
-        0x0001_0000,
-        0,
-        0,
-        0,
-        0x4000_0000,
-    ] {
+    for value in [0x0001_0000_u32, 0, 0, 0, 0x0001_0000, 0, 0, 0, 0x4000_0000] {
         body.extend_from_slice(&value.to_be_bytes());
     }
 }
@@ -2772,7 +2946,11 @@ fn validate_avcc(data: &[u8]) -> io::Result<usize> {
     for _ in 0..sps_count {
         cursor = skip_u16_sized_blob(data, cursor)?;
     }
-    let pps_count = usize::from(*data.get(cursor).ok_or_else(|| invalid_data("truncated AVC configuration"))?);
+    let pps_count = usize::from(
+        *data
+            .get(cursor)
+            .ok_or_else(|| invalid_data("truncated AVC configuration"))?,
+    );
     if pps_count == 0 {
         return Err(invalid_data("AVC configuration has no PPS"));
     }
@@ -2821,12 +2999,16 @@ fn validate_av1_codec_configuration_record(data: &[u8]) -> io::Result<()> {
     }
     let seq_profile = data[1] >> 5;
     if seq_profile > 2 {
-        return Err(invalid_data("unsupported AV1 profile in configuration record"));
+        return Err(invalid_data(
+            "unsupported AV1 profile in configuration record",
+        ));
     }
     let high_bitdepth = (data[2] & 0x40) != 0;
     let twelve_bit = (data[2] & 0x20) != 0;
     if twelve_bit && !high_bitdepth {
-        return Err(invalid_data("invalid AV1 bit-depth flags in configuration record"));
+        return Err(invalid_data(
+            "invalid AV1 bit-depth flags in configuration record",
+        ));
     }
     if (data[3] & 0xE0) != 0 {
         return Err(invalid_data("AV1 configuration reserved bits are non-zero"));
@@ -2857,7 +3039,9 @@ fn validate_av1_obu_sequence(data: &[u8], allow_last_without_size: bool) -> io::
         let header = data[cursor];
         cursor += 1;
         if (header & 0x81) != 0 {
-            return Err(invalid_data("AV1 OBU header contains forbidden or reserved bits"));
+            return Err(invalid_data(
+                "AV1 OBU header contains forbidden or reserved bits",
+            ));
         }
         let obu_type = (header >> 3) & 0x0F;
         if obu_type == 0 {
@@ -2903,8 +3087,8 @@ fn validate_av1_obu_sequence(data: &[u8], allow_last_without_size: bool) -> io::
 fn read_av1_leb128(data: &[u8]) -> io::Result<(usize, usize)> {
     let mut value = 0u64;
     for (index, byte) in data.iter().copied().take(8).enumerate() {
-        let shift = u32::try_from(index * 7)
-            .map_err(|_| invalid_data("AV1 OBU size shift overflow"))?;
+        let shift =
+            u32::try_from(index * 7).map_err(|_| invalid_data("AV1 OBU size shift overflow"))?;
         value |= u64::from(byte & 0x7F) << shift;
         if (byte & 0x80) == 0 {
             let size = usize::try_from(value)
@@ -3003,8 +3187,7 @@ fn dolby_channels(acmod: u8, lfeon: bool) -> io::Result<u16> {
 fn parse_ac3_frame(data: &[u8]) -> io::Result<ParsedAc3Frame> {
     const SAMPLE_RATES: [u32; 3] = [48_000, 44_100, 32_000];
     const BIT_RATES_KBPS: [u32; 19] = [
-        32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448,
-        512, 576, 640,
+        32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 448, 512, 576, 640,
     ];
 
     if data.len() < 7 || data[0..2] != [0x0B, 0x77] {
@@ -3016,8 +3199,8 @@ fn parse_ac3_frame(data: &[u8]) -> io::Result<ParsedAc3Frame> {
         .get(usize::from(fscod))
         .copied()
         .ok_or_else(|| invalid_data("reserved AC-3 sample-rate code"))?;
-    let frmsizecod = u8::try_from(bits.read(6)?)
-        .map_err(|_| invalid_data("invalid AC-3 frame-size code"))?;
+    let frmsizecod =
+        u8::try_from(bits.read(6)?).map_err(|_| invalid_data("invalid AC-3 frame-size code"))?;
     let bit_rate_code = frmsizecod >> 1;
     let bit_rate_kbps = BIT_RATES_KBPS
         .get(usize::from(bit_rate_code))
@@ -3098,8 +3281,8 @@ fn parse_eac3_frame(data: &[u8]) -> io::Result<ParsedEac3Frame> {
         ));
     }
 
-    let fscod = u8::try_from(bits.read(2)?)
-        .map_err(|_| invalid_data("invalid E-AC-3 sample-rate code"))?;
+    let fscod =
+        u8::try_from(bits.read(2)?).map_err(|_| invalid_data("invalid E-AC-3 sample-rate code"))?;
     if fscod == 3 {
         return Err(invalid_data(
             "reduced-rate E-AC-3 is left to native or external playback",
@@ -3312,8 +3495,10 @@ fn parse_aac_specific_config(data: &[u8]) -> io::Result<AacConfigInfo> {
         sample_rate = read_aac_sample_rate(&mut bits)?;
         object_type = read_aac_object_type(&mut bits)?;
     }
-    let frame_samples = if matches!(object_type, 1 | 2 | 3 | 4 | 6 | 7 | 17 | 19 | 20 | 21 | 22 | 23)
-        && bits.remaining() >= 1
+    let frame_samples = if matches!(
+        object_type,
+        1 | 2 | 3 | 4 | 6 | 7 | 17 | 19 | 20 | 21 | 22 | 23
+    ) && bits.remaining() >= 1
         && bits.read(1)? != 0
     {
         960
@@ -3339,8 +3524,8 @@ fn read_aac_object_type(bits: &mut BitReader<'_>) -> io::Result<u32> {
 
 fn read_aac_sample_rate(bits: &mut BitReader<'_>) -> io::Result<Option<u32>> {
     const RATES: [u32; 13] = [
-        96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000,
-        11_025, 8_000, 7_350,
+        96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025,
+        8_000, 7_350,
     ];
     let index = bits.read(4)?;
     if index == 15 {
@@ -3443,7 +3628,9 @@ fn read_ebml_size_stream(source: &mut File) -> io::Result<Option<u64>> {
 }
 
 fn parse_vint_from_slice(bytes: &[u8], is_id: bool) -> io::Result<(u64, usize)> {
-    let first = *bytes.first().ok_or_else(|| invalid_data("truncated EBML VINT"))?;
+    let first = *bytes
+        .first()
+        .ok_or_else(|| invalid_data("truncated EBML VINT"))?;
     let len = vint_length(first, if is_id { 4 } else { 8 })?;
     if bytes.len() < len {
         return Err(invalid_data("truncated EBML VINT"));
@@ -3519,7 +3706,8 @@ fn read_bytes(source: &mut File, header: ElementHeader, max: u64) -> io::Result<
         return Err(invalid_data("EBML binary element exceeds safety limit"));
     }
     source.seek(SeekFrom::Start(header.data_start))?;
-    let mut bytes = vec![0_u8; usize::try_from(len).map_err(|_| invalid_data("EBML element is too large"))?];
+    let mut bytes =
+        vec![0_u8; usize::try_from(len).map_err(|_| invalid_data("EBML element is too large"))?];
     source.read_exact(&mut bytes)?;
     Ok(bytes)
 }
@@ -3533,15 +3721,15 @@ fn read_span_bytes(source: &mut File, span: ElementSpan, max: u64) -> io::Result
         return Err(invalid_data("media block exceeds safety limit"));
     }
     source.seek(SeekFrom::Start(span.data_start))?;
-    let mut bytes = vec![0_u8; usize::try_from(len).map_err(|_| invalid_data("media block is too large"))?];
+    let mut bytes =
+        vec![0_u8; usize::try_from(len).map_err(|_| invalid_data("media block is too large"))?];
     source.read_exact(&mut bytes)?;
     Ok(bytes)
 }
 
 fn ns_to_ticks(ns: u64, timescale: u32) -> u64 {
     let numerator = u128::from(ns) * u128::from(timescale);
-    ((numerator + 500_000_000) / 1_000_000_000)
-        .min(u128::from(u64::MAX)) as u64
+    ((numerator + 500_000_000) / 1_000_000_000).min(u128::from(u64::MAX)) as u64
 }
 
 fn write_u32<W: Write>(writer: &mut W, value: u32) -> io::Result<()> {
@@ -3551,7 +3739,6 @@ fn write_u32<W: Write>(writer: &mut W, value: u32) -> io::Result<()> {
 fn write_u64<W: Write>(writer: &mut W, value: u64) -> io::Result<()> {
     writer.write_all(&value.to_be_bytes())
 }
-
 
 fn invalid_data(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
@@ -3571,11 +3758,13 @@ mod tests {
     #[test]
     fn validates_av1_mp4_passthrough_records_and_samples() {
         assert!(validate_av1_codec_configuration_record(&[0x81, 0x00, 0x00, 0x00]).is_ok());
-        assert!(validate_av1_codec_configuration_record(&[
-            0x81, 0x00, 0x0C, 0x00, 0x0A, 0x0A, 0x00, 0x00, 0x00, 0x02, 0xAF, 0xFF,
-            0x9B, 0x5F, 0x30, 0x08,
-        ])
-        .is_ok());
+        assert!(
+            validate_av1_codec_configuration_record(&[
+                0x81, 0x00, 0x0C, 0x00, 0x0A, 0x0A, 0x00, 0x00, 0x00, 0x02, 0xAF, 0xFF, 0x9B, 0x5F,
+                0x30, 0x08,
+            ])
+            .is_ok()
+        );
         assert!(validate_av1_sample(&[0x30, 0x00]).is_ok());
         assert!(validate_av1_sample(&[0x32, 0x01, 0x00]).is_ok());
 
@@ -3675,8 +3864,8 @@ mod tests {
     fn eac3_specific_box_matches_a_real_mono_48khz_192kbps_frame() {
         let mut frame = vec![0_u8; 768];
         frame[..16].copy_from_slice(&[
-            0x0B, 0x77, 0x01, 0x7F, 0x32, 0x87, 0xC0, 0x00, 0x21, 0x07, 0xC8, 0x60,
-            0xE4, 0xEE, 0xC3, 0x86,
+            0x0B, 0x77, 0x01, 0x7F, 0x32, 0x87, 0xC0, 0x00, 0x21, 0x07, 0xC8, 0x60, 0xE4, 0xEE,
+            0xC3, 0x86,
         ]);
         let parsed = match parse_eac3_frame(&frame) {
             Ok(parsed) => parsed,
@@ -3684,7 +3873,10 @@ mod tests {
         };
         assert_eq!(parsed.sample_rate, 48_000);
         assert_eq!(parsed.channels, 1);
-        assert_eq!(build_dec3_body(parsed.config), vec![0x06, 0x00, 0x20, 0x02, 0x00]);
+        assert_eq!(
+            build_dec3_body(parsed.config),
+            vec![0x06, 0x00, 0x20, 0x02, 0x00]
+        );
     }
 
     #[test]

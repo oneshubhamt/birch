@@ -134,7 +134,9 @@ impl ApplicationExecutionStatus {
 
     fn refresh_editing_availability(&mut self) {
         self.editing_available = self.editing_locks == 0
-            && self.current.is_none_or(ApplicationOperation::editing_available);
+            && self
+                .current
+                .is_none_or(ApplicationOperation::editing_available);
     }
 }
 
@@ -161,7 +163,10 @@ impl Display for ApplicationExecutionError {
                 write!(formatter, "{label} worker failed: {message}")
             }
             Self::ExecutorStopped { label } => {
-                write!(formatter, "{label} executor stopped before returning a result")
+                write!(
+                    formatter,
+                    "{label} executor stopped before returning a result"
+                )
             }
         }
     }
@@ -238,9 +243,7 @@ impl ApplicationExecutor {
         lock_unpoisoned(&self.inner.status).clone()
     }
 
-    pub(crate) fn subscribe(
-        &self,
-    ) -> tokio::sync::watch::Receiver<ApplicationExecutionStatus> {
+    pub(crate) fn subscribe(&self) -> tokio::sync::watch::Receiver<ApplicationExecutionStatus> {
         self.inner.updates.subscribe()
     }
 
@@ -263,14 +266,10 @@ impl ApplicationExecutor {
         })?
     }
 
-
     /// Start an isolated blocking task immediately and return a ticket that can be
     /// awaited later. This is used when the work must continue across intervening
     /// browser awaits without exposing `spawn_blocking` to UI code.
-    pub(crate) fn start_read<T, E, F>(
-        label: &'static str,
-        work: F,
-    ) -> ApplicationReadTicket<T, E>
+    pub(crate) fn start_read<T, E, F>(label: &'static str, work: F) -> ApplicationReadTicket<T, E>
     where
         T: Send + 'static,
         E: ExecutionFailure + Send + 'static,
@@ -348,9 +347,7 @@ impl ApplicationExecutor {
         let executor_task = self.clone();
         tokio::spawn(async move {
             let worker_executor = executor_task.clone();
-            let worker = tokio::task::spawn_blocking(move || {
-                worker_executor.wait_for_turn(ticket)
-            });
+            let worker = tokio::task::spawn_blocking(move || worker_executor.wait_for_turn(ticket));
 
             let result = match worker.await {
                 Ok(turn) => {
@@ -376,9 +373,11 @@ impl ApplicationExecutor {
             let _ = result_sender.send(result);
         });
 
-        result_receiver.await.map_err(|_| ApplicationExecutionError::ExecutorStopped {
-            label: operation.worker_label(),
-        })?
+        result_receiver
+            .await
+            .map_err(|_| ApplicationExecutionError::ExecutorStopped {
+                label: operation.worker_label(),
+            })?
     }
 
     pub(crate) fn pause_editing(&self) -> EditingPauseGuard {
@@ -453,7 +452,10 @@ impl ApplicationExecutor {
 
     fn mark_started(&self, operation: ApplicationOperation, ticket: u64) {
         self.update_status(|status| {
-            if status.current_ticket.is_some_and(|current| current > ticket) {
+            if status
+                .current_ticket
+                .is_some_and(|current| current > ticket)
+            {
                 return;
             }
             status.current = Some(operation);
@@ -670,7 +672,11 @@ mod tests {
 
     #[test]
     fn execution_errors_are_stable_and_actionable() {
-        assert!(ApplicationExecutionError::QueueFull.to_string().contains("queued"));
+        assert!(
+            ApplicationExecutionError::QueueFull
+                .to_string()
+                .contains("queued")
+        );
         let error = ApplicationExecutionError::WorkerFailed {
             label: "test operation",
             message: "panic".to_string(),
@@ -683,7 +689,10 @@ mod tests {
         let executor = ApplicationExecutor::new();
         assert_eq!(executor.reserve_turn().unwrap(), (0, false));
         assert_eq!(executor.reserve_turn().unwrap(), (1, true));
-        assert_eq!(executor.reserve_turn(), Err(ApplicationExecutionError::QueueFull));
+        assert_eq!(
+            executor.reserve_turn(),
+            Err(ApplicationExecutionError::QueueFull)
+        );
     }
 
     #[test]

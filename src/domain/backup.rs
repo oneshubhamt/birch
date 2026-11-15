@@ -73,4 +73,3 @@ pub struct BackupRepositoryStatus {
     pub pending_privacy_reset_count: usize,
     pub snapshots: Vec<BackupRepositorySnapshot>,
 }
-

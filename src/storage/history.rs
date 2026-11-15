@@ -7,15 +7,15 @@ use rusqlite::{
     Connection, OptionalExtension, Transaction, TransactionBehavior, params, params_from_iter,
 };
 
+use crate::domain::{
+    Attachment, DEFAULT_NOTEBOOK_ID, Note, NoteId, NoteRevision, NoteRevisionRestoreResult,
+    NoteRevisionSummary, RevisionAttachment, RevisionRetention, RevisionSnapshot,
+    RevisionStorageUsage,
+};
 use crate::{
     editor_document::validate_editor_state,
     editor_projection::derive_editor_projections,
     security::{VaultNoteAccess, VaultReadPermit},
-};
-use crate::domain::{
-    Attachment, DEFAULT_NOTEBOOK_ID, Note, NoteId, NoteRevision, NoteRevisionSummary,
-    NoteRevisionRestoreResult, RevisionAttachment, RevisionRetention, RevisionSnapshot,
-    RevisionStorageUsage,
 };
 
 use super::attachments::{sha256_bytes, sha256_file, validate_sha256};
@@ -148,10 +148,7 @@ impl Storage {
             .map(RevisionSnapshotResource::ordinary)
     }
 
-    pub fn revision_snapshot_by_id(
-        &self,
-        revision_id: &str,
-    ) -> StorageResult<RevisionSnapshot> {
+    pub fn revision_snapshot_by_id(&self, revision_id: &str) -> StorageResult<RevisionSnapshot> {
         let connection = self.connection()?;
         let revision = connection
             .query_row(
@@ -315,9 +312,7 @@ impl Storage {
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
-        if confirmed_revision
-            != Some((revision.note_id.clone(), expected_revision_checksum))
-        {
+        if confirmed_revision != Some((revision.note_id.clone(), expected_revision_checksum)) {
             return Err(StorageError::Validation(
                 "the selected revision changed while its attachments were being verified"
                     .to_string(),
@@ -380,20 +375,11 @@ impl Storage {
         transaction.execute("DELETE FROM attachments WHERE note_id = ?1", [&current.id])?;
         for attachment in &restored_attachments {
             self.insert_attachment(&transaction, attachment)?;
-            self.enqueue_sync_upsert(
-                &transaction,
-                "attachment",
-                &attachment.id,
-                attachment,
-            )?;
+            self.enqueue_sync_upsert(&transaction, "attachment", &attachment.id, attachment)?;
         }
         for attachment in &current_attachments {
             if !restored_ids.contains(&attachment.id) {
-                self.enqueue_sync_delete(
-                    &transaction,
-                    "attachment",
-                    &attachment.id,
-                )?;
+                self.enqueue_sync_delete(&transaction, "attachment", &attachment.id)?;
             }
         }
 
@@ -465,7 +451,8 @@ impl Storage {
         let removed = {
             let _operation_guard = self.lock_operations()?;
             let mut connection = self.connection()?;
-            let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
             transaction.execute(
                 "INSERT INTO settings(key, value) VALUES (?1, ?2)
                  ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -494,7 +481,8 @@ impl Storage {
         let removed = {
             let _operation_guard = self.lock_operations()?;
             let mut connection = self.connection()?;
-            let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            let transaction =
+                connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
             transaction.execute(
                 "INSERT INTO settings(key, value) VALUES (?1, ?2)
                  ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -567,7 +555,8 @@ impl Storage {
             return Ok(false);
         }
 
-        let attachments = self.list_referenced_attachments_with_connection(transaction, &note.id)?;
+        let attachments =
+            self.list_referenced_attachments_with_connection(transaction, &note.id)?;
         let snapshot = RevisionSnapshot::new(note, attachments);
         let snapshot_json = serde_json::to_string(&snapshot)?;
         let checksum = sha256_bytes(snapshot_json.as_bytes());
@@ -772,8 +761,8 @@ fn prune_revisions_by_retention(
     let mut removed = 0_usize;
 
     if retention.max_age_days > 0 {
-        let cutoff = unix_timestamp()
-            .saturating_sub(retention.max_age_days.saturating_mul(24 * 60 * 60));
+        let cutoff =
+            unix_timestamp().saturating_sub(retention.max_age_days.saturating_mul(24 * 60 * 60));
         removed += transaction.execute(
             "DELETE FROM note_revisions AS revision
              WHERE revision.created_at < ?1
@@ -934,14 +923,12 @@ fn select_revisions_for_budget(
         projected_total_bytes -= candidate.snapshot_bytes;
 
         for reference in &candidate.historical_blob_refs {
-            let blob = historical_blobs
-                .get_mut(&reference.sha256)
-                .ok_or_else(|| {
-                    StorageError::Integrity(format!(
-                        "revision {} references missing blob budget state for {}",
-                        candidate.id, reference.sha256
-                    ))
-                })?;
+            let blob = historical_blobs.get_mut(&reference.sha256).ok_or_else(|| {
+                StorageError::Integrity(format!(
+                    "revision {} references missing blob budget state for {}",
+                    candidate.id, reference.sha256
+                ))
+            })?;
             if reference.reference_count > blob.remaining_references {
                 return Err(StorageError::Integrity(format!(
                     "historical blob reference accounting underflow for {}",
@@ -980,16 +967,16 @@ fn delete_revision_batches(
                 batch.len()
             )));
         }
-        removed = removed.checked_add(batch_removed).ok_or_else(|| {
-            StorageError::Integrity("revision prune count overflow".to_string())
-        })?;
+        removed = removed
+            .checked_add(batch_removed)
+            .ok_or_else(|| StorageError::Integrity("revision prune count overflow".to_string()))?;
     }
     Ok(removed)
 }
 
 pub(super) fn materialize_revision_note(snapshot: &RevisionSnapshot) -> StorageResult<Note> {
-    let projections = derive_editor_projections(snapshot.note.editor_state.as_str())
-        .map_err(|error| {
+    let projections =
+        derive_editor_projections(snapshot.note.editor_state.as_str()).map_err(|error| {
             StorageError::Validation(format!(
                 "could not regenerate revision projections: {error}"
             ))

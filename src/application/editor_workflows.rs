@@ -207,9 +207,11 @@ impl EditorWorkflowService {
         note_id: NoteId,
     ) -> Result<AttachmentRecoveryResult, EditorWorkflowError> {
         let service = self.attachments.clone();
-        ApplicationExecutor::read("attachment recovery", move || service.recover_pending(&note_id))
-            .await
-            .map_err(EditorWorkflowError::from)
+        ApplicationExecutor::read("attachment recovery", move || {
+            service.recover_pending(&note_id)
+        })
+        .await
+        .map_err(EditorWorkflowError::from)
     }
 
     pub(crate) async fn save_pdf_export(
@@ -371,7 +373,6 @@ fn resolve_attachment_import_completion(
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{
@@ -385,8 +386,8 @@ mod tests {
     use crate::application::export::ExportService;
     use crate::autosave::AutosaveController;
     use crate::domain::{Attachment, NoteId};
-    use serde_json::{Value, json};
     use crate::storage::Storage;
+    use serde_json::{Value, json};
     use std::{path::PathBuf, time::Duration};
 
     fn test_root(label: &str) -> PathBuf {
@@ -500,8 +501,8 @@ mod tests {
             // persisted before managed staging starts. Storage intentionally
             // cancels a finalization whose durable request anchor has vanished.
             let mut pending_note = note.clone();
-            let mut editor_state: Value = serde_json::from_str(note.editor_state())
-                .expect("parse B4 editor state");
+            let mut editor_state: Value =
+                serde_json::from_str(note.editor_state()).expect("parse B4 editor state");
             editor_state["document"]["content"] = json!([{
                 "type": "attachment_pending",
                 "attrs": {
@@ -525,19 +526,13 @@ mod tests {
                 .expect("persist B4 attachment insertion anchor");
 
             let staged = workflows
-                .stage_attachment_import(
-                    pending_note,
-                    "request-b4".to_string(),
-                    vec![source],
-                )
+                .stage_attachment_import(pending_note, "request-b4".to_string(), vec![source])
                 .await
                 .expect("stage B4 attachment");
             assert_eq!(staged.prepared.len(), 1);
 
-            let finalization = workflows.start_attachment_finalization(
-                staged.failure,
-                staged.prepared,
-            );
+            let finalization =
+                workflows.start_attachment_finalization(staged.failure, staged.prepared);
 
             let mut durable_before_wait = false;
             for _ in 0..500 {

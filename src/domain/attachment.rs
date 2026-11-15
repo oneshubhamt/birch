@@ -34,7 +34,6 @@ pub struct Attachment {
     pub updated_at: i64,
 }
 
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AttachmentAudit {
     pub checked: usize,
@@ -59,4 +58,3 @@ pub struct AttachmentRecoveryReport {
     pub missing_attachment_records: usize,
     pub unresolved_operations: usize,
 }
-

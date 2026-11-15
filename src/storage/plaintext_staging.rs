@@ -56,10 +56,8 @@ impl Storage {
         relative_path: &str,
     ) -> StorageResult<crate::security::OwnedPlaintext> {
         let stage_id = self.reserve_portability_plaintext_stage(relative_path)?;
-        let path = self.managed_plaintext_stage_path(
-            PLAINTEXT_STAGE_PORTABILITY_IMPORT,
-            relative_path,
-        )?;
+        let path =
+            self.managed_plaintext_stage_path(PLAINTEXT_STAGE_PORTABILITY_IMPORT, relative_path)?;
         Ok(crate::security::OwnedPlaintext::durable_managed(
             path,
             stage_id,
@@ -74,10 +72,8 @@ impl Storage {
         relative_path: &str,
     ) -> StorageResult<crate::security::OwnedPlaintext> {
         let stage_id = self.reserve_canonical_blob_plaintext_stage(relative_path)?;
-        let path = self.managed_plaintext_stage_path(
-            PLAINTEXT_STAGE_PORTABILITY_BLOB,
-            relative_path,
-        )?;
+        let path =
+            self.managed_plaintext_stage_path(PLAINTEXT_STAGE_PORTABILITY_BLOB, relative_path)?;
         Ok(crate::security::OwnedPlaintext::durable_managed(
             path,
             stage_id,
@@ -92,10 +88,8 @@ impl Storage {
         relative_path: &str,
     ) -> StorageResult<crate::security::OwnedPlaintext> {
         let stage_id = self.reserve_portability_blob_plaintext_stage(relative_path)?;
-        let path = self.managed_plaintext_stage_path(
-            PLAINTEXT_STAGE_PORTABILITY_BLOB,
-            relative_path,
-        )?;
+        let path =
+            self.managed_plaintext_stage_path(PLAINTEXT_STAGE_PORTABILITY_BLOB, relative_path)?;
         Ok(crate::security::OwnedPlaintext::durable_managed(
             path,
             stage_id,
@@ -341,8 +335,8 @@ impl Storage {
             )?;
             let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
             for attachment_json in rows {
-                let attachment: crate::domain::Attachment =
-                    serde_json::from_str(&attachment_json?).map_err(|error| {
+                let attachment: crate::domain::Attachment = serde_json::from_str(&attachment_json?)
+                    .map_err(|error| {
                         StorageError::Integrity(format!(
                             "pending attachment Add ownership record is corrupt: {error}"
                         ))
@@ -463,7 +457,9 @@ impl Storage {
         owned: &mut crate::security::OwnedPlaintext,
     ) -> StorageResult<()> {
         let owner = owned.durable_ownership().ok_or_else(|| {
-            StorageError::Integrity("plaintext is not owned by the durable staging ledger".to_string())
+            StorageError::Integrity(
+                "plaintext is not owned by the durable staging ledger".to_string(),
+            )
         })?;
         let stage_id = owner.stage_id.clone();
         let expected_path = self.managed_plaintext_stage_path(&owner.kind, &owner.relative_path)?;
@@ -472,11 +468,13 @@ impl Storage {
                 "durable plaintext owner path does not match its ledger namespace".to_string(),
             ));
         }
-        let stage = self.get_managed_plaintext_stage(&stage_id)?.ok_or_else(|| {
-            StorageError::Integrity(
-                "durable plaintext ownership disappeared before retirement".to_string(),
-            )
-        })?;
+        let stage = self
+            .get_managed_plaintext_stage(&stage_id)?
+            .ok_or_else(|| {
+                StorageError::Integrity(
+                    "durable plaintext ownership disappeared before retirement".to_string(),
+                )
+            })?;
         validate_managed_plaintext_transfer_record(&stage)?;
         if stage.kind != owner.kind
             || stage.note_id.as_ref() != owner.note_id.as_ref()
@@ -535,7 +533,9 @@ impl Storage {
         owned: &mut crate::security::OwnedPlaintext,
     ) -> StorageResult<()> {
         let owner = owned.durable_ownership().ok_or_else(|| {
-            StorageError::Integrity("plaintext is not owned by the durable staging ledger".to_string())
+            StorageError::Integrity(
+                "plaintext is not owned by the durable staging ledger".to_string(),
+            )
         })?;
         let stage_id = owner.stage_id.clone();
         let expected_path = self.managed_plaintext_stage_path(&owner.kind, &owner.relative_path)?;
@@ -571,7 +571,9 @@ impl Storage {
         owned: &mut crate::security::OwnedPlaintext,
     ) -> StorageResult<()> {
         let owner = owned.durable_ownership().ok_or_else(|| {
-            StorageError::Integrity("plaintext is not owned by the durable staging ledger".to_string())
+            StorageError::Integrity(
+                "plaintext is not owned by the durable staging ledger".to_string(),
+            )
         })?;
         let stage_id = owner.stage_id.clone();
         let kind = owner.kind.clone();
@@ -608,10 +610,7 @@ impl Storage {
         )
     }
 
-    fn reserve_portability_plaintext_stage(
-        &self,
-        relative_path: &str,
-    ) -> StorageResult<String> {
+    fn reserve_portability_plaintext_stage(&self, relative_path: &str) -> StorageResult<String> {
         validate_portability_stage_relative_path(relative_path)?;
         self.reserve_managed_plaintext_stage(
             PLAINTEXT_STAGE_PORTABILITY_IMPORT,
@@ -624,16 +623,9 @@ impl Storage {
     /// before a workflow creates or replaces that path. The persisted kind name
     /// predates its use by archive restore, but the ownership semantics are
     /// intentionally workflow-neutral.
-    fn reserve_canonical_blob_plaintext_stage(
-        &self,
-        relative_path: &str,
-    ) -> StorageResult<String> {
+    fn reserve_canonical_blob_plaintext_stage(&self, relative_path: &str) -> StorageResult<String> {
         validate_portability_blob_relative_path(relative_path)?;
-        self.reserve_managed_plaintext_stage(
-            PLAINTEXT_STAGE_PORTABILITY_BLOB,
-            None,
-            relative_path,
-        )
+        self.reserve_managed_plaintext_stage(PLAINTEXT_STAGE_PORTABILITY_BLOB, None, relative_path)
     }
 
     fn reserve_portability_blob_plaintext_stage(
@@ -657,14 +649,14 @@ impl Storage {
         let parent = Path::new(&canonical).parent().ok_or_else(|| {
             StorageError::Integrity("restore blob path has no parent".to_string())
         })?;
-        let file_name = format!(
-            ".{sha256}.restore-{}.tmp",
-            new_id("blob")
-        );
+        let file_name = format!(".{sha256}.restore-{}.tmp", new_id("blob"));
         let relative_path = parent.join(file_name);
-        let relative_path = relative_path.to_str().ok_or_else(|| {
-            StorageError::Integrity("restore blob temporary path is not UTF-8".to_string())
-        })?.to_string();
+        let relative_path = relative_path
+            .to_str()
+            .ok_or_else(|| {
+                StorageError::Integrity("restore blob temporary path is not UTF-8".to_string())
+            })?
+            .to_string();
         validate_restore_blob_temporary_relative_path(&relative_path)?;
         let stage_id = self.reserve_managed_plaintext_stage(
             PLAINTEXT_STAGE_PORTABILITY_BLOB,
@@ -773,10 +765,9 @@ impl Storage {
             ));
         }
 
-        if !self.plaintext_transfer_successor_is_owned(
-            destination_relative,
-            Some(&source_stage_id),
-        )? {
+        if !self
+            .plaintext_transfer_successor_is_owned(destination_relative, Some(&source_stage_id))?
+        {
             return Err(StorageError::Integrity(
                 "blob rename destination has no authoritative successor owner".to_string(),
             ));
@@ -788,7 +779,12 @@ impl Storage {
              SET transfer_destination = ?1, transfer_state = 'prepared'
              WHERE id = ?2 AND kind = ?3 AND relative_path = ?4
                AND transfer_destination IS NULL AND transfer_state IS NULL",
-            params![destination_relative, &source_stage_id, PLAINTEXT_STAGE_PORTABILITY_BLOB, &source_relative],
+            params![
+                destination_relative,
+                &source_stage_id,
+                PLAINTEXT_STAGE_PORTABILITY_BLOB,
+                &source_relative
+            ],
         )?;
         if updated != 1 {
             return Err(StorageError::Integrity(
@@ -797,10 +793,8 @@ impl Storage {
         }
         drop(connection);
 
-        let destination = self.managed_plaintext_stage_path(
-            PLAINTEXT_STAGE_PORTABILITY_BLOB,
-            destination_relative,
-        )?;
+        let destination = self
+            .managed_plaintext_stage_path(PLAINTEXT_STAGE_PORTABILITY_BLOB, destination_relative)?;
         owned.rename_durable_to_preowned(&destination)?;
         Ok(())
     }
@@ -958,7 +952,6 @@ impl Storage {
         Ok(())
     }
 
-
     fn discard_managed_plaintext_stage(&self, stage_id: &str) -> StorageResult<()> {
         if self.get_managed_plaintext_stage(stage_id)?.is_none() {
             return Ok(());
@@ -1017,7 +1010,8 @@ impl Storage {
                     "prepared plaintext transfer has no destination".to_string(),
                 )
             })?;
-            let source_path = self.managed_plaintext_stage_path(&stage.kind, &stage.relative_path)?;
+            let source_path =
+                self.managed_plaintext_stage_path(&stage.kind, &stage.relative_path)?;
             let destination_path = self.managed_plaintext_stage_path(
                 PLAINTEXT_STAGE_PORTABILITY_BLOB,
                 destination_relative,
@@ -1104,7 +1098,6 @@ impl Storage {
         }
         Ok(removed)
     }
-
 
     fn managed_plaintext_stage_is_required_transfer_successor(
         &self,
@@ -1311,9 +1304,8 @@ pub(super) fn ensure_unreferenced_canonical_blob_plaintext_stage_in_transaction(
     // later generic-stage recovery could otherwise delete the blob while the
     // Add operation still legitimately owns it. Corrupt operation payloads are
     // an integrity failure rather than permission to assume the blob is free.
-    let mut pending_adds = transaction.prepare(
-        "SELECT attachment_json FROM attachment_operations WHERE operation = 'add'",
-    )?;
+    let mut pending_adds = transaction
+        .prepare("SELECT attachment_json FROM attachment_operations WHERE operation = 'add'")?;
     let rows = pending_adds.query_map([], |row| row.get::<_, String>(0))?;
     for attachment_json in rows {
         let attachment: crate::domain::Attachment = serde_json::from_str(&attachment_json?)
@@ -1328,10 +1320,10 @@ pub(super) fn ensure_unreferenced_canonical_blob_plaintext_stage_in_transaction(
     }
     drop(pending_adds);
 
-    let relative_path = crate::attachment_paths::canonical_blob_relative_path(sha256)
-        .ok_or_else(|| StorageError::Integrity(
-            "invalid canonical attachment blob identity".to_string(),
-        ))?;
+    let relative_path =
+        crate::attachment_paths::canonical_blob_relative_path(sha256).ok_or_else(|| {
+            StorageError::Integrity("invalid canonical attachment blob identity".to_string())
+        })?;
     ensure_canonical_blob_plaintext_stage_in_transaction(transaction, &relative_path)?;
     Ok(())
 }
@@ -1395,7 +1387,9 @@ fn validate_portability_stage_relative_path(relative_path: &str) -> StorageResul
 fn validate_portability_blob_relative_path(relative_path: &str) -> StorageResult<()> {
     let path = Path::new(relative_path);
     if path.is_absolute()
-        || path.components().any(|component| !matches!(component, Component::Normal(_)))
+        || path
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
     {
         return Err(StorageError::Integrity(
             "invalid portability blob plaintext path".to_string(),
@@ -1406,7 +1400,8 @@ fn validate_portability_blob_relative_path(relative_path: &str) -> StorageResult
             "invalid portability blob plaintext path".to_string(),
         ));
     };
-    if crate::attachment_paths::canonical_blob_relative_path(hash).as_deref() != Some(relative_path) {
+    if crate::attachment_paths::canonical_blob_relative_path(hash).as_deref() != Some(relative_path)
+    {
         return Err(StorageError::Integrity(
             "invalid portability blob plaintext path".to_string(),
         ));
@@ -1525,10 +1520,7 @@ fn validate_restore_blob_temporary_relative_path(relative_path: &str) -> Storage
                 && a.bytes().all(|byte| byte.is_ascii_hexdigit())
                 && b.bytes().all(|byte| byte.is_ascii_hexdigit())
     );
-    if sha256.len() != 64
-        || !sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
-        || !valid_id
-    {
+    if sha256.len() != 64 || !sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) || !valid_id {
         return Err(StorageError::Integrity(
             "invalid restore blob temporary path".to_string(),
         ));
@@ -1544,14 +1536,16 @@ fn validate_restore_blob_temporary_relative_path(relative_path: &str) -> Storage
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn portability_stage_path_rejects_nested_paths() {
-        assert!(validate_portability_stage_relative_path("nested/.portability-import-x.rustnote").is_err());
+        assert!(
+            validate_portability_stage_relative_path("nested/.portability-import-x.rustnote")
+                .is_err()
+        );
         assert!(validate_portability_stage_relative_path(".portability-import-x.rustnote").is_ok());
     }
 
@@ -1570,16 +1564,19 @@ mod tests {
             "rustnote-plaintext-owner-test-{}",
             new_id("restore-temp")
         ));
-        let storage = Storage::at_with_backup(root.join("data"), root.join("backups"))
-            .expect("test storage");
+        let storage =
+            Storage::at_with_backup(root.join("data"), root.join("backups")).expect("test storage");
         let hash = "a".repeat(64);
         let (relative, mut owned) = storage
             .reserve_restore_blob_temporary_owned_plaintext(&hash)
             .expect("reserve restore temporary owner");
         let path = owned.path().to_path_buf();
-        let canonical = crate::attachment_paths::canonical_blob_relative_path(&hash)
-            .expect("canonical path");
-        assert_eq!(Path::new(&relative).parent(), Path::new(&canonical).parent());
+        let canonical =
+            crate::attachment_paths::canonical_blob_relative_path(&hash).expect("canonical path");
+        assert_eq!(
+            Path::new(&relative).parent(),
+            Path::new(&canonical).parent()
+        );
         assert!(validate_restore_blob_temporary_relative_path(&relative).is_ok());
         assert!(!path.exists());
         storage
@@ -1595,8 +1592,8 @@ mod tests {
             "rustnote-plaintext-owner-test-{}",
             new_id("release")
         ));
-        let storage = Storage::at_with_backup(root.join("data"), root.join("backups"))
-            .expect("test storage");
+        let storage =
+            Storage::at_with_backup(root.join("data"), root.join("backups")).expect("test storage");
         let relative = ".portability-import-owned.rustnote";
         let stage_id = storage
             .reserve_portability_plaintext_stage(relative)
@@ -1625,25 +1622,27 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
-
     #[test]
     fn durable_restore_rename_requires_successor_owner_and_keeps_predecessor_on_failure() {
         let root = std::env::temp_dir().join(format!(
             "rustnote-plaintext-owner-test-{}",
             new_id("rename-owner")
         ));
-        let storage = Storage::at_with_backup(root.join("data"), root.join("backups"))
-            .expect("test storage");
+        let storage =
+            Storage::at_with_backup(root.join("data"), root.join("backups")).expect("test storage");
         let bytes = b"durable rename plaintext";
         let hash = {
             use sha2::{Digest, Sha256};
             let mut hasher = Sha256::new();
             hasher.update(bytes);
             let digest = hasher.finalize();
-            digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>()
+            digest
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
         };
-        let canonical = crate::attachment_paths::canonical_blob_relative_path(&hash)
-            .expect("canonical path");
+        let canonical =
+            crate::attachment_paths::canonical_blob_relative_path(&hash).expect("canonical path");
         let (_temporary_relative, mut owned) = storage
             .reserve_restore_blob_temporary_owned_plaintext(&hash)
             .expect("reserve predecessor");
@@ -1662,7 +1661,10 @@ mod tests {
                 .is_err(),
             "rename must fail before touching the filesystem when no successor owner exists"
         );
-        assert_eq!(owned.lifecycle(), crate::security::PlaintextLifecycle::Materialized);
+        assert_eq!(
+            owned.lifecycle(),
+            crate::security::PlaintextLifecycle::Materialized
+        );
         assert_eq!(owned.path(), predecessor);
         assert!(predecessor.exists());
         let transfer = storage
@@ -1689,24 +1691,26 @@ mod tests {
             "rustnote-plaintext-owner-test-{}",
             new_id("orphan-transfer-crash")
         ));
-        let storage = Storage::at_with_backup(root.join("data"), root.join("backups"))
-            .expect("test storage");
+        let storage =
+            Storage::at_with_backup(root.join("data"), root.join("backups")).expect("test storage");
         let hash = "c".repeat(64);
-        let canonical = crate::attachment_paths::canonical_blob_relative_path(&hash)
-            .expect("canonical path");
+        let canonical =
+            crate::attachment_paths::canonical_blob_relative_path(&hash).expect("canonical path");
         let mut predecessor = storage
             .reserve_portability_blob_owned_plaintext(&canonical)
             .expect("reserve canonical predecessor");
         if let Some(parent) = predecessor.path().parent() {
             fs::create_dir_all(parent).expect("canonical parent");
         }
-        let mut file = predecessor.create_file().expect("materialize canonical predecessor");
+        let mut file = predecessor
+            .create_file()
+            .expect("materialize canonical predecessor");
         use std::io::Write;
-        file.write_all(b"owned orphan transfer").expect("write predecessor");
+        file.write_all(b"owned orphan transfer")
+            .expect("write predecessor");
         drop(file);
         let orphan_relative = format!(".orphaned/1-orphan-test-{hash}");
-        fs::create_dir_all(storage.attachments_directory.join(".orphaned"))
-            .expect("orphan parent");
+        fs::create_dir_all(storage.attachments_directory.join(".orphaned")).expect("orphan parent");
         let successor = storage
             .reserve_orphan_blob_owned_plaintext(&orphan_relative)
             .expect("reserve orphan successor");
@@ -1723,7 +1727,10 @@ mod tests {
 
         let recovered = Storage::at_with_backup(root.join("data"), root.join("backups"))
             .expect("startup recovery");
-        assert!(orphan_path.exists(), "recovery must retain the owned successor file");
+        assert!(
+            orphan_path.exists(),
+            "recovery must retain the owned successor file"
+        );
         assert!(
             recovered
                 .get_managed_plaintext_stage(&predecessor_id)
@@ -1755,8 +1762,8 @@ mod tests {
             "rustnote-plaintext-owner-test-{}",
             new_id("orphan-startup-fail-closed")
         ));
-        let storage = Storage::at_with_backup(root.join("data"), root.join("backups"))
-            .expect("test storage");
+        let storage =
+            Storage::at_with_backup(root.join("data"), root.join("backups")).expect("test storage");
         let hash = "d".repeat(64);
         let orphan_relative = format!(".orphaned/1-unowned-orphan-{hash}");
         let orphan_path = storage.attachments_directory.join(&orphan_relative);
@@ -1769,7 +1776,10 @@ mod tests {
                 .is_err(),
             "startup must fail closed rather than adopt already-existing plaintext"
         );
-        assert!(orphan_path.exists(), "verification must not erase ownership evidence");
+        assert!(
+            orphan_path.exists(),
+            "verification must not erase ownership evidence"
+        );
         assert!(
             storage
                 .require_orphan_blob_owned_plaintext(&orphan_relative)
@@ -1786,11 +1796,11 @@ mod tests {
             "rustnote-plaintext-owner-test-{}",
             new_id("corrupt-transfer")
         ));
-        let storage = Storage::at_with_backup(root.join("data"), root.join("backups"))
-            .expect("test storage");
+        let storage =
+            Storage::at_with_backup(root.join("data"), root.join("backups")).expect("test storage");
         let hash = "b".repeat(64);
-        let canonical = crate::attachment_paths::canonical_blob_relative_path(&hash)
-            .expect("canonical path");
+        let canonical =
+            crate::attachment_paths::canonical_blob_relative_path(&hash).expect("canonical path");
         let (_temporary_relative, mut owned) = storage
             .reserve_restore_blob_temporary_owned_plaintext(&hash)
             .expect("reserve predecessor");
@@ -1811,8 +1821,15 @@ mod tests {
             )
             .expect("corrupt transfer record");
 
-        assert!(storage.recover_managed_plaintext_staging_unlocked().is_err());
-        assert!(predecessor.exists(), "corrupt ownership must not delete plaintext");
+        assert!(
+            storage
+                .recover_managed_plaintext_staging_unlocked()
+                .is_err()
+        );
+        assert!(
+            predecessor.exists(),
+            "corrupt ownership must not delete plaintext"
+        );
         assert!(
             storage
                 .get_managed_plaintext_stage(owned.identity())
@@ -1836,21 +1853,25 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
-
     #[test]
     fn failed_durable_filesystem_rename_keeps_predecessor_and_prepared_transfer_owner() {
         let root = std::env::temp_dir().join(format!(
             "rustnote-plaintext-owner-test-{}",
             new_id("rename-failure")
         ));
-        let storage = Storage::at_with_backup(root.join("data"), root.join("backups"))
-            .expect("test storage");
+        let storage =
+            Storage::at_with_backup(root.join("data"), root.join("backups")).expect("test storage");
         let note = storage.create_note(None).expect("test note");
         let external = root.join("source.bin");
         let bytes = b"rename failure ownership";
         fs::write(&external, bytes).expect("source bytes");
         let attachment = storage
-            .add_attachment_file_as(&note.id, "source.bin", Some("application/octet-stream"), &external)
+            .add_attachment_file_as(
+                &note.id,
+                "source.bin",
+                Some("application/octet-stream"),
+                &external,
+            )
             .expect("attachment");
         let canonical = storage
             .attachment_file_path(&attachment)
@@ -1858,8 +1879,9 @@ mod tests {
         fs::remove_file(&canonical).expect("remove canonical file");
         fs::create_dir(&canonical).expect("install rename obstacle");
 
-        let canonical_relative = crate::attachment_paths::canonical_blob_relative_path(&attachment.sha256)
-            .expect("canonical relative path");
+        let canonical_relative =
+            crate::attachment_paths::canonical_blob_relative_path(&attachment.sha256)
+                .expect("canonical relative path");
         let (_temporary_relative, mut owned) = storage
             .reserve_restore_blob_temporary_owned_plaintext(&attachment.sha256)
             .expect("reserve predecessor");
@@ -1875,9 +1897,15 @@ mod tests {
                 .is_err(),
             "filesystem rename failure must be surfaced"
         );
-        assert!(predecessor.exists(), "predecessor plaintext must remain owned");
+        assert!(
+            predecessor.exists(),
+            "predecessor plaintext must remain owned"
+        );
         assert_eq!(owned.path(), predecessor);
-        assert_eq!(owned.lifecycle(), crate::security::PlaintextLifecycle::Materialized);
+        assert_eq!(
+            owned.lifecycle(),
+            crate::security::PlaintextLifecycle::Materialized
+        );
         let transfer = storage
             .connection()
             .expect("connection")
@@ -1909,19 +1937,26 @@ mod tests {
         let bytes = b"restart before rename";
 
         let (canonical, predecessor, stage_id) = {
-            let storage = Storage::at_with_backup(data.clone(), backups.clone()).expect("test storage");
+            let storage =
+                Storage::at_with_backup(data.clone(), backups.clone()).expect("test storage");
             let note = storage.create_note(None).expect("test note");
             let external = root.join("source.bin");
             fs::write(&external, bytes).expect("source bytes");
             let attachment = storage
-                .add_attachment_file_as(&note.id, "source.bin", Some("application/octet-stream"), &external)
+                .add_attachment_file_as(
+                    &note.id,
+                    "source.bin",
+                    Some("application/octet-stream"),
+                    &external,
+                )
                 .expect("attachment");
             let canonical = storage
                 .attachment_file_path(&attachment)
                 .expect("canonical attachment path");
             fs::remove_file(&canonical).expect("simulate missing canonical bytes");
-            let canonical_relative = crate::attachment_paths::canonical_blob_relative_path(&attachment.sha256)
-                .expect("canonical relative path");
+            let canonical_relative =
+                crate::attachment_paths::canonical_blob_relative_path(&attachment.sha256)
+                    .expect("canonical relative path");
             let (_temporary_relative, mut owned) = storage
                 .reserve_restore_blob_temporary_owned_plaintext(&attachment.sha256)
                 .expect("reserve predecessor");
@@ -1945,10 +1980,17 @@ mod tests {
             (canonical, predecessor, stage_id)
         };
 
-        let reopened = Storage::at_with_backup(data.clone(), backups.clone()).expect("restart recovery");
-        assert!(canonical.exists(), "restart must complete the prepared transfer");
+        let reopened =
+            Storage::at_with_backup(data.clone(), backups.clone()).expect("restart recovery");
+        assert!(
+            canonical.exists(),
+            "restart must complete the prepared transfer"
+        );
         assert_eq!(fs::read(&canonical).expect("recovered bytes"), bytes);
-        assert!(!predecessor.exists(), "predecessor must be consumed by recovery rename");
+        assert!(
+            !predecessor.exists(),
+            "predecessor must be consumed by recovery rename"
+        );
         assert!(
             reopened
                 .get_managed_plaintext_stage(&stage_id)
@@ -1971,12 +2013,18 @@ mod tests {
         let bytes = b"restart-safe canonical plaintext";
 
         let (canonical, predecessor, stage_id) = {
-            let storage = Storage::at_with_backup(data.clone(), backups.clone()).expect("test storage");
+            let storage =
+                Storage::at_with_backup(data.clone(), backups.clone()).expect("test storage");
             let note = storage.create_note(None).expect("test note");
             let external = root.join("source.bin");
             fs::write(&external, bytes).expect("source bytes");
             let attachment = storage
-                .add_attachment_file_as(&note.id, "source.bin", Some("application/octet-stream"), &external)
+                .add_attachment_file_as(
+                    &note.id,
+                    "source.bin",
+                    Some("application/octet-stream"),
+                    &external,
+                )
                 .expect("attachment");
             let canonical = storage
                 .attachment_file_path(&attachment)
@@ -1995,8 +2043,9 @@ mod tests {
             drop(file);
             let predecessor = owned.path().to_path_buf();
             let stage_id = owned.identity().to_string();
-            let relative = crate::attachment_paths::canonical_blob_relative_path(&attachment.sha256)
-                .expect("canonical relative path");
+            let relative =
+                crate::attachment_paths::canonical_blob_relative_path(&attachment.sha256)
+                    .expect("canonical relative path");
             storage
                 .rename_owned_restore_plaintext_to_canonical(&mut owned, &relative)
                 .expect("filesystem transfer");
@@ -2007,8 +2056,12 @@ mod tests {
             (canonical, predecessor, stage_id)
         };
 
-        let reopened = Storage::at_with_backup(data.clone(), backups.clone()).expect("restart recovery");
-        assert!(canonical.exists(), "canonical successor must survive restart recovery");
+        let reopened =
+            Storage::at_with_backup(data.clone(), backups.clone()).expect("restart recovery");
+        assert!(
+            canonical.exists(),
+            "canonical successor must survive restart recovery"
+        );
         assert!(!predecessor.exists());
         assert!(
             reopened
@@ -2032,7 +2085,8 @@ mod tests {
         let hash = "b".repeat(64);
 
         let (canonical, predecessor_id, successor_id) = {
-            let storage = Storage::at_with_backup(data.clone(), backups.clone()).expect("test storage");
+            let storage =
+                Storage::at_with_backup(data.clone(), backups.clone()).expect("test storage");
             let canonical_relative = crate::attachment_paths::canonical_blob_relative_path(&hash)
                 .expect("canonical relative path");
             let mut successor_owned = storage
@@ -2058,10 +2112,15 @@ mod tests {
                 .expect("prepare and execute transfer");
             assert!(canonical.exists());
             assert!(
-                storage.discard_owned_plaintext(&mut successor_owned).is_err(),
+                storage
+                    .discard_owned_plaintext(&mut successor_owned)
+                    .is_err(),
                 "prepared predecessor must pin successor ownership"
             );
-            assert!(canonical.exists(), "failed successor retirement must preserve bytes");
+            assert!(
+                canonical.exists(),
+                "failed successor retirement must preserve bytes"
+            );
             assert!(
                 storage
                     .get_managed_plaintext_stage(&successor_id)
@@ -2074,7 +2133,8 @@ mod tests {
             (canonical, predecessor_id, successor_id)
         };
 
-        let reopened = Storage::at_with_backup(data.clone(), backups.clone()).expect("restart recovery");
+        let reopened =
+            Storage::at_with_backup(data.clone(), backups.clone()).expect("restart recovery");
         assert!(
             !canonical.exists(),
             "abandoned successor bytes may be cleaned only after predecessor reconciliation"
@@ -2097,12 +2157,10 @@ mod tests {
 
     #[test]
     fn failed_plaintext_cleanup_keeps_durable_owner_for_retry() {
-        let root = std::env::temp_dir().join(format!(
-            "rustnote-plaintext-owner-test-{}",
-            new_id("retry")
-        ));
-        let storage = Storage::at_with_backup(root.join("data"), root.join("backups"))
-            .expect("test storage");
+        let root =
+            std::env::temp_dir().join(format!("rustnote-plaintext-owner-test-{}", new_id("retry")));
+        let storage =
+            Storage::at_with_backup(root.join("data"), root.join("backups")).expect("test storage");
         let note = storage.create_note(None).expect("test note");
         let relative_path = ".incoming/forced-cleanup-failure.tmp";
         let stage_id = storage

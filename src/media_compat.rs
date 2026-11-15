@@ -19,7 +19,7 @@ use std::{
 
 use crate::storage::{AttachmentTransportResource, AttachmentTransportStore};
 
-use rustnote_media_compat::{CompatibilityCandidate, CompatibilityProfile, CompatibilityProbe};
+use rustnote_media_compat::{CompatibilityCandidate, CompatibilityProbe, CompatibilityProfile};
 
 const CACHE_VERSION: &str = "planner-v2";
 const CACHE_SOFT_BUDGET_BYTES: u64 = 4 * 1024 * 1024 * 1024;
@@ -73,10 +73,12 @@ impl std::fmt::Display for MediaCompatibilityError {
         match self {
             Self::Io(error) => std::fmt::Display::fmt(error, formatter),
             Self::QueueFull => formatter.write_str("media compatibility queue is full"),
-            Self::WorkerUnavailable => formatter.write_str("media compatibility worker is unavailable"),
-            Self::WorkerStopped => formatter.write_str(
-                "media compatibility worker stopped before returning a result",
-            ),
+            Self::WorkerUnavailable => {
+                formatter.write_str("media compatibility worker is unavailable")
+            }
+            Self::WorkerStopped => {
+                formatter.write_str("media compatibility worker stopped before returning a result")
+            }
         }
     }
 }
@@ -91,7 +93,9 @@ impl std::error::Error for MediaCompatibilityError {
 }
 
 impl From<io::Error> for MediaCompatibilityError {
-    fn from(error: io::Error) -> Self { Self::Io(Arc::new(error)) }
+    fn from(error: io::Error) -> Self {
+        Self::Io(Arc::new(error))
+    }
 }
 
 type MediaCompatibilityResult<T> = Result<T, MediaCompatibilityError>;
@@ -200,7 +204,10 @@ pub(crate) fn candidate_for_profile(
     probe: &CompatibilityProbe,
     profile: CompatibilityProfile,
 ) -> Option<&CompatibilityCandidate> {
-    probe.candidates.iter().find(|candidate| candidate.profile == profile)
+    probe
+        .candidates
+        .iter()
+        .find(|candidate| candidate.profile == profile)
 }
 
 pub(crate) fn probe_attachment(
@@ -320,13 +327,14 @@ pub fn cleanup_stale_temporary_files(cache_directory: &Path) -> io::Result<()> {
         let name = name.to_string_lossy();
         if name.starts_with('.') && name.ends_with(INVALID_MARKER_SUFFIX) {
             let marker = entry.path();
-            let removable = cache_path_from_invalid_marker(&marker).is_none_or(|target| {
-                match remove_cache_file(&target) {
-                    Ok(_) => true,
-                    Err(error) if error.kind() == io::ErrorKind::NotFound => true,
-                    Err(_) => false,
-                }
-            });
+            let removable =
+                cache_path_from_invalid_marker(&marker).is_none_or(
+                    |target| match remove_cache_file(&target) {
+                        Ok(_) => true,
+                        Err(error) if error.kind() == io::ErrorKind::NotFound => true,
+                        Err(_) => false,
+                    },
+                );
             if removable {
                 let _ = remove_cache_marker(&marker);
             }
@@ -393,9 +401,9 @@ pub(crate) fn discard_cache_strict(cache_directory: &Path, content_hash: &str) -
         let is_invalid_marker = name.starts_with('.')
             && name.ends_with(INVALID_MARKER_SUFFIX)
             && cache_path_from_invalid_marker(&path).is_some_and(|target| {
-                target.file_name().is_some_and(|value| {
-                    value.to_string_lossy().starts_with(&published_prefix)
-                })
+                target
+                    .file_name()
+                    .is_some_and(|value| value.to_string_lossy().starts_with(&published_prefix))
             });
         if !(is_published || is_temporary || is_invalid_marker) {
             continue;
@@ -707,7 +715,9 @@ fn generate_compatibility(
     }
     if !valid_cached_preview(&temporary, extension)? {
         let _ = temporary_owner.remove_file();
-        return Err(invalid_data("compatibility remux produced an invalid derived media file"));
+        return Err(invalid_data(
+            "compatibility remux produced an invalid derived media file",
+        ));
     }
 
     match temporary_owner.rename_durable_namespace(destination.clone()) {
@@ -807,7 +817,10 @@ fn remove_invalidated_cache_file(path: &Path) -> io::Result<()> {
 
 fn ensure_cache_marker(marker: &Path) -> io::Result<()> {
     let cache_directory = marker.parent().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "media cache marker has no parent")
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "media cache marker has no parent",
+        )
     })?;
     let owner = media_plaintext_namespace(cache_directory)?;
     fs::create_dir_all(cache_directory)?;
@@ -835,7 +848,10 @@ fn remove_cache_marker(marker: &Path) -> io::Result<bool> {
 fn remove_cache_file(path: &Path) -> io::Result<bool> {
     const RETRIES: usize = 4;
     let Some(cache_directory) = path.parent() else {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "media cache path has no parent"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "media cache path has no parent",
+        ));
     };
     let owner = media_plaintext_namespace(cache_directory)?;
     for attempt in 0..RETRIES {
@@ -889,7 +905,10 @@ fn media_plaintext_namespace(
     cache_directory: &Path,
 ) -> io::Result<crate::security::DurablePlaintextNamespace> {
     let parent = cache_directory.parent().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "media compatibility cache has no parent")
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "media compatibility cache has no parent",
+        )
     })?;
     crate::security::DurablePlaintextNamespace::establish(
         cache_directory.to_path_buf(),
@@ -941,7 +960,9 @@ fn invalid_marker_path(path: &Path) -> PathBuf {
 
 fn cache_path_from_invalid_marker(marker: &Path) -> Option<PathBuf> {
     let name = marker.file_name()?.to_str()?;
-    let cache_name = name.strip_prefix('.')?.strip_suffix(INVALID_MARKER_SUFFIX)?;
+    let cache_name = name
+        .strip_prefix('.')?
+        .strip_suffix(INVALID_MARKER_SUFFIX)?;
     if cache_name.is_empty() {
         return None;
     }
@@ -1063,9 +1084,8 @@ fn prune_cache_for_incoming(
     preserve: Option<&Path>,
     estimated_bytes: u64,
 ) -> io::Result<()> {
-    let target_existing_bytes = CACHE_SOFT_BUDGET_BYTES.saturating_sub(
-        estimated_bytes.min(CACHE_SOFT_BUDGET_BYTES),
-    );
+    let target_existing_bytes =
+        CACHE_SOFT_BUDGET_BYTES.saturating_sub(estimated_bytes.min(CACHE_SOFT_BUDGET_BYTES));
     prune_cache_to_limit(cache_directory, preserve, target_existing_bytes)
 }
 
@@ -1136,7 +1156,9 @@ fn is_derived_cache_file_name(file_name: &str) -> bool {
     };
     valid_content_hash(content_hash)
         && matches!(
-            Path::new(file_name).extension().and_then(|value| value.to_str()),
+            Path::new(file_name)
+                .extension()
+                .and_then(|value| value.to_str()),
             Some("mp4" | "m4a" | "webm" | "flac" | "mp3" | "ac3" | "eac3")
         )
 }

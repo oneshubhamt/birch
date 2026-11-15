@@ -215,7 +215,10 @@ fn ContextMenuActionButton(
     let disabled_hint = entry.disabled_hint;
     let is_confirming = confirming.read().as_ref() == Some(&action);
     let visible_label = if is_confirming {
-        confirm_label.as_deref().unwrap_or(label.as_str()).to_string()
+        confirm_label
+            .as_deref()
+            .unwrap_or(label.as_str())
+            .to_string()
     } else {
         label
     };

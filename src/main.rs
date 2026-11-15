@@ -63,9 +63,7 @@ fn main() {
     }
     let custom_head = format!(
         r#"<link rel="stylesheet" href="{}"><link rel="stylesheet" href="{}"><script src="{}"></script>"#,
-        APP_STYLES,
-        KATEX_STYLES,
-        EDITOR_RUNTIME,
+        APP_STYLES, KATEX_STYLES, EDITOR_RUNTIME,
     );
     let config = dioxus_desktop::Config::new()
         .with_custom_head(custom_head)

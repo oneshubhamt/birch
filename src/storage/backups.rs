@@ -7,26 +7,25 @@ use std::{
 };
 
 use rusqlite::{
-    Connection, OpenFlags, OptionalExtension, TransactionBehavior,
-    backup::Backup as SqliteBackup,
+    Connection, OpenFlags, OptionalExtension, TransactionBehavior, backup::Backup as SqliteBackup,
 };
 use sha2::{Digest, Sha256};
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 use crate::build_info::FULL_BUILD_IDENTIFIER;
-use crate::editor_projection::derive_editor_projections;
 use crate::domain::{ArchiveEntry, ArchiveManifest, CompleteArchiveSummary, NoteId};
+use crate::editor_projection::derive_editor_projections;
 
-use super::attachments::{
-    COPY_BUFFER_SIZE, copy_file_atomically, digest_to_hex, sha256_file,
-    sync_parent_directory, validate_attachment_blob_identity,
-};
 use super::atomic_output::{AtomicDirectoryOutput, AtomicFileOutput};
+use super::attachments::{
+    COPY_BUFFER_SIZE, copy_file_atomically, digest_to_hex, sha256_file, sync_parent_directory,
+    validate_attachment_blob_identity,
+};
 use super::backup_support::{
     MAX_ARCHIVE_BYTES, MAX_ARCHIVE_FILES, MAX_DATABASE_BYTES, MAX_EXPANDED_BYTES,
-    MAX_MANIFEST_BYTES, escape_markdown_link_label,
-    extract_verified_zip_entry, read_zip_entry_bounded, sanitize_component,
-    unique_directory, validate_manifest_entry, validate_zip_structure,
+    MAX_MANIFEST_BYTES, escape_markdown_link_label, extract_verified_zip_entry,
+    read_zip_entry_bounded, sanitize_component, unique_directory, validate_manifest_entry,
+    validate_zip_structure,
 };
 use super::initialization::is_note_runtime_index;
 use super::schema::{BASE_SCHEMA, CURRENT_SCHEMA_VERSION, canonicalize_schema_sql};
@@ -39,8 +38,7 @@ pub(super) const AUTO_BACKUP_INTERVAL_SECONDS: i64 = 24 * 60 * 60;
 pub(super) const DATABASE_ARCHIVE_PATH: &str = "library.sqlite3";
 const DATABASE_BACKUP_PAGES_PER_STEP: i32 = 512;
 const DATABASE_BACKUP_PAUSE: Duration = Duration::from_millis(5);
-const UNRESOLVED_ATTACHMENT_WORK_SQL: &str =
-    "SELECT
+const UNRESOLVED_ATTACHMENT_WORK_SQL: &str = "SELECT
         (SELECT COUNT(*) FROM attachment_operations)
         + (SELECT COUNT(*)
            FROM attachment_ingest_jobs AS jobs
@@ -113,17 +111,12 @@ pub(super) fn discard_restore_stage_directory(path: &Path) -> StorageResult<()> 
     })
 }
 
-fn finish_with_restore_stage_cleanup<T>(
-    path: &Path,
-    result: StorageResult<T>,
-) -> StorageResult<T> {
+fn finish_with_restore_stage_cleanup<T>(path: &Path, result: StorageResult<T>) -> StorageResult<T> {
     match (result, discard_restore_stage_directory(path)) {
         (Ok(value), Ok(())) => Ok(value),
         (Err(error), Ok(())) => Err(error),
         (Ok(_), Err(cleanup)) => Err(cleanup),
-        (Err(error), Err(cleanup)) => Err(StorageError::Integrity(format!(
-            "{error}; {cleanup}"
-        ))),
+        (Err(error), Err(cleanup)) => Err(StorageError::Integrity(format!("{error}; {cleanup}"))),
     }
 }
 
@@ -318,9 +311,9 @@ fn stream_file_to_archive(
         if read == 0 {
             break;
         }
-        written = written.checked_add(read as u64).ok_or_else(|| {
-            StorageError::Integrity("archive entry size overflow".to_string())
-        })?;
+        written = written
+            .checked_add(read as u64)
+            .ok_or_else(|| StorageError::Integrity("archive entry size overflow".to_string()))?;
         hasher.update(&buffer[..read]);
         archive.write_all(&buffer[..read])?;
     }
@@ -389,11 +382,11 @@ fn remove_database_files(database_path: &Path) -> StorageResult<()> {
 
 impl Storage {
     fn ensure_no_pending_vault_operations_for_snapshot(&self) -> StorageResult<()> {
-        let pending: i64 = self.connection()?.query_row(
-            "SELECT COUNT(*) FROM vault_operations",
-            [],
-            |row| row.get(0),
-        )?;
+        let pending: i64 =
+            self.connection()?
+                .query_row("SELECT COUNT(*) FROM vault_operations", [], |row| {
+                    row.get(0)
+                })?;
         if pending != 0 {
             return Err(StorageError::Integrity(format!(
                 "cannot create a persistent snapshot while {pending} vault operation(s) require recovery"
@@ -403,7 +396,8 @@ impl Storage {
     }
 
     fn create_restore_safety_backup_unlocked(&self, reason: &str) -> StorageResult<()> {
-        self.create_safety_repository_snapshot_unlocked(reason).map(|_| ())
+        self.create_safety_repository_snapshot_unlocked(reason)
+            .map(|_| ())
     }
 
     pub fn export_complete_archive(&self, destination: &Path) -> StorageResult<()> {
@@ -494,11 +488,10 @@ impl Storage {
                 "archive database contains {pending_attachment_work} unresolved attachment operation(s) or ingest(s)"
             )));
         }
-        let pending_vault_operations: i64 = connection.query_row(
-            "SELECT COUNT(*) FROM vault_operations",
-            [],
-            |row| row.get(0),
-        )?;
+        let pending_vault_operations: i64 =
+            connection.query_row("SELECT COUNT(*) FROM vault_operations", [], |row| {
+                row.get(0)
+            })?;
         if pending_vault_operations != 0 {
             return Err(StorageError::Integrity(format!(
                 "archive database contains {pending_vault_operations} unfinished vault operation(s)"
@@ -597,11 +590,9 @@ impl Storage {
         // Finalized request-scoped ingests are durable recovery bridges, not pending
         // file operations. The archive contains the note anchor, attachment row,
         // blob, and bridge needed to finish canonical insertion after restore.
-        let unresolved_operations: i64 = self.connection()?.query_row(
-            UNRESOLVED_ATTACHMENT_WORK_SQL,
-            [],
-            |row| row.get(0),
-        )?;
+        let unresolved_operations: i64 =
+            self.connection()?
+                .query_row(UNRESOLVED_ATTACHMENT_WORK_SQL, [], |row| row.get(0))?;
         if unresolved_operations != 0 {
             return Err(StorageError::Integrity(format!(
                 "cannot archive while {unresolved_operations} attachment operation(s) or ingest(s) require recovery"
@@ -634,7 +625,8 @@ impl Storage {
             // record before this hidden sibling is created. Replacement of an
             // existing user destination is therefore recoverable across every
             // rename boundary.
-            let mut output = crate::native::output::ExternalFileOutputTransaction::begin(destination)?;
+            let mut output =
+                crate::native::output::ExternalFileOutputTransaction::begin(destination)?;
             let file = output.create_file()?;
             let mut archive = ZipWriter::new(file);
             let options = SimpleFileOptions::default()
@@ -667,8 +659,7 @@ impl Storage {
                 let source = self.attachments_directory.join(relative_path);
                 let archive_path = format!("blobs/{sha256}");
                 archive.start_file(&archive_path, options)?;
-                let (actual_checksum, actual_size) =
-                    stream_file_to_archive(&mut archive, &source)?;
+                let (actual_checksum, actual_size) = stream_file_to_archive(&mut archive, &source)?;
                 if actual_checksum != sha256 || actual_size != expected_size {
                     return Err(StorageError::Integrity(format!(
                         "attachment blob {sha256} changed or is corrupt"
@@ -752,15 +743,17 @@ impl Storage {
         // before the final safety-snapshot/install boundary. Without this gate,
         // a `.incoming` owner could be committed to the outgoing database and
         // then lost at the SQLite snapshot switch while its file survives.
-        let _privacy_guard = match self.begin_library_privacy_transition(
-            crate::security::LibraryPrivacyTransition::Restore,
-        ) {
+        let _privacy_guard = match self
+            .begin_library_privacy_transition(crate::security::LibraryPrivacyTransition::Restore)
+        {
             Ok(guard) => guard,
             Err(error) => {
                 return finish_with_restore_stage_cleanup(&staged.directory, Err(error));
             }
         };
-        let result = self.install_staged_complete_archive(&staged).map(|()| summary);
+        let result = self
+            .install_staged_complete_archive(&staged)
+            .map(|()| summary);
         finish_with_restore_stage_cleanup(&staged.directory, result)
     }
 
@@ -822,9 +815,7 @@ impl Storage {
         }
 
         let database_entry = entries.get(DATABASE_ARCHIVE_PATH).ok_or_else(|| {
-            StorageError::InvalidBackup(format!(
-                "manifest does not list {DATABASE_ARCHIVE_PATH}"
-            ))
+            StorageError::InvalidBackup(format!("manifest does not list {DATABASE_ARCHIVE_PATH}"))
         })?;
         if database_entry.byte_size > MAX_DATABASE_BYTES {
             return Err(StorageError::InvalidBackup(
@@ -1044,9 +1035,8 @@ impl Storage {
 
         let database = Self::open_snapshot_database(&staged.database_path)?;
         let mut prepared = Vec::<PreparedRestoreBlob>::new();
-        let result = self.for_each_archive_blob(
-            &database,
-            |sha256, relative_path, expected_size| {
+        let result =
+            self.for_each_archive_blob(&database, |sha256, relative_path, expected_size| {
                 let staged_path = staged.directory.join("blobs").join(sha256);
                 let final_path = self.attachments_directory.join(relative_path);
                 let current_owns_final = current_hashes.contains(sha256);
@@ -1091,10 +1081,9 @@ impl Storage {
                     && let Err(error) = fs::create_dir_all(parent)
                 {
                     let primary = StorageError::Io(error);
-                    return Err(self.cleanup_owned_plaintext_after_error(
-                        &mut temporary_owned,
-                        primary,
-                    ));
+                    return Err(
+                        self.cleanup_owned_plaintext_after_error(&mut temporary_owned, primary)
+                    );
                 }
 
                 let copy_result = temporary_owned.copy_and_hash_from(&staged_path);
@@ -1111,10 +1100,9 @@ impl Storage {
                     let error = StorageError::Integrity(format!(
                         "restored attachment blob {sha256} failed verification"
                     ));
-                    return Err(self.cleanup_owned_plaintext_after_error(
-                        &mut temporary_owned,
-                        error,
-                    ));
+                    return Err(
+                        self.cleanup_owned_plaintext_after_error(&mut temporary_owned, error)
+                    );
                 }
 
                 // Prepare the predecessor→successor ownership transfer durably
@@ -1124,10 +1112,9 @@ impl Storage {
                     &mut temporary_owned,
                     relative_path,
                 ) {
-                    return Err(self.cleanup_owned_plaintext_after_error(
-                        &mut temporary_owned,
-                        error,
-                    ));
+                    return Err(
+                        self.cleanup_owned_plaintext_after_error(&mut temporary_owned, error)
+                    );
                 }
 
                 // Keep the predecessor transfer record durable until directory
@@ -1136,8 +1123,7 @@ impl Storage {
                 sync_parent_directory(&final_path)?;
                 self.complete_owned_restore_plaintext_rename(&mut temporary_owned)?;
                 Ok(())
-            },
-        );
+            });
 
         match result {
             Ok(_) => Ok(prepared),
@@ -1345,12 +1331,7 @@ impl Storage {
         Ok(())
     }
 
-
-    pub fn export_markdown_note(
-        &self,
-        parent: &Path,
-        note_id: &NoteId,
-    ) -> StorageResult<PathBuf> {
+    pub fn export_markdown_note(&self, parent: &Path, note_id: &NoteId) -> StorageResult<PathBuf> {
         self.export_markdown_scope_controlled(
             parent,
             MarkdownNoteExportScope::new(note_id.clone()),
@@ -1431,9 +1412,8 @@ impl Storage {
                 "Markdown export source count changed: expected {expected:?}, exported {exported:?}"
             )));
         }
-        let (path, _) = output.commit(|directory| {
-            verify_markdown_export_directory(directory, expected)
-        })?;
+        let (path, _) =
+            output.commit(|directory| verify_markdown_export_directory(directory, expected))?;
         Ok(path)
     }
 
@@ -1459,10 +1439,7 @@ impl Storage {
             .chars()
             .rev()
             .collect::<String>();
-        let base_stem = format!(
-            "{}-{short_id}",
-            sanitize_component(note.display_title())
-        );
+        let base_stem = format!("{}-{short_id}", sanitize_component(note.display_title()));
         let stem = if note_directory.join(format!("{base_stem}.md")).exists() {
             format!("{base_stem}-{}", sanitize_component(note.id.as_str()))
         } else {
@@ -1607,7 +1584,11 @@ impl Storage {
             ));
         };
         let title = title.trim();
-        let display_title = if title.is_empty() { "Untitled note" } else { title };
+        let display_title = if title.is_empty() {
+            "Untitled note"
+        } else {
+            title
+        };
         let mut output = AtomicFileOutput::create(destination)?;
         let writer = output.writer()?;
         writer.write_all(display_title.as_bytes())?;
@@ -1628,7 +1609,10 @@ impl Storage {
         })
     }
 
-    pub(super) fn ensure_export_destination_is_external(&self, destination: &Path) -> StorageResult<()> {
+    pub(super) fn ensure_export_destination_is_external(
+        &self,
+        destination: &Path,
+    ) -> StorageResult<()> {
         let parent = destination.parent().ok_or_else(|| {
             StorageError::Validation("export destination has no parent directory".to_string())
         })?;
@@ -1735,7 +1719,6 @@ impl Storage {
         }
         Ok(())
     }
-
 }
 
 #[cfg(test)]
@@ -1764,7 +1747,9 @@ mod export_tests {
             editor_state.to_string(),
             projections.plain_text,
         );
-        storage.save_note_owned(note).expect("save export test note")
+        storage
+            .save_note_owned(note)
+            .expect("save export test note")
     }
 
     fn add_test_attachment(
@@ -1773,7 +1758,9 @@ mod export_tests {
         file_name: &str,
         bytes: &[u8],
     ) -> crate::domain::Attachment {
-        let note = storage.create_note(None).expect("create attachment test note");
+        let note = storage
+            .create_note(None)
+            .expect("create attachment test note");
         let source = root.join(format!("source-{file_name}"));
         fs::write(&source, bytes).expect("write attachment source");
         storage
@@ -1785,7 +1772,11 @@ mod export_tests {
         storage
             .connection()
             .expect("open test database")
-            .query_row("SELECT COUNT(*) FROM managed_plaintext_staging", [], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM managed_plaintext_staging",
+                [],
+                |row| row.get(0),
+            )
             .expect("count managed plaintext staging")
     }
 
@@ -1828,7 +1819,12 @@ mod export_tests {
             0,
             "successful restore must discharge every ownership-handoff cleanup row"
         );
-        assert!(current.audit_attachments().expect("audit restored attachments").is_clean());
+        assert!(
+            current
+                .audit_attachments()
+                .expect("audit restored attachments")
+                .is_clean()
+        );
 
         drop(incoming);
         drop(current);
@@ -1845,8 +1841,9 @@ mod export_tests {
             "retired.txt",
             b"old library canonical plaintext",
         );
-        let old_relative = crate::attachment_paths::canonical_blob_relative_path(&old_attachment.sha256)
-            .expect("canonical relative path");
+        let old_relative =
+            crate::attachment_paths::canonical_blob_relative_path(&old_attachment.sha256)
+                .expect("canonical relative path");
 
         let (incoming, incoming_root) = test_storage("restore-seed-incoming");
         let _ = incoming.create_note(None).expect("create incoming note");
@@ -1889,12 +1886,8 @@ mod export_tests {
     fn shared_hash_restore_repair_uses_existing_canonical_ownership() {
         let shared_bytes = b"shared attachment plaintext";
         let (current, current_root) = test_storage("restore-shared-current");
-        let current_attachment = add_test_attachment(
-            &current,
-            &current_root,
-            "shared-current.txt",
-            shared_bytes,
-        );
+        let current_attachment =
+            add_test_attachment(&current, &current_root, "shared-current.txt", shared_bytes);
         let current_path = current
             .attachment_file_path(&current_attachment)
             .expect("resolve current shared path");

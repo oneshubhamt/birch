@@ -75,30 +75,30 @@ impl Storage {
         if current_name != new_name
             && let Some(source_id) = source_id.as_deref()
         {
-                let existing_target_id = transaction
-                    .query_row(
-                        "SELECT id FROM tags WHERE name = ?1 COLLATE NOCASE",
-                        [&new_name],
-                        |row| row.get::<_, String>(0),
-                    )
-                    .optional()?;
-                match existing_target_id {
-                    Some(target_id) if target_id != source_id => {
-                        transaction.execute(
-                            "INSERT OR IGNORE INTO note_tags(note_id, tag_id)
+            let existing_target_id = transaction
+                .query_row(
+                    "SELECT id FROM tags WHERE name = ?1 COLLATE NOCASE",
+                    [&new_name],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?;
+            match existing_target_id {
+                Some(target_id) if target_id != source_id => {
+                    transaction.execute(
+                        "INSERT OR IGNORE INTO note_tags(note_id, tag_id)
                              SELECT note_id, ?2 FROM note_tags WHERE tag_id = ?1",
-                            params![source_id, target_id],
-                        )?;
-                        transaction.execute("DELETE FROM tags WHERE id = ?1", [source_id])?;
-                    }
-                    _ => {
-                        transaction.execute(
-                            "UPDATE tags SET name = ?2 WHERE id = ?1",
-                            params![source_id, new_name],
-                        )?;
-                    }
+                        params![source_id, target_id],
+                    )?;
+                    transaction.execute("DELETE FROM tags WHERE id = ?1", [source_id])?;
+                }
+                _ => {
+                    transaction.execute(
+                        "UPDATE tags SET name = ?2 WHERE id = ?1",
+                        params![source_id, new_name],
+                    )?;
                 }
             }
+        }
 
         if source_id.is_none() && protected_affected == 0 {
             return Err(StorageError::Validation("tag no longer exists".to_string()));
@@ -201,9 +201,7 @@ impl Storage {
         Ok(ordinary_note_ids.len() + protected_affected)
     }
 
-    fn begin_all_protected_notes_tag_mutation(
-        &self,
-    ) -> StorageResult<TagMutationGuard<'_>> {
+    fn begin_all_protected_notes_tag_mutation(&self) -> StorageResult<TagMutationGuard<'_>> {
         for _ in 0..4 {
             let before = {
                 let connection = self.connection()?;
@@ -221,9 +219,12 @@ impl Storage {
             } else {
                 TagMutationGuard::Protected(
                     self.begin_protected_notes_mutation(&before)?
-                        .ok_or_else(|| StorageError::Validation(
-                            "unlock all encrypted notes before renaming or deleting tags".to_string(),
-                        ))?,
+                        .ok_or_else(|| {
+                            StorageError::Validation(
+                                "unlock all encrypted notes before renaming or deleting tags"
+                                    .to_string(),
+                            )
+                        })?,
                 )
             };
 
@@ -285,17 +286,15 @@ fn cleaned_tag_name(name: &str) -> StorageResult<String> {
 }
 
 fn protected_note_ids(connection: &Connection) -> StorageResult<Vec<NoteId>> {
-    let mut statement = connection.prepare(
-        "SELECT note_id FROM vault_note_roots ORDER BY note_id",
-    )?;
+    let mut statement =
+        connection.prepare("SELECT note_id FROM vault_note_roots ORDER BY note_id")?;
     let rows = statement.query_map([], |row| row.get::<_, NoteId>(0))?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 fn note_ids_for_tag(transaction: &Transaction<'_>, tag_id: &str) -> StorageResult<Vec<NoteId>> {
-    let mut statement = transaction.prepare(
-        "SELECT note_id FROM note_tags WHERE tag_id = ?1 ORDER BY note_id",
-    )?;
+    let mut statement =
+        transaction.prepare("SELECT note_id FROM note_tags WHERE tag_id = ?1 ORDER BY note_id")?;
     let rows = statement.query_map([tag_id], |row| row.get::<_, NoteId>(0))?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
@@ -402,7 +401,12 @@ mod tests {
             assert!(note.tags.iter().any(|tag| tag == "renamed"));
             assert!(!note.tags.iter().any(|tag| tag == "alpha"));
         }
-        assert!(storage.list_tags().expect("tags").contains(&"renamed".to_string()));
+        assert!(
+            storage
+                .list_tags()
+                .expect("tags")
+                .contains(&"renamed".to_string())
+        );
 
         {
             let search = |term: &str| {
@@ -507,8 +511,18 @@ mod tests {
             .get_note(&protected.id)
             .expect("lookup protected")
             .expect("protected exists");
-        assert!(protected_after_rename.tags.iter().any(|tag| tag == "renamed"));
-        assert!(!protected_after_rename.tags.iter().any(|tag| tag == "shared"));
+        assert!(
+            protected_after_rename
+                .tags
+                .iter()
+                .any(|tag| tag == "renamed")
+        );
+        assert!(
+            !protected_after_rename
+                .tags
+                .iter()
+                .any(|tag| tag == "shared")
+        );
         let ordinary_after_rename = storage
             .get_note(&ordinary.id)
             .expect("lookup ordinary")
@@ -525,7 +539,12 @@ mod tests {
             .get_note(&protected.id)
             .expect("lookup protected")
             .expect("protected exists");
-        assert!(!protected_after_delete.tags.iter().any(|tag| tag == "protected-only"));
+        assert!(
+            !protected_after_delete
+                .tags
+                .iter()
+                .any(|tag| tag == "protected-only")
+        );
 
         let connection = storage.connection().expect("connection");
         let plaintext_relationships: i64 = connection
@@ -562,5 +581,4 @@ mod tests {
         assert_eq!(ordinary_after.tags, vec!["shared".to_string()]);
         cleanup(storage, root);
     }
-
 }

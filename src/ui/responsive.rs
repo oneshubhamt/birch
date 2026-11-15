@@ -2,13 +2,12 @@
 
 use std::sync::Arc;
 
-use dioxus::prelude::*;
 use crate::application::executor::ApplicationExecutor;
+use dioxus::prelude::*;
 
 use crate::domain::NoteId;
 
 use crate::application::settings::SettingsService;
-
 
 pub const DEFAULT_SIDEBAR_WIDTH: i32 = 238;
 pub const DEFAULT_NOTE_LIST_WIDTH: i32 = 340;

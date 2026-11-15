@@ -1,8 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{
-    link::{LinkValidationError, normalize_safe_href},
-};
+use crate::link::{LinkValidationError, normalize_safe_href};
 
 use super::live_editor::{
     live_editor_adjust_font_size_script, live_editor_capture_link_script,
@@ -202,10 +200,8 @@ fn dispatch_format_action(action: FormatAction) {
 }
 
 fn dispatch_typography_character_action(action: FormatAction) {
-    let script = live_editor_format_and_dismiss_script(
-        action.script_name(),
-        "editor-typography-menu",
-    );
+    let script =
+        live_editor_format_and_dismiss_script(action.script_name(), "editor-typography-menu");
     spawn(async move {
         let _ = document::eval(&script).join::<bool>().await;
     });
@@ -437,9 +433,7 @@ fn link_validation_message(error: LinkValidationError) -> &'static str {
         LinkValidationError::IncompleteEmailAddress => {
             "Enter a complete email address after mailto:."
         }
-        LinkValidationError::UnsupportedScheme => {
-            "Use an https://, http://, or mailto: address."
-        }
+        LinkValidationError::UnsupportedScheme => "Use an https://, http://, or mailto: address.",
     }
 }
 

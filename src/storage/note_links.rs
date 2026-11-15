@@ -14,9 +14,8 @@ impl Storage {
         target_note_ids: &[NoteId],
     ) -> StorageResult<()> {
         let previous = {
-            let mut statement = transaction.prepare(
-                "SELECT target_note_id FROM note_links WHERE source_note_id = ?1",
-            )?;
+            let mut statement = transaction
+                .prepare("SELECT target_note_id FROM note_links WHERE source_note_id = ?1")?;
             let rows = statement.query_map([source_note_id], |row| row.get::<_, NoteId>(0))?;
             rows.collect::<Result<HashSet<_>, _>>()?
         };
@@ -126,12 +125,19 @@ impl Storage {
                         .to_lowercase()
                         .cmp(&right.display_title().to_lowercase())
                 })
-                .then_with(|| left.source_note_id.as_str().cmp(right.source_note_id.as_str()))
+                .then_with(|| {
+                    left.source_note_id
+                        .as_str()
+                        .cmp(right.source_note_id.as_str())
+                })
         });
         Ok(backlinks)
     }
 
-    pub fn list_note_link_targets(&self, source_note_id: &NoteId) -> StorageResult<Vec<NoteLinkTarget>> {
+    pub fn list_note_link_targets(
+        &self,
+        source_note_id: &NoteId,
+    ) -> StorageResult<Vec<NoteLinkTarget>> {
         if let Some(target_ids) = self.protected_outgoing_note_links_if_unlocked(source_note_id)? {
             let mut targets = Vec::with_capacity(target_ids.len());
             for target_id in target_ids {

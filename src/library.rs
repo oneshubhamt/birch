@@ -160,7 +160,9 @@ mod tests {
         let runtime = LibraryRuntime::new();
         let (first, first_root) = test_library("runtime-first");
         let (second, second_root) = test_library("runtime-second");
-        runtime.activate(first.clone()).expect("activate first library");
+        runtime
+            .activate(first.clone())
+            .expect("activate first library");
         runtime
             .activate(first)
             .expect("re-activate same library should be harmless");

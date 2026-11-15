@@ -116,7 +116,12 @@ impl Storage {
             .setting(EDITOR_DEFAULT_LINE_SPACING_KEY)?
             .filter(|value| value != "auto");
         let spellcheck = self.setting(EDITOR_SPELLCHECK_KEY)?.as_deref() != Some("false");
-        Ok((auto_indent, auto_first_line_indent, default_line_spacing, spellcheck))
+        Ok((
+            auto_indent,
+            auto_first_line_indent,
+            default_line_spacing,
+            spellcheck,
+        ))
     }
 
     pub fn set_editor_preferences(

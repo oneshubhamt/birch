@@ -33,7 +33,9 @@ impl DocumentValidationError {
 impl Display for DocumentValidationError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidJson(error) => write!(formatter, "editor state is not valid JSON: {error}"),
+            Self::InvalidJson(error) => {
+                write!(formatter, "editor state is not valid JSON: {error}")
+            }
             Self::InvalidDocument(message) => formatter.write_str(message),
         }
     }
@@ -198,13 +200,15 @@ fn collect_outline_text(content: Option<&Value>, output: &mut String) {
     }
 }
 
-fn parse_editor_state_envelope(serialized: &str) -> DocumentValidationResult<VersionedEditorDocument> {
+fn parse_editor_state_envelope(
+    serialized: &str,
+) -> DocumentValidationResult<VersionedEditorDocument> {
     let serialized = serialized.trim();
     if serialized.is_empty() {
         return invalid("editor state is required");
     }
-    let envelope: VersionedEditorDocument = serde_json::from_str(serialized)
-        .map_err(DocumentValidationError::InvalidJson)?;
+    let envelope: VersionedEditorDocument =
+        serde_json::from_str(serialized).map_err(DocumentValidationError::InvalidJson)?;
     let expected = &document_spec().envelope;
     if envelope.schema_version != expected.schema_version {
         return invalid(format!(
@@ -324,11 +328,7 @@ fn node_validator_invariants(validator: &str) -> Option<&'static [&'static str]>
             "children_match_context",
             "scientific_plain_text_only",
         ]),
-        "pending_attachment" => Some(&[
-            "attachment_leaf",
-            "nested_item_attrs",
-            "unique_attribute",
-        ]),
+        "pending_attachment" => Some(&["attachment_leaf", "nested_item_attrs", "unique_attribute"]),
         "attachment" => Some(&[
             "attachment_leaf",
             "media_annotation_attrs",
@@ -459,7 +459,12 @@ fn validate_spec_attrs(
     let attrs = attrs_value
         .as_object()
         .ok_or_else(|| format!("{path}.attrs must be a JSON object"))?;
-    validate_attribute_object(attrs, &rule.attrs, &rule.attr_policy, &format!("{path}.attrs"))
+    validate_attribute_object(
+        attrs,
+        &rule.attrs,
+        &rule.attr_policy,
+        &format!("{path}.attrs"),
+    )
 }
 
 fn validate_attribute_object(
@@ -489,7 +494,11 @@ fn validate_attribute_object(
     Ok(())
 }
 
-fn validate_attribute_value(value: &Value, rule: &AttributeRule, path: &str) -> DocumentValidationResult<()> {
+fn validate_attribute_value(
+    value: &Value,
+    rule: &AttributeRule,
+    path: &str,
+) -> DocumentValidationResult<()> {
     if value.is_null() {
         return if rule.nullable {
             Ok(())
@@ -535,9 +544,7 @@ fn validate_attribute_value(value: &Value, rule: &AttributeRule, path: &str) -> 
             let value = value
                 .as_u64()
                 .ok_or_else(|| format!("{path} must be a non-negative integer"))?;
-            let minimum = rule
-                .min
-                .or_else(|| rule.min_limit.as_deref().map(limit));
+            let minimum = rule.min.or_else(|| rule.min_limit.as_deref().map(limit));
             let maximum = rule
                 .max
                 .or_else(|| rule.max_limit.as_deref().map(limit))
@@ -745,7 +752,11 @@ fn validate_code_block(
                     .get("type")
                     .and_then(Value::as_str)
                     .ok_or_else(|| format!("{mark_path}.type is required"))?;
-                if !rule.allowed_marks.iter().any(|allowed| allowed == mark_type) {
+                if !rule
+                    .allowed_marks
+                    .iter()
+                    .any(|allowed| allowed == mark_type)
+                {
                     return invalid(format!(
                         "{mark_path}: code blocks support only typography marks"
                     ));
@@ -764,15 +775,16 @@ fn validate_list(
     rule: &ValidationRule,
     analysis: &mut DocumentAnalysisBuilder,
 ) -> DocumentValidationResult<()> {
-    let expected_item = rule
-        .list_item_type
-        .as_deref()
-        .ok_or_else(|| format!("{path}: {node_type} has no item type in the document specification"))?;
+    let expected_item = rule.list_item_type.as_deref().ok_or_else(|| {
+        format!("{path}: {node_type} has no item type in the document specification")
+    })?;
     let item_context = rule
         .list_item_context
         .as_deref()
         .and_then(NodeContext::from_spec_name)
-        .ok_or_else(|| format!("{path}: {node_type} has no valid item context in the document specification"))?;
+        .ok_or_else(|| {
+            format!("{path}: {node_type} has no valid item context in the document specification")
+        })?;
     let content = require_spec_content(node, rule, path)?;
     for (index, child) in content.iter().enumerate() {
         let child_path = format!("{path}.content[{index}]");
@@ -794,10 +806,9 @@ fn validate_list_item(
     analysis: &mut DocumentAnalysisBuilder,
 ) -> DocumentValidationResult<()> {
     let content = require_spec_content(node, rule, path)?;
-    let first_child = rule
-        .first_child_type
-        .as_deref()
-        .ok_or_else(|| format!("{path}: list item has no required first child in the document specification"))?;
+    let first_child = rule.first_child_type.as_deref().ok_or_else(|| {
+        format!("{path}: list item has no required first child in the document specification")
+    })?;
     if content[0].get("type").and_then(Value::as_str) != Some(first_child) {
         return invalid(format!("{path}: list items must begin with {first_child}"));
     }
@@ -910,8 +921,8 @@ fn validate_mark(
                 .get("noteId")
                 .and_then(Value::as_str)
                 .ok_or_else(|| format!("{path}.attrs.noteId must be a string"))?;
-            let note_id = NoteId::parse(note_id)
-                .map_err(|_| format!("{path}.attrs.noteId is invalid"))?;
+            let note_id =
+                NoteId::parse(note_id).map_err(|_| format!("{path}.attrs.noteId is invalid"))?;
             if analysis.collecting {
                 analysis.note_links.insert(note_id);
             }
@@ -923,8 +934,8 @@ fn validate_mark(
                 .get("noteId")
                 .and_then(Value::as_str)
                 .ok_or_else(|| format!("{path}.attrs.noteId must be a string"))?;
-            let note_id = NoteId::parse(note_id)
-                .map_err(|_| format!("{path}.attrs.noteId is invalid"))?;
+            let note_id =
+                NoteId::parse(note_id).map_err(|_| format!("{path}.attrs.noteId is invalid"))?;
             let start_ms = attrs
                 .get("startMs")
                 .and_then(Value::as_u64)
@@ -978,10 +989,9 @@ fn validate_pending_attachment_node(
         ));
     }
     let attrs = required_attrs(node, path)?;
-    let unique_attr = rule
-        .unique_attr
-        .as_deref()
-        .ok_or_else(|| format!("{path}: document specification is missing a unique pending attribute"))?;
+    let unique_attr = rule.unique_attr.as_deref().ok_or_else(|| {
+        format!("{path}: document specification is missing a unique pending attribute")
+    })?;
     let request_id = attrs
         .get(unique_attr)
         .and_then(Value::as_str)
@@ -1076,10 +1086,9 @@ fn validate_attachment_node(
         .get("kind")
         .and_then(Value::as_str)
         .ok_or_else(|| format!("{path}.attrs.kind must be a string"))?;
-    let time_based_domain = rule
-        .time_based_kind_domain
-        .as_deref()
-        .ok_or_else(|| format!("{path}: document specification is missing a time-based kind domain"))?;
+    let time_based_domain = rule.time_based_kind_domain.as_deref().ok_or_else(|| {
+        format!("{path}: document specification is missing a time-based kind domain")
+    })?;
     let time_based_kind = |kind: &str| domain_contains(time_based_domain, kind);
 
     if let Some(media_annotations) = attrs.get("mediaAnnotations")
@@ -1119,17 +1128,20 @@ fn validate_attachment_node(
                 .ok_or_else(|| format!("{annotation_path}.startMs must be an integer"))?;
             let end_ms = match object.get("endMs") {
                 None | Some(Value::Null) => None,
-                Some(value) => Some(
-                    value
-                        .as_u64()
-                        .ok_or_else(|| format!("{annotation_path}.endMs must be an integer or null"))?,
-                ),
+                Some(value) => Some(value.as_u64().ok_or_else(|| {
+                    format!("{annotation_path}.endMs must be an integer or null")
+                })?),
             };
             if end_ms.is_some_and(|end| end <= start_ms) {
-                return invalid(format!("{annotation_path}.endMs must be greater than startMs"));
+                return invalid(format!(
+                    "{annotation_path}.endMs must be greater than startMs"
+                ));
             }
             let key = media_annotation_sort_key(object, rule, &annotation_path)?;
-            if previous_key.as_ref().is_some_and(|previous| previous > &key) {
+            if previous_key
+                .as_ref()
+                .is_some_and(|previous| previous > &key)
+            {
                 return invalid(format!(
                     "{path}.attrs.mediaAnnotations must follow the canonical sort order"
                 ));
@@ -1416,19 +1428,17 @@ fn required_content<'a>(
     object
         .get("content")
         .and_then(Value::as_array)
-        .ok_or_else(|| {
-            DocumentValidationError::invalid(format!("{path}.content must be an array"))
-        })
+        .ok_or_else(|| DocumentValidationError::invalid(format!("{path}.content must be an array")))
 }
 
-fn optional_content<'a>(object: &'a Map<String, Value>, path: &str) -> DocumentValidationResult<&'a [Value]> {
+fn optional_content<'a>(
+    object: &'a Map<String, Value>,
+    path: &str,
+) -> DocumentValidationResult<&'a [Value]> {
     match object.get("content") {
-        Some(value) => value
-            .as_array()
-            .map(Vec::as_slice)
-            .ok_or_else(|| {
-                DocumentValidationError::invalid(format!("{path}.content must be an array"))
-            }),
+        Some(value) => value.as_array().map(Vec::as_slice).ok_or_else(|| {
+            DocumentValidationError::invalid(format!("{path}.content must be an array"))
+        }),
         None => Ok(&[]),
     }
 }
@@ -1482,10 +1492,9 @@ mod tests {
 
     #[test]
     fn editor_state_json_round_trip_preserves_the_canonical_document() {
-        let original: Value = serde_json::from_str(
-            include_str!("../assets/welcome-note-editor-state.json").trim(),
-        )
-        .expect("parse bundled editor state");
+        let original: Value =
+            serde_json::from_str(include_str!("../assets/welcome-note-editor-state.json").trim())
+                .expect("parse bundled editor state");
         let serialized = serde_json::to_string(&original).expect("serialize bundled editor state");
 
         validate_editor_state(&serialized).expect("round-tripped editor state should validate");
@@ -1591,10 +1600,9 @@ mod tests {
     }
     #[test]
     fn shared_editor_document_contract_corpus_matches_rust_validator() {
-        let corpus: Value = serde_json::from_str(include_str!(
-            "../editor-spec/validation-cases.json"
-        ))
-        .expect("parse shared editor document validation corpus");
+        let corpus: Value =
+            serde_json::from_str(include_str!("../editor-spec/validation-cases.json"))
+                .expect("parse shared editor document validation corpus");
         let cases = corpus
             .get("cases")
             .and_then(Value::as_array)
@@ -1615,5 +1623,4 @@ mod tests {
             assert_eq!(accepted, expected, "shared document contract case: {name}");
         }
     }
-
 }

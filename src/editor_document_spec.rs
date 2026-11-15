@@ -105,7 +105,10 @@ pub(crate) fn document_spec() -> &'static DocumentSpec {
     DOCUMENT_SPEC.get_or_init(|| {
         let spec: DocumentSpec = serde_json::from_str(DOCUMENT_SPEC_SOURCE)
             .expect("embedded Rustnote editor document specification must be valid JSON");
-        assert_eq!(spec.spec_version, 1, "unsupported embedded Rustnote document spec version");
+        assert_eq!(
+            spec.spec_version, 1,
+            "unsupported embedded Rustnote document spec version"
+        );
         spec
     })
 }
@@ -163,7 +166,11 @@ mod tests {
         let mut contexts = spec.contexts.clone();
         contexts.sort();
         contexts.dedup();
-        assert_eq!(contexts.len(), spec.contexts.len(), "duplicate document contexts");
+        assert_eq!(
+            contexts.len(),
+            spec.contexts.len(),
+            "duplicate document contexts"
+        );
 
         for (name, rule) in spec.nodes.iter().chain(spec.marks.iter()) {
             assert!(!name.is_empty());
@@ -193,7 +200,10 @@ mod tests {
                     .into_iter()
                     .flatten()
                     {
-                        assert!(spec.limits.contains_key(limit_name), "missing limit {limit_name}");
+                        assert!(
+                            spec.limits.contains_key(limit_name),
+                            "missing limit {limit_name}"
+                        );
                     }
                 }
             }

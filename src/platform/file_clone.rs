@@ -14,11 +14,16 @@ pub(super) fn try_clone_file(source: &Path, destination: &Path) -> io::Result<bo
     use std::{ffi::CString, os::unix::ffi::OsStrExt};
 
     unsafe extern "C" {
-        fn clonefile(src: *const std::ffi::c_char, dst: *const std::ffi::c_char, flags: u32) -> i32;
+        fn clonefile(src: *const std::ffi::c_char, dst: *const std::ffi::c_char, flags: u32)
+        -> i32;
     }
 
-    let source = CString::new(source.as_os_str().as_bytes())
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "source path contains a NUL byte"))?;
+    let source = CString::new(source.as_os_str().as_bytes()).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "source path contains a NUL byte",
+        )
+    })?;
     let destination_bytes = destination.as_os_str().as_bytes();
     let destination_c = CString::new(destination_bytes).map_err(|_| {
         io::Error::new(

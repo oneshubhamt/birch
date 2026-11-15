@@ -78,10 +78,7 @@ impl TryFrom<StorageLocationsFile> for StorageLocations {
         }
         validate_nonempty_path(&value.data_directory, "library")?;
         validate_nonempty_path(&value.backup_directory, "backup")?;
-        validate_storage_location_relationship(
-            &value.data_directory,
-            &value.backup_directory,
-        )?;
+        validate_storage_location_relationship(&value.data_directory, &value.backup_directory)?;
         Ok(Self {
             data_directory: value.data_directory,
             backup_directory: value.backup_directory,
@@ -105,10 +102,7 @@ pub(super) fn resolved_storage_locations() -> StorageResult<StorageLocations> {
     if let Some(custom) = nonempty_environment_path("RUSTNOTE_BACKUP_DIR") {
         locations.backup_directory = custom;
     }
-    validate_storage_location_relationship(
-        &locations.data_directory,
-        &locations.backup_directory,
-    )?;
+    validate_storage_location_relationship(&locations.data_directory, &locations.backup_directory)?;
     Ok(locations)
 }
 
@@ -136,7 +130,9 @@ pub(super) fn save_storage_locations(
     validate_storage_location_relationship(&data_directory, &backup_directory)?;
     fs::create_dir_all(&data_directory)?;
     let data_directory = fs::canonicalize(data_directory)?;
-    let pending_backup_reset = if let Some(library_id) = read_library_identity_if_present(&data_directory)? {
+    let pending_backup_reset = if let Some(library_id) =
+        read_library_identity_if_present(&data_directory)?
+    {
         require_pending_backup_location_available(&library_id, &data_directory, &backup_directory)?
     } else {
         false
@@ -393,10 +389,14 @@ fn remember_storage_location_at(
     let data_directory = normalize_directory_for_comparison(&locations.data_directory)?;
     let backup_directory = normalize_directory_for_comparison(&locations.backup_directory)?;
 
-    if let Some(entry) = libraries.iter_mut().find(|entry| entry.library_id == library_id) {
+    if let Some(entry) = libraries
+        .iter_mut()
+        .find(|entry| entry.library_id == library_id)
+    {
         if entry.data_directory != data_directory {
             return Err(StorageError::Integrity(
-                "Rustnote library identity is associated with a different data directory".to_string(),
+                "Rustnote library identity is associated with a different data directory"
+                    .to_string(),
             ));
         }
         if !entry.backup_directories.contains(&backup_directory) {
@@ -454,18 +454,27 @@ pub(super) fn begin_backup_privacy_reset_for(
             return Ok(Vec::new());
         };
         let data_directory = normalize_directory_for_comparison(data_directory)?;
-        let Some(entry) = libraries.iter_mut().find(|entry| entry.library_id == library_id) else {
+        let Some(entry) = libraries
+            .iter_mut()
+            .find(|entry| entry.library_id == library_id)
+        else {
             return Ok(Vec::new());
         };
         if entry.data_directory != data_directory {
             return Err(StorageError::Integrity(
-                "Rustnote library identity is associated with a different data directory".to_string(),
+                "Rustnote library identity is associated with a different data directory"
+                    .to_string(),
             ));
         }
         let backup_directories = entry.backup_directories.clone();
         for backup_directory in &backup_directories {
-            if !entry.pending_privacy_reset_directories.contains(backup_directory) {
-                entry.pending_privacy_reset_directories.push(backup_directory.clone());
+            if !entry
+                .pending_privacy_reset_directories
+                .contains(backup_directory)
+            {
+                entry
+                    .pending_privacy_reset_directories
+                    .push(backup_directory.clone());
             }
         }
         write_backup_location_history_at(&path, libraries)?;
@@ -486,13 +495,19 @@ pub(super) fn clear_backup_privacy_reset_required_for(
         };
         let data_directory = normalize_directory_for_comparison(data_directory)?;
         let backup_directory = normalize_directory_for_comparison(backup_directory)?;
-        if let Some(entry) = libraries.iter_mut().find(|entry| entry.library_id == library_id) {
+        if let Some(entry) = libraries
+            .iter_mut()
+            .find(|entry| entry.library_id == library_id)
+        {
             if entry.data_directory != data_directory {
                 return Err(StorageError::Integrity(
-                    "Rustnote library identity is associated with a different data directory".to_string(),
+                    "Rustnote library identity is associated with a different data directory"
+                        .to_string(),
                 ));
             }
-            entry.pending_privacy_reset_directories.retain(|path| path != &backup_directory);
+            entry
+                .pending_privacy_reset_directories
+                .retain(|path| path != &backup_directory);
         }
         write_backup_location_history_at(&path, libraries)
     })
@@ -511,15 +526,21 @@ pub(super) fn backup_privacy_reset_required_for(
         };
         let data_directory = normalize_directory_for_comparison(data_directory)?;
         let backup_directory = normalize_directory_for_comparison(backup_directory)?;
-        let Some(entry) = libraries.into_iter().find(|entry| entry.library_id == library_id) else {
+        let Some(entry) = libraries
+            .into_iter()
+            .find(|entry| entry.library_id == library_id)
+        else {
             return Ok(false);
         };
         if entry.data_directory != data_directory {
             return Err(StorageError::Integrity(
-                "Rustnote library identity is associated with a different data directory".to_string(),
+                "Rustnote library identity is associated with a different data directory"
+                    .to_string(),
             ));
         }
-        Ok(entry.pending_privacy_reset_directories.contains(&backup_directory))
+        Ok(entry
+            .pending_privacy_reset_directories
+            .contains(&backup_directory))
     })
 }
 
@@ -561,12 +582,16 @@ pub(super) fn pending_backup_privacy_reset_count_for(
             return Ok(0);
         };
         let data_directory = normalize_directory_for_comparison(data_directory)?;
-        let Some(entry) = libraries.into_iter().find(|entry| entry.library_id == library_id) else {
+        let Some(entry) = libraries
+            .into_iter()
+            .find(|entry| entry.library_id == library_id)
+        else {
             return Ok(0);
         };
         if entry.data_directory != data_directory {
             return Err(StorageError::Integrity(
-                "Rustnote library identity is associated with a different data directory".to_string(),
+                "Rustnote library identity is associated with a different data directory"
+                    .to_string(),
             ));
         }
         Ok(entry.pending_privacy_reset_directories.len())
@@ -644,9 +669,13 @@ fn normalize_backup_history(
         for backup_directory in entry.backup_directories {
             validate_nonempty_path(&backup_directory, "backup")?;
             let backup_directory = normalize_directory_for_comparison(&backup_directory)?;
-            if normalized.iter().enumerate().any(|(other_index, existing)| {
-                other_index != index && existing.backup_directories.contains(&backup_directory)
-            }) {
+            if normalized
+                .iter()
+                .enumerate()
+                .any(|(other_index, existing)| {
+                    other_index != index && existing.backup_directories.contains(&backup_directory)
+                })
+            {
                 return Err(StorageError::Validation(format!(
                     "automatic backup folder is already associated with another Rustnote library: {}",
                     backup_directory.display()
@@ -660,9 +689,13 @@ fn normalize_backup_history(
         for pending_directory in entry.pending_privacy_reset_directories {
             validate_nonempty_path(&pending_directory, "backup")?;
             let pending_directory = normalize_directory_for_comparison(&pending_directory)?;
-            if normalized.iter().enumerate().any(|(other_index, existing)| {
-                other_index != index && existing.backup_directories.contains(&pending_directory)
-            }) {
+            if normalized
+                .iter()
+                .enumerate()
+                .any(|(other_index, existing)| {
+                    other_index != index && existing.backup_directories.contains(&pending_directory)
+                })
+            {
                 return Err(StorageError::Validation(format!(
                     "pending backup privacy location is associated with another Rustnote library: {}",
                     pending_directory.display()
@@ -672,8 +705,13 @@ fn normalize_backup_history(
             if !target.backup_directories.contains(&pending_directory) {
                 target.backup_directories.push(pending_directory.clone());
             }
-            if !target.pending_privacy_reset_directories.contains(&pending_directory) {
-                target.pending_privacy_reset_directories.push(pending_directory);
+            if !target
+                .pending_privacy_reset_directories
+                .contains(&pending_directory)
+            {
+                target
+                    .pending_privacy_reset_directories
+                    .push(pending_directory);
             }
         }
     }
@@ -752,10 +790,7 @@ fn read_storage_locations_file(path: &Path) -> StorageResult<StorageLocationsFil
     serde_json::from_slice(&bytes).map_err(StorageError::from)
 }
 
-pub(super) fn validate_disjoint_directories(
-    library: &Path,
-    backup: &Path,
-) -> StorageResult<()> {
+pub(super) fn validate_disjoint_directories(library: &Path, backup: &Path) -> StorageResult<()> {
     if library == backup || library.starts_with(backup) || backup.starts_with(library) {
         return Err(StorageError::Validation(
             "the library and automatic backup folders must not overlap or contain one another"
@@ -906,12 +941,15 @@ mod tests {
         let root = test_root("backup-history-old-version");
         fs::create_dir_all(&root).expect("test root");
         let history_path = root.join("history.json");
-        fs::write(&history_path, br#"{"version":2,"libraries":[]}"#)
-            .expect("old history");
+        fs::write(&history_path, br#"{"version":2,"libraries":[]}"#).expect("old history");
 
         let error = read_current_backup_history_at(&history_path)
             .expect_err("pre-current backup history must not be migrated");
-        assert!(error.to_string().contains("unsupported backup-location history version 2"));
+        assert!(
+            error
+                .to_string()
+                .contains("unsupported backup-location history version 2")
+        );
         let _ = fs::remove_dir_all(root);
     }
 
@@ -1140,5 +1178,4 @@ mod tests {
 
         let _ = fs::remove_dir_all(root);
     }
-
 }

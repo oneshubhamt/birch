@@ -176,8 +176,7 @@ impl Storage {
         &self,
         connection: &mut Connection,
     ) -> StorageResult<()> {
-        let transaction =
-            connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         for (name, create_sql) in NOTE_RUNTIME_INDEXES {
             let existing = transaction
                 .query_row(
@@ -201,9 +200,7 @@ impl Storage {
                     // Runtime indexes are explicitly rebuildable. Repair only a
                     // mismatched definition so normal startup never churns the
                     // large note indexes unnecessarily.
-                    transaction.execute_batch(&format!(
-                        "DROP INDEX {name};\n{create_sql}"
-                    ))?;
+                    transaction.execute_batch(&format!("DROP INDEX {name};\n{create_sql}"))?;
                 }
             }
         }

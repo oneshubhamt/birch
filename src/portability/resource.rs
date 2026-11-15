@@ -1,4 +1,7 @@
-use std::{ffi::OsStr, path::{Component, Path, PathBuf}};
+use std::{
+    ffi::OsStr,
+    path::{Component, Path, PathBuf},
+};
 
 /// Parse a user/file supplied local portability reference without touching the filesystem.
 ///
@@ -53,10 +56,15 @@ mod tests {
 
     #[test]
     fn local_resource_syntax_is_narrow_and_assets_are_detected_centrally() {
-        assert_eq!(safe_relative_path("Topic.assets/map.png"), Some(PathBuf::from("Topic.assets/map.png")));
+        assert_eq!(
+            safe_relative_path("Topic.assets/map.png"),
+            Some(PathBuf::from("Topic.assets/map.png"))
+        );
         assert_eq!(safe_relative_path("../secret.txt"), None);
         assert_eq!(safe_relative_path("https://example.com/a.png"), None);
-        assert!(is_asset_namespace_path(Path::new("Topic.assets/reference.md")));
+        assert!(is_asset_namespace_path(Path::new(
+            "Topic.assets/reference.md"
+        )));
         assert!(!is_asset_namespace_path(Path::new("notes/reference.md")));
     }
 }

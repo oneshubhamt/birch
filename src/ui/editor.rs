@@ -1,25 +1,20 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dioxus::core::use_drop;
-use dioxus::prelude::*;
-use crate::application::attachments::{
-    AttachmentFileCommand, AttachmentFileCommandOutcome,
-};
+use crate::application::attachments::{AttachmentFileCommand, AttachmentFileCommandOutcome};
 use crate::application::context::ApplicationServices;
 use crate::application::editor::EditorService;
-use crate::application::settings::EditorPreferences;
 use crate::application::editor_workflows::MediaCompatibilityWorkflowAction;
+use crate::application::persistence::{NoteChangeScope, unix_timestamp};
+use crate::application::settings::EditorPreferences;
+use crate::domain::{Note, NoteId, NoteLinkTarget, NoteTitleStyle, Notebook};
 use crate::editor_bridge::{
     EditorAttachmentCommand, EditorAttachmentFileAction, EditorDocumentUpdate,
     EditorNoteLinkCommand,
 };
-use crate::domain::{Note, NoteId, NoteLinkTarget, NoteTitleStyle, Notebook};
 use crate::search::{ParsedSearch, SearchField};
-use crate::application::persistence::{NoteChangeScope, unix_timestamp};
+use dioxus::core::use_drop;
+use dioxus::prelude::*;
 
-use crate::application::executor::{
-    ApplicationExecutionStatus, ApplicationExecutor, ApplicationOperation,
-};
 use super::editor_toolbar::{EditorToolbar, EditorToolbarActions, EditorToolbarView};
 use super::editor_toolbar_support::{
     FindPanel, FindPanelView, TextStatistics, TitleTypographyCommand,
@@ -27,8 +22,8 @@ use super::editor_toolbar_support::{
 use super::editor_workflows::{
     AttachmentWorkflowPresentation, ImageImportFlow, RevisionRestoreFlow, reject_image_edit,
     reject_image_import, restore_revision_flow, run_attachment_import, run_image_edit,
-    run_image_import, run_media_compatibility, run_pdf_export,
-    run_pending_attachment_open, run_pending_attachment_recovery,
+    run_image_import, run_media_compatibility, run_pdf_export, run_pending_attachment_open,
+    run_pending_attachment_recovery,
 };
 use super::filter_popover::apply_note_filters;
 use super::live_editor::{
@@ -38,18 +33,18 @@ use super::live_editor::{
     live_editor_find_script, live_editor_set_attachment_registry_script,
     live_editor_set_editable_script, live_editor_set_note_link_registry_script,
 };
-use super::note_metadata::{
-    NoteRevisionRestoreRequest, RevisionHistoryPanel, RevisionHistoryPanelActions,
-    RevisionHistoryPanelView,
+use super::note_hierarchy::{
+    NoteHierarchyPanel, NoteHierarchyPanelActions, NoteHierarchyPanelView,
 };
 use super::note_links::{
     BacklinksPanel, BacklinksPanelActions, BacklinksPanelView, NoteLinkPicker,
     NoteLinkPickerActions, NoteLinkPickerRequest, NoteLinkPickerView,
 };
-use super::note_hierarchy::{
-    NoteHierarchyPanel, NoteHierarchyPanelActions, NoteHierarchyPanelView,
-};
 use super::note_list_data::{current_note_list_query, refresh_note_list, select_note};
+use super::note_metadata::{
+    NoteRevisionRestoreRequest, RevisionHistoryPanel, RevisionHistoryPanelActions,
+    RevisionHistoryPanelView,
+};
 use super::note_properties::{
     NotePropertiesPanel, NotePropertiesPanelActions, NotePropertiesPanelView,
 };
@@ -64,15 +59,17 @@ use super::synchronization::{
     EditorSession, ProjectedEditorDocumentUpdate, SynchronizationMode, apply_editor_update,
     begin_draft_flush_scoped, complete_draft_flush, project_editor_update_async,
 };
+use crate::application::executor::{
+    ApplicationExecutionStatus, ApplicationExecutor, ApplicationOperation,
+};
 
 use super::toast::status_bar_class;
 use super::{
-    CompactPane, EditorPopover, FormatAction, NoteCardAction, NotesListState, TagCatalogMutation, refresh_tags,
-    request_note_list_preferences_save, storage_or_report,
+    CompactPane, EditorPopover, FormatAction, NoteCardAction, NotesListState, TagCatalogMutation,
+    refresh_tags, request_note_list_preferences_save, storage_or_report,
 };
 
 static NEXT_EDITOR_GENERATION: AtomicU64 = AtomicU64::new(1);
-
 
 fn next_editor_generation() -> u64 {
     NEXT_EDITOR_GENERATION.fetch_add(1, Ordering::Relaxed)
@@ -147,7 +144,9 @@ fn apply_title_typography(style: &mut NoteTitleStyle, command: TitleTypographyCo
     match command {
         TitleTypographyCommand::Toggle(FormatAction::Bold) => style.bold = !style.bold,
         TitleTypographyCommand::Toggle(FormatAction::Italic) => style.italic = !style.italic,
-        TitleTypographyCommand::Toggle(FormatAction::Underline) => style.underline = !style.underline,
+        TitleTypographyCommand::Toggle(FormatAction::Underline) => {
+            style.underline = !style.underline
+        }
         TitleTypographyCommand::Toggle(FormatAction::Strikethrough) => {
             style.strikethrough = !style.strikethrough;
         }
@@ -627,8 +626,7 @@ pub(super) fn NoteEditor(view: EditorProps, actions: EditorActions) -> Element {
     let editor_preferences = use_context::<Signal<EditorPreferences>>();
     let workflow_service = services.editor_workflows(background_coordinator.clone());
     let desktop = dioxus_desktop::use_window();
-    let protected_status_publisher =
-        use_context::<super::toast::ProtectedStatusPublisher>();
+    let protected_status_publisher = use_context::<super::toast::ProtectedStatusPublisher>();
     let protected_status_scope = note.protection.is_protected().then(|| {
         privacy_epoch.note_publication_scope(
             services.privacy(),
@@ -649,15 +647,16 @@ pub(super) fn NoteEditor(view: EditorProps, actions: EditorActions) -> Element {
     let initial_attachment_service = attachment_service.clone();
     let attachment_note_id = note.id.clone();
     let initial_attachment_status = onstatus;
-    let mut attachments = use_signal(move || {
-        match initial_attachment_service.list(&attachment_note_id) {
-            Ok(attachments) => attachments,
-            Err(error) => {
-                initial_attachment_status.call(format!("Could not load attachments: {error}"));
-                Vec::new()
-            }
-        }
-    });
+    let mut attachments =
+        use_signal(
+            move || match initial_attachment_service.list(&attachment_note_id) {
+                Ok(attachments) => attachments,
+                Err(error) => {
+                    initial_attachment_status.call(format!("Could not load attachments: {error}"));
+                    Vec::new()
+                }
+            },
+        );
     // Note-link targets are an aggregate registry: a target may expose another
     // note's title/metadata. Start empty and populate only under multi-note
     // publication authority below.
@@ -717,8 +716,11 @@ pub(super) fn NoteEditor(view: EditorProps, actions: EditorActions) -> Element {
     let attachment_registry_note_id = note.id.clone();
     let _attachment_registry_effect = use_effect(move || {
         let current_attachments = attachments.read().clone();
-        let Some(publication_token) = privacy_epoch.capture_note_publication(&attachment_registry_privacy, &attachment_registry_note_id, editor_generation)
-        else {
+        let Some(publication_token) = privacy_epoch.capture_note_publication(
+            &attachment_registry_privacy,
+            &attachment_registry_note_id,
+            editor_generation,
+        ) else {
             return;
         };
         let script = live_editor_set_attachment_registry_script(
@@ -745,8 +747,11 @@ pub(super) fn NoteEditor(view: EditorProps, actions: EditorActions) -> Element {
     let _note_link_target_refresh_effect = use_effect(move || {
         let _multi_note_privacy = *multi_note_privacy.read();
         let _library_generation = *library_generation.read();
-        let Some(publication_token) = privacy_epoch.capture_multi_note_publication_with_lifecycle(&target_refresh_privacy, library_generation, editor_generation)
-        else {
+        let Some(publication_token) = privacy_epoch.capture_multi_note_publication_with_lifecycle(
+            &target_refresh_privacy,
+            library_generation,
+            editor_generation,
+        ) else {
             note_link_targets.set(Vec::new());
             return;
         };
@@ -788,8 +793,11 @@ pub(super) fn NoteEditor(view: EditorProps, actions: EditorActions) -> Element {
     let note_link_registry_privacy = services.privacy();
     let _note_link_registry_effect = use_effect(move || {
         let current_targets = note_link_targets.read().clone();
-        let Some(publication_token) = privacy_epoch.capture_multi_note_publication_with_lifecycle(&note_link_registry_privacy, library_generation, editor_generation)
-        else {
+        let Some(publication_token) = privacy_epoch.capture_multi_note_publication_with_lifecycle(
+            &note_link_registry_privacy,
+            library_generation,
+            editor_generation,
+        ) else {
             let clear_script = live_editor_set_note_link_registry_script(&[]);
             spawn(async move {
                 let _ = document::eval(&clear_script).join::<bool>().await;

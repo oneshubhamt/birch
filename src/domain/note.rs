@@ -223,8 +223,6 @@ pub struct NoteHierarchy {
     pub children: Vec<HierarchyNoteSummary>,
 }
 
-
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NotePropertiesContext {
     pub attachment_count: usize,
@@ -246,11 +244,7 @@ pub struct NoteDocument {
 }
 
 impl NoteDocument {
-    pub fn new(
-        body: String,
-        editor_state: std::sync::Arc<String>,
-        plain_text: String,
-    ) -> Self {
+    pub fn new(body: String, editor_state: std::sync::Arc<String>, plain_text: String) -> Self {
         Self {
             body,
             editor_state,
@@ -264,13 +258,14 @@ impl Default for NoteDocument {
         Self {
             body: String::new(),
             editor_state: std::sync::Arc::new(
-                crate::editor_document::EMPTY_EDITOR_STATE.trim().to_string(),
+                crate::editor_document::EMPTY_EDITOR_STATE
+                    .trim()
+                    .to_string(),
             ),
             plain_text: String::new(),
         }
     }
 }
-
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum NoteProtectionState {
@@ -340,8 +335,6 @@ impl PartialEq for Note {
 
 impl Eq for Note {}
 
-
-
 impl Note {
     pub fn body(&self) -> &str {
         &self.document.body
@@ -365,7 +358,11 @@ impl Note {
     pub fn display_title(&self) -> &str {
         let title = self.title.trim();
         if self.protection.is_locked() {
-            return if title.is_empty() { "Locked note" } else { title };
+            return if title.is_empty() {
+                "Locked note"
+            } else {
+                title
+            };
         }
         if title.is_empty() {
             "Untitled note"
@@ -420,7 +417,11 @@ impl NoteSummary {
     pub fn display_title(&self) -> &str {
         let title = self.title.trim();
         if self.protection.is_locked() {
-            return if title.is_empty() { "Locked note" } else { title };
+            return if title.is_empty() {
+                "Locked note"
+            } else {
+                title
+            };
         }
         if title.is_empty() {
             "Untitled note"
@@ -468,7 +469,6 @@ impl From<&Note> for NoteSummary {
         }
     }
 }
-
 
 fn is_zero(value: &i64) -> bool {
     *value == 0

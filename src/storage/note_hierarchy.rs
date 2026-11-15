@@ -8,15 +8,13 @@ impl Storage {
     pub fn note_hierarchy(&self, note_id: &NoteId) -> StorageResult<NoteHierarchy> {
         let connection = self.connection()?;
         let exists = connection
-            .query_row(
-                "SELECT 1 FROM notes WHERE id = ?1",
-                [note_id],
-                |_| Ok(()),
-            )
+            .query_row("SELECT 1 FROM notes WHERE id = ?1", [note_id], |_| Ok(()))
             .optional()?
             .is_some();
         if !exists {
-            return Err(StorageError::Validation("note no longer exists".to_string()));
+            return Err(StorageError::Validation(
+                "note no longer exists".to_string(),
+            ));
         }
 
         let parent = connection
@@ -52,7 +50,11 @@ impl Storage {
     /// Notebook membership and note content are deliberately untouched. The
     /// transaction rejects self-parenting and any assignment that would make
     /// the parent chain cycle back to the child.
-    pub fn set_note_parent(&self, child_note_id: &NoteId, parent_note_id: &NoteId) -> StorageResult<()> {
+    pub fn set_note_parent(
+        &self,
+        child_note_id: &NoteId,
+        parent_note_id: &NoteId,
+    ) -> StorageResult<()> {
         if child_note_id == parent_note_id {
             return Err(StorageError::Validation(
                 "a note cannot be its own parent".to_string(),

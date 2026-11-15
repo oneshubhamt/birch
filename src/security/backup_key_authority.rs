@@ -115,8 +115,11 @@ impl BackupRepositoryKeysetV1 {
         if &encoded[..8] != BACKUP_REPOSITORY_KEYSET_MAGIC {
             return Err(BackupKeyAuthorityError::InvalidKeyset);
         }
-        if u16::from_be_bytes(encoded[8..10].try_into().expect("fixed keyset version slice"))
-            != BACKUP_KEYSET_VERSION
+        if u16::from_be_bytes(
+            encoded[8..10]
+                .try_into()
+                .expect("fixed keyset version slice"),
+        ) != BACKUP_KEYSET_VERSION
             || encoded[10..12] != [0, 0]
         {
             return Err(BackupKeyAuthorityError::InvalidKeyset);
@@ -145,9 +148,7 @@ impl BackupRepositoryKeysetV1 {
                     .expect("fixed snapshot-key slice"),
             ),
             blob_aead_key: Zeroizing::new(
-                encoded[108..140]
-                    .try_into()
-                    .expect("fixed blob-key slice"),
+                encoded[108..140].try_into().expect("fixed blob-key slice"),
             ),
             metadata_aead_key: Zeroizing::new(
                 encoded[140..172]
@@ -198,8 +199,8 @@ impl fmt::Debug for BackupRepositoryKeysetV1 {
     }
 }
 
-fn random_repository_key(
-) -> Result<Zeroizing<[u8; REPOSITORY_KEY_BYTES]>, BackupKeyAuthorityError> {
+fn random_repository_key() -> Result<Zeroizing<[u8; REPOSITORY_KEY_BYTES]>, BackupKeyAuthorityError>
+{
     let mut key = Zeroizing::new([0u8; REPOSITORY_KEY_BYTES]);
     getrandom::fill(key.as_mut()).map_err(|_| BackupKeyAuthorityError::RandomSource)?;
     Ok(key)
@@ -223,9 +224,9 @@ pub(crate) enum BackupKeyAuthorityError {
 impl fmt::Display for BackupKeyAuthorityError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnsupportedPlatform => formatter.write_str(
-                "managed encrypted backups are unavailable on this platform",
-            ),
+            Self::UnsupportedPlatform => {
+                formatter.write_str("managed encrypted backups are unavailable on this platform")
+            }
             Self::SecureStoreUnavailable(message) => {
                 write!(formatter, "OS secure key store is unavailable: {message}")
             }
@@ -307,9 +308,7 @@ impl<'a> BackupKeyAuthority<'a> {
         Self { protector }
     }
 
-    pub(crate) fn root_status(
-        &self,
-    ) -> Result<DeviceBackupRootStatus, BackupKeyAuthorityError> {
+    pub(crate) fn root_status(&self) -> Result<DeviceBackupRootStatus, BackupKeyAuthorityError> {
         self.protector.root_status().map_err(Into::into)
     }
 
@@ -417,9 +416,7 @@ fn repository_header_prefix(
     Ok(header)
 }
 
-fn key_envelope_aad(
-    header_prefix: &[u8; BACKUP_REPOSITORY_HEADER_PREFIX_BYTES],
-) -> Vec<u8> {
+fn key_envelope_aad(header_prefix: &[u8; BACKUP_REPOSITORY_HEADER_PREFIX_BYTES]) -> Vec<u8> {
     let mut aad = Vec::with_capacity(BACKUP_KEY_ENVELOPE_AAD_DOMAIN.len() + header_prefix.len());
     aad.extend_from_slice(BACKUP_KEY_ENVELOPE_AAD_DOMAIN);
     aad.extend_from_slice(header_prefix);
@@ -470,11 +467,8 @@ fn parse_repository_header(
         2 => BackupWrapAlgorithm::Aes256Gcm,
         _ => return Err(BackupKeyAuthorityError::InvalidRepositoryHeader),
     };
-    let envelope_len = u32::from_be_bytes(
-        header_prefix[84..88]
-            .try_into()
-            .expect("envelope length"),
-    ) as usize;
+    let envelope_len =
+        u32::from_be_bytes(header_prefix[84..88].try_into().expect("envelope length")) as usize;
     if envelope_len == 0
         || envelope_len > BACKUP_MAX_KEY_ENVELOPE_BYTES
         || encoded.len() != BACKUP_REPOSITORY_HEADER_PREFIX_BYTES + envelope_len
@@ -483,16 +477,10 @@ fn parse_repository_header(
     }
     validate_protector_tuple(protector_kind, wrap_algorithm, envelope_len)?;
 
-    let repository_id = BackupRepositoryId(
-        header_prefix[16..48]
-            .try_into()
-            .expect("repository id"),
-    );
-    let library_binding = BackupLibraryBinding(
-        header_prefix[48..80]
-            .try_into()
-            .expect("library binding"),
-    );
+    let repository_id =
+        BackupRepositoryId(header_prefix[16..48].try_into().expect("repository id"));
+    let library_binding =
+        BackupLibraryBinding(header_prefix[48..80].try_into().expect("library binding"));
 
     Ok(ParsedRepositoryHeader {
         protector_kind,
@@ -648,10 +636,9 @@ mod tests {
         assert_eq!(
             binding.as_bytes(),
             &[
-                0xf0, 0x36, 0x3a, 0x84, 0x64, 0xe6, 0xa7, 0x22,
-                0x23, 0x7f, 0xbd, 0xfd, 0xb9, 0x8a, 0x0f, 0x86,
-                0x9e, 0xf6, 0x0c, 0x0b, 0xce, 0x8a, 0x50, 0x49,
-                0xc8, 0x22, 0x67, 0x52, 0x5f, 0xf5, 0x4f, 0xdb,
+                0xf0, 0x36, 0x3a, 0x84, 0x64, 0xe6, 0xa7, 0x22, 0x23, 0x7f, 0xbd, 0xfd, 0xb9, 0x8a,
+                0x0f, 0x86, 0x9e, 0xf6, 0x0c, 0x0b, 0xce, 0x8a, 0x50, 0x49, 0xc8, 0x22, 0x67, 0x52,
+                0x5f, 0xf5, 0x4f, 0xdb,
             ]
         );
     }
@@ -870,8 +857,14 @@ mod tests {
         assert_eq!(&encoded[..8], b"RNBKEY01");
         assert_eq!(&encoded[8..10], &BACKUP_KEYSET_VERSION.to_be_bytes());
         assert_eq!(&encoded[10..12], &[0, 0]);
-        assert_eq!(&encoded[12..44], initialized.keyset.repository_id().as_bytes());
-        assert_eq!(&encoded[44..76], initialized.keyset.library_binding().as_bytes());
+        assert_eq!(
+            &encoded[12..44],
+            initialized.keyset.repository_id().as_bytes()
+        );
+        assert_eq!(
+            &encoded[44..76],
+            initialized.keyset.library_binding().as_bytes()
+        );
         assert_eq!(&encoded[76..108], initialized.keyset.snapshot_aead_key());
         assert_eq!(&encoded[108..140], initialized.keyset.blob_aead_key());
         assert_eq!(&encoded[140..172], initialized.keyset.metadata_aead_key());
@@ -889,7 +882,10 @@ mod tests {
             .initialize_fresh_repository("library-A")
             .expect("second repository");
         assert_ne!(first.keyset.repository_id(), second.keyset.repository_id());
-        assert_ne!(first.keyset.snapshot_aead_key(), second.keyset.snapshot_aead_key());
+        assert_ne!(
+            first.keyset.snapshot_aead_key(),
+            second.keyset.snapshot_aead_key()
+        );
         assert!(format!("{:?}", first.keyset).contains("[REDACTED]"));
     }
 }

@@ -1,10 +1,11 @@
 use std::time::Duration;
 
+use crate::application::{
+    executor::ApplicationExecutor, library::LibraryService, privacy::PrivacyPublicationService,
+};
 use dioxus::prelude::*;
-use crate::application::{executor::ApplicationExecutor, library::LibraryService, privacy::PrivacyPublicationService};
 
 use crate::domain::{NoteCandidate, NoteId};
-
 
 const NOTE_PICKER_SEARCH_DEBOUNCE_MS: u64 = 90;
 
@@ -95,9 +96,7 @@ pub(super) fn NotePicker(view: NotePickerView, actions: NotePickerActions) -> El
             if !requested_query.trim().is_empty() {
                 tokio::time::sleep(Duration::from_millis(NOTE_PICKER_SEARCH_DEBOUNCE_MS)).await;
             }
-            if *search_generation.peek() != next_generation
-                || !publication_token.is_publishable()
-            {
+            if *search_generation.peek() != next_generation || !publication_token.is_publishable() {
                 return;
             }
             let search_query = requested_query.clone();

@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use crate::{
     domain::NoteId,
     security::{
+        VaultContext, VaultDomain, VaultKey, VaultService,
         sensitive_data::{
             ATTACHMENT_INDEX_FORMAT_VERSION, AttachmentIndex, METADATA_STATE_FORMAT_VERSION,
             MetadataState, NOTE_PRIVATE_STATE_FORMAT_VERSION, NotePrivateState,
@@ -19,7 +20,6 @@ use crate::{
             RevisionObject, VAULT_MANIFEST_FORMAT_VERSION, VAULT_NOTE_FORMAT_VERSION,
         },
         vault_object_spec::{VAULT_OBJECT_ID_BYTES, VAULT_OBJECT_ID_HEX_LEN, VaultObjectId},
-        VaultContext, VaultDomain, VaultKey, VaultService,
     },
 };
 
@@ -230,7 +230,6 @@ impl fmt::Debug for VaultNoteRootRecord {
     }
 }
 
-
 #[derive(Clone, Debug)]
 pub(crate) struct VaultGraphHead {
     pub(crate) root: VaultNoteRootRecord,
@@ -256,12 +255,8 @@ impl Storage {
     ) -> StorageResult<VaultObjectId> {
         payload.validate_for(note_id)?;
         let object_id = new_vault_object_id();
-        let context_bytes = vault_object_context_bytes(
-            note_id,
-            T::KIND,
-            &object_id,
-            T::FORMAT_VERSION,
-        )?;
+        let context_bytes =
+            vault_object_context_bytes(note_id, T::KIND, &object_id, T::FORMAT_VERSION)?;
         let mut plaintext = serde_json::to_vec(payload)?;
         let ciphertext_result = VaultService::new().seal_object(
             note_key,
@@ -319,12 +314,8 @@ impl Storage {
         revision_handle: &str,
     ) -> StorageResult<Option<RevisionObject>> {
         manifest.validate_for(note_id)?;
-        let index: RevisionIndex = self.read_vault_object(
-            connection,
-            note_key,
-            note_id,
-            &manifest.revision_index,
-        )?;
+        let index: RevisionIndex =
+            self.read_vault_object(connection, note_key, note_id, &manifest.revision_index)?;
         self.validate_revision_index_for_manifest(manifest, &index)?;
         let Some(entry) = index
             .entries
@@ -333,12 +324,8 @@ impl Storage {
         else {
             return Ok(None);
         };
-        let revision: RevisionObject = self.read_vault_object(
-            connection,
-            note_key,
-            note_id,
-            &entry.object_id,
-        )?;
+        let revision: RevisionObject =
+            self.read_vault_object(connection, note_key, note_id, &entry.object_id)?;
         if revision.revision_no != entry.revision_no
             || revision.snapshot_byte_size != entry.snapshot_byte_size
             || revision.created_at != entry.created_at
@@ -358,12 +345,8 @@ impl Storage {
         manifest: &VaultManifest,
     ) -> StorageResult<RevisionIndex> {
         manifest.validate_for(note_id)?;
-        let index: RevisionIndex = self.read_vault_object(
-            connection,
-            note_key,
-            note_id,
-            &manifest.revision_index,
-        )?;
+        let index: RevisionIndex =
+            self.read_vault_object(connection, note_key, note_id, &manifest.revision_index)?;
         self.validate_revision_index_for_manifest(manifest, &index)?;
         Ok(index)
     }
@@ -380,8 +363,10 @@ impl Storage {
             StorageError::Integrity("vault revision index is too large".to_string())
         })?;
         if count != manifest.revision_count
-            || index.entries.first().map(|entry| &entry.object_id) != manifest.revision_head.as_ref()
-            || index.entries.last().map(|entry| &entry.object_id) != manifest.revision_floor.as_ref()
+            || index.entries.first().map(|entry| &entry.object_id)
+                != manifest.revision_head.as_ref()
+            || index.entries.last().map(|entry| &entry.object_id)
+                != manifest.revision_floor.as_ref()
         {
             return Err(StorageError::Integrity(
                 "vault revision index does not match manifest bounds".to_string(),
@@ -553,7 +538,6 @@ impl Storage {
         .transpose()
     }
 
-
     pub(crate) fn read_vault_graph_head(
         &self,
         connection: &Connection,
@@ -563,12 +547,8 @@ impl Storage {
         let Some(root) = self.vault_note_root_record(connection, note_id)? else {
             return Ok(None);
         };
-        let manifest: VaultManifest = self.read_vault_object(
-            connection,
-            note_key,
-            note_id,
-            &root.manifest_object_id,
-        )?;
+        let manifest: VaultManifest =
+            self.read_vault_object(connection, note_key, note_id, &root.manifest_object_id)?;
         Ok(Some(VaultGraphHead { root, manifest }))
     }
 
@@ -587,12 +567,8 @@ impl Storage {
             note_id,
             &head.manifest.note_private_state,
         )?;
-        let metadata_state: MetadataState = self.read_vault_object(
-            connection,
-            note_key,
-            note_id,
-            &head.manifest.metadata_state,
-        )?;
+        let metadata_state: MetadataState =
+            self.read_vault_object(connection, note_key, note_id, &head.manifest.metadata_state)?;
         let attachment_index: AttachmentIndex = self.read_vault_object(
             connection,
             note_key,
@@ -635,12 +611,8 @@ impl Storage {
                 "vault manifest generation did not advance exactly once".to_string(),
             ));
         }
-        let manifest_object_id = self.insert_vault_object(
-            transaction,
-            note_key,
-            &root.note_id,
-            new_manifest,
-        )?;
+        let manifest_object_id =
+            self.insert_vault_object(transaction, note_key, &root.note_id, new_manifest)?;
         self.install_vault_note_root(
             transaction,
             note_key,
@@ -653,9 +625,15 @@ impl Storage {
         // deletion authority and prevents a stale or malformed caller list from
         // deleting an object still referenced by the newly committed manifest.
         for (old_object_id, new_object_id) in [
-            (&old_manifest.note_private_state, &new_manifest.note_private_state),
+            (
+                &old_manifest.note_private_state,
+                &new_manifest.note_private_state,
+            ),
             (&old_manifest.metadata_state, &new_manifest.metadata_state),
-            (&old_manifest.attachment_index, &new_manifest.attachment_index),
+            (
+                &old_manifest.attachment_index,
+                &new_manifest.attachment_index,
+            ),
             (&old_manifest.revision_index, &new_manifest.revision_index),
         ] {
             if old_object_id != new_object_id {
@@ -702,12 +680,8 @@ impl Storage {
         let Some(root) = self.vault_note_root_record(transaction, note_id)? else {
             return Ok(0);
         };
-        let manifest: VaultManifest = self.read_vault_object(
-            transaction,
-            note_key,
-            note_id,
-            &root.manifest_object_id,
-        )?;
+        let manifest: VaultManifest =
+            self.read_vault_object(transaction, note_key, note_id, &root.manifest_object_id)?;
         let mut reachable = HashSet::from([
             root.manifest_object_id.clone(),
             manifest.note_private_state.clone(),
@@ -715,18 +689,14 @@ impl Storage {
             manifest.attachment_index.clone(),
             manifest.revision_index.clone(),
         ]);
-        for (object_id, _) in self.read_vault_revision_chain(
-            transaction,
-            note_key,
-            note_id,
-            &manifest,
-        )? {
+        for (object_id, _) in
+            self.read_vault_revision_chain(transaction, note_key, note_id, &manifest)?
+        {
             reachable.insert(object_id);
         }
         let object_ids = {
-            let mut statement = transaction.prepare(
-                "SELECT object_id FROM vault_objects WHERE note_id = ?1",
-            )?;
+            let mut statement =
+                transaction.prepare("SELECT object_id FROM vault_objects WHERE note_id = ?1")?;
             let rows = statement.query_map([note_id], |row| row.get::<_, String>(0))?;
             rows.collect::<Result<Vec<_>, _>>()?
         };
@@ -910,7 +880,9 @@ mod tests {
             note_id: note_id.clone(),
             title: "2b private title".to_string(),
             title_style: NoteTitleStyle::default(),
-            editor_state: crate::editor_document::EMPTY_EDITOR_STATE.trim().to_string(),
+            editor_state: crate::editor_document::EMPTY_EDITOR_STATE
+                .trim()
+                .to_string(),
         };
         let metadata = MetadataState {
             format_version: METADATA_STATE_FORMAT_VERSION,
@@ -1109,9 +1081,11 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert!(!ciphertext
-            .windows(b"2b private title".len())
-            .any(|window| window == b"2b private title"));
+        assert!(
+            !ciphertext
+                .windows(b"2b private title".len())
+                .any(|window| window == b"2b private title")
+        );
 
         let mut tampered = ciphertext;
         let last = tampered

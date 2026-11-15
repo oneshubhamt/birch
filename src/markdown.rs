@@ -11,7 +11,9 @@ pub fn render_markdown(markdown: &str) -> String {
     options.insert(Options::ENABLE_TASKLISTS);
 
     let parser = Parser::new_ext(markdown, options).filter_map(|event| match event {
-        Event::Html(html) | Event::InlineHtml(html) => safe_inline_html(html).map(Event::InlineHtml),
+        Event::Html(html) | Event::InlineHtml(html) => {
+            safe_inline_html(html).map(Event::InlineHtml)
+        }
         Event::Start(Tag::Link {
             link_type,
             dest_url,

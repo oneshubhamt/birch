@@ -5,11 +5,11 @@ use rusqlite::{
     types::Value,
 };
 
-use crate::editor_document::analyze_editor_state;
 use crate::domain::{
     DEFAULT_NOTEBOOK_ID, NOTE_LIST_PAGE_SIZE, Note, NoteFilters, NoteId, NoteListCursor,
     NoteListPage, NoteListQuery, NoteSort, NoteSummary, NoteTitleStyle, Section,
 };
+use crate::editor_document::analyze_editor_state;
 use crate::search::ParsedSearch;
 
 #[cfg(feature = "remote-sync")]
@@ -111,9 +111,8 @@ impl Storage {
         let connection = self.connection()?;
         let parsed_search = ParsedSearch::parse(query.search.trim());
         let (where_clause, mut parameters) = note_list_where(query, &parsed_search, 2);
-        let sql = format!(
-            "SELECT EXISTS(SELECT 1 FROM notes n WHERE n.id = ?1 AND {where_clause})"
-        );
+        let sql =
+            format!("SELECT EXISTS(SELECT 1 FROM notes n WHERE n.id = ?1 AND {where_clause})");
         let mut values = Vec::with_capacity(parameters.len() + 1);
         values.push(Value::from(note_id.as_str().to_string()));
         values.append(&mut parameters);
@@ -148,7 +147,8 @@ impl Storage {
         {
             note.protection = crate::domain::NoteProtectionState::Locked;
         }
-        note.map(|note| self.hydrate_protected_note(note)).transpose()
+        note.map(|note| self.hydrate_protected_note(note))
+            .transpose()
     }
     pub fn create_note(&self, notebook_id: Option<&str>) -> StorageResult<Note> {
         let now = unix_timestamp();
@@ -300,13 +300,14 @@ impl Storage {
             };
             let old_id = remaining.swap_remove(index);
             let source_attachment = attachments_by_id.get(&old_id).ok_or_else(|| {
-                StorageError::Integrity(format!("attachment {old_id} disappeared during duplication"))
+                StorageError::Integrity(format!(
+                    "attachment {old_id} disappeared during duplication"
+                ))
             })?;
             let mut duplicate_attachment = source_attachment.clone();
-            duplicate_attachment.id = attachment_id_map
-                .get(&old_id)
-                .cloned()
-                .ok_or_else(|| StorageError::Integrity("attachment remap is incomplete".to_string()))?;
+            duplicate_attachment.id = attachment_id_map.get(&old_id).cloned().ok_or_else(|| {
+                StorageError::Integrity("attachment remap is incomplete".to_string())
+            })?;
             duplicate_attachment.note_id = duplicate_id.clone();
             duplicate_attachment.source_attachment_id = source_attachment
                 .source_attachment_id
@@ -357,7 +358,10 @@ impl Storage {
                 "SELECT source_id, locator FROM citations WHERE note_id = ?1 ORDER BY created_at, id",
             )?;
             let rows = statement.query_map([note_id], |row| {
-                Ok((row.get::<_, crate::domain::SourceId>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, crate::domain::SourceId>(0)?,
+                    row.get::<_, String>(1)?,
+                ))
             })?;
             let citations = rows.collect::<Result<Vec<_>, _>>()?;
             drop(statement);
@@ -401,7 +405,9 @@ impl Storage {
         self.refresh_search_index(&transaction, &duplicate)?;
         self.enqueue_sync_upsert(&transaction, "note", duplicate.id.as_str(), &duplicate)?;
         transaction.commit()?;
-        duplicate.attachment_names.sort_by_key(|name| name.to_lowercase());
+        duplicate
+            .attachment_names
+            .sort_by_key(|name| name.to_lowercase());
         Ok(duplicate)
     }
 
@@ -464,12 +470,8 @@ impl Storage {
             Ok(transaction) => transaction,
             Err(error) => return Err(NoteSaveFailure::new(note, error.into())),
         };
-        let (note, revision_recorded) = self.persist_note(
-            &transaction,
-            protected_access,
-            note,
-            Some(revision_mode),
-        )?;
+        let (note, revision_recorded) =
+            self.persist_note(&transaction, protected_access, note, Some(revision_mode))?;
         if let Err(error) = transaction.commit() {
             return Err(NoteSaveFailure::new(note, error.into()));
         }
@@ -506,12 +508,7 @@ impl Storage {
             Ok(guard) => guard,
             Err(error) => return Err(NoteSaveFailure::new(note, error)),
         };
-        self.save_note_owned_with_revision_status_scoped_locked(
-            note,
-            revision_mode,
-            scope,
-            None,
-        )
+        self.save_note_owned_with_revision_status_scoped_locked(note, revision_mode, scope, None)
     }
 
     fn save_note_owned_with_revision_status_scoped_locked(
@@ -579,7 +576,9 @@ impl Storage {
                 existing_purge_after,
             )) = existing_state
             else {
-                return Err(StorageError::Validation("note no longer exists".to_string()));
+                return Err(StorageError::Validation(
+                    "note no longer exists".to_string(),
+                ));
             };
             let protected = super::protection::protected_note_exists(transaction, &note.id)?;
             if existing_trashed
@@ -612,9 +611,12 @@ impl Storage {
                 let sensitive_scope =
                     scope.touches_document() || scope.touches_title() || scope.touches_tags();
                 let revision_recorded = if sensitive_scope {
-                    let access = protected_access.ok_or_else(|| StorageError::Validation(
-                        "note encryption changed while saving; retry after unlocking".to_string(),
-                    ))?;
+                    let access = protected_access.ok_or_else(|| {
+                        StorageError::Validation(
+                            "note encryption changed while saving; retry after unlocking"
+                                .to_string(),
+                        )
+                    })?;
                     self.persist_protected_note_content(
                         transaction,
                         access,
@@ -662,19 +664,15 @@ impl Storage {
             if scope.touches_document() {
                 let analysis =
                     analyze_editor_state(note.editor_state()).map_err(StorageError::from)?;
-                let (attachment_names, attachment_membership_changed) =
-                    self.reconcile_document_attachments(
+                let (attachment_names, attachment_membership_changed) = self
+                    .reconcile_document_attachments(
                         transaction,
                         &note.id,
                         &analysis.attachment_ids,
                         &analysis.pending_attachment_request_ids,
                     )?;
                 note.attachment_names = attachment_names;
-                self.reconcile_document_note_links(
-                    transaction,
-                    &note.id,
-                    &analysis.note_links,
-                )?;
+                self.reconcile_document_note_links(transaction, &note.id, &analysis.note_links)?;
                 transaction.execute(
                     "UPDATE notes
                      SET body = ?1, editor_state = ?2, plain_text = ?3, updated_at = ?4
@@ -811,8 +809,7 @@ impl Storage {
         let result = (|| -> StorageResult<bool> {
             note.tags = normalized_tags(&note.tags);
             note.title_style = std::mem::take(&mut note.title_style).normalized();
-            let analysis =
-                analyze_editor_state(note.editor_state()).map_err(StorageError::from)?;
+            let analysis = analyze_editor_state(note.editor_state()).map_err(StorageError::from)?;
             if note.notebook_id.trim().is_empty() {
                 note.notebook_id = DEFAULT_NOTEBOOK_ID.to_string();
             }
@@ -875,11 +872,7 @@ impl Storage {
                 &analysis.pending_attachment_request_ids,
             )?;
             note.attachment_names = attachment_names;
-            self.reconcile_document_note_links(
-                transaction,
-                &note.id,
-                &analysis.note_links,
-            )?;
+            self.reconcile_document_note_links(transaction, &note.id, &analysis.note_links)?;
             self.refresh_search_index(transaction, &note)?;
 
             let revision_recorded = if let Some(revision_mode) = revision_mode {
@@ -1009,9 +1002,10 @@ impl Storage {
                        )"
                 );
                 let mut statement = transaction.prepare(&attachment_sql)?;
-                let rows = statement.query_map(params_from_iter(eligible_note_ids.iter()), |row| {
-                    row.get::<_, String>(0)
-                })?;
+                let rows = statement
+                    .query_map(params_from_iter(eligible_note_ids.iter()), |row| {
+                        row.get::<_, String>(0)
+                    })?;
                 hashes.extend(rows.collect::<Result<HashSet<_>, _>>()?);
                 drop(statement);
 
@@ -1026,9 +1020,10 @@ impl Storage {
                        )"
                 );
                 let mut statement = transaction.prepare(&revision_sql)?;
-                let rows = statement.query_map(params_from_iter(eligible_note_ids.iter()), |row| {
-                    row.get::<_, String>(0)
-                })?;
+                let rows = statement
+                    .query_map(params_from_iter(eligible_note_ids.iter()), |row| {
+                        row.get::<_, String>(0)
+                    })?;
                 hashes.extend(rows.collect::<Result<HashSet<_>, _>>()?);
                 hashes
             };
@@ -1039,10 +1034,10 @@ impl Storage {
                      WHERE refs.note_id IN ({placeholders})"
                 );
                 let mut statement = transaction.prepare(&sql)?;
-                let rows = statement.query_map(
-                    params_from_iter(eligible_note_ids.iter()),
-                    |row| row.get::<_, String>(0),
-                )?;
+                let rows = statement
+                    .query_map(params_from_iter(eligible_note_ids.iter()), |row| {
+                        row.get::<_, String>(0)
+                    })?;
                 rows.collect::<Result<HashSet<_>, _>>()?
             };
             #[cfg(feature = "remote-sync")]
@@ -1052,9 +1047,10 @@ impl Storage {
                         "SELECT id FROM attachments WHERE note_id IN ({placeholders}) ORDER BY id"
                     );
                     let mut statement = transaction.prepare(&sql)?;
-                    let rows = statement.query_map(params_from_iter(eligible_note_ids.iter()), |row| {
-                        row.get::<_, String>(0)
-                    })?;
+                    let rows = statement
+                        .query_map(params_from_iter(eligible_note_ids.iter()), |row| {
+                            row.get::<_, String>(0)
+                        })?;
                     rows.collect::<Result<Vec<_>, _>>()?
                 };
                 for attachment_id in &attachment_ids {
@@ -1075,16 +1071,11 @@ impl Storage {
 
             let operations_sql =
                 format!("DELETE FROM attachment_operations WHERE note_id IN ({placeholders})");
-            transaction.execute(
-                &operations_sql,
-                params_from_iter(eligible_note_ids.iter()),
-            )?;
+            transaction.execute(&operations_sql, params_from_iter(eligible_note_ids.iter()))?;
 
             let delete_sql = format!("DELETE FROM notes WHERE id IN ({placeholders})");
-            let removed = transaction.execute(
-                &delete_sql,
-                params_from_iter(eligible_note_ids.iter()),
-            )?;
+            let removed =
+                transaction.execute(&delete_sql, params_from_iter(eligible_note_ids.iter()))?;
             if removed != eligible_note_ids.len() {
                 return Err(StorageError::Integrity(format!(
                     "Trash maintenance revalidated {} expired note(s) but deleted {removed}",
@@ -1217,9 +1208,8 @@ impl Storage {
             ));
         }
         let protected_blob_hashes = {
-            let mut statement = transaction.prepare(
-                "SELECT sha256 FROM vault_blob_refs WHERE note_id = ?1 ORDER BY sha256",
-            )?;
+            let mut statement = transaction
+                .prepare("SELECT sha256 FROM vault_blob_refs WHERE note_id = ?1 ORDER BY sha256")?;
             let rows = statement.query_map([note_id], |row| row.get::<_, String>(0))?;
             rows.collect::<Result<Vec<_>, _>>()?
         };
@@ -1291,13 +1281,7 @@ impl Storage {
             return Ok(());
         }
         let payload_json = serde_json::to_string(payload)?;
-        self.enqueue_sync_payload(
-            transaction,
-            entity_type,
-            entity_id,
-            "upsert",
-            &payload_json,
-        )
+        self.enqueue_sync_payload(transaction, entity_type, entity_id, "upsert", &payload_json)
     }
     #[cfg(not(feature = "remote-sync"))]
     pub(super) fn enqueue_sync_upsert<T>(
@@ -1321,13 +1305,7 @@ impl Storage {
             return Ok(());
         }
         let payload_json = serde_json::to_string(&serde_json::json!({ "id": entity_id }))?;
-        self.enqueue_sync_payload(
-            transaction,
-            entity_type,
-            entity_id,
-            "delete",
-            &payload_json,
-        )
+        self.enqueue_sync_payload(transaction, entity_type, entity_id, "delete", &payload_json)
     }
     #[cfg(not(feature = "remote-sync"))]
     pub(super) fn enqueue_sync_delete(
@@ -1538,8 +1516,7 @@ fn note_list_page_in_transaction(
     let mut cursor_clause = String::new();
     if let Some(cursor) = cursor {
         let first_parameter = page_parameters.len() + 2;
-        let (clause, parameters) =
-            note_list_cursor_predicate(query.sort, cursor, first_parameter);
+        let (clause, parameters) = note_list_cursor_predicate(query.sort, cursor, first_parameter);
         cursor_clause = format!(" AND {clause}");
         page_parameters.extend(parameters);
     }
@@ -1683,9 +1660,7 @@ fn note_list_where(
 ) -> (String, Vec<Value>) {
     let mut clauses = vec![match query.section {
         Section::Notes => "n.trashed = 0 AND n.archived = 0".to_string(),
-        Section::Pinned => {
-            "n.trashed = 0 AND n.archived = 0 AND n.pinned = 1".to_string()
-        }
+        Section::Pinned => "n.trashed = 0 AND n.archived = 0 AND n.pinned = 1".to_string(),
         Section::Archive => "n.trashed = 0 AND n.archived = 1".to_string(),
         Section::Trash => "n.trashed = 1".to_string(),
     }];
@@ -1894,7 +1869,9 @@ fn remap_duplicated_document_value(
                             .and_then(|attachment_id| attachment_ids.get(attachment_id))
                             .cloned();
                         if let Some(remapped_attachment_id) = self_media_attachment {
-                            if let Some(serde_json::Value::String(note_id)) = attrs.get_mut("noteId") {
+                            if let Some(serde_json::Value::String(note_id)) =
+                                attrs.get_mut("noteId")
+                            {
                                 *note_id = duplicate_note_id.to_string();
                             }
                             if let Some(serde_json::Value::String(attachment_id)) =
@@ -1920,9 +1897,7 @@ fn remap_duplicated_document_value(
     }
 }
 
-pub(super) fn note_summary_from_row(
-    row: &rusqlite::Row<'_>,
-) -> rusqlite::Result<NoteSummary> {
+pub(super) fn note_summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<NoteSummary> {
     let tag_names: String = row.get(9)?;
     let attachment_names: String = row.get(10)?;
     Ok(NoteSummary {
@@ -1993,8 +1968,8 @@ mod tests {
     use crate::domain::{Attachment, SourceKind};
     use crate::storage::{NoteSaveScope, RevisionMode, new_id};
 
-    use super::*;
     use super::super::attachments::blob_relative_path;
+    use super::*;
 
     fn test_storage(label: &str) -> (Storage, PathBuf) {
         let suffix = new_id(label);
@@ -2022,12 +1997,14 @@ mod tests {
             id: id.to_string(),
             note_id: note_id.clone(),
             file_name: file_name.to_string(),
-            mime_type: Some(if file_name.ends_with(".pdf") {
-                "application/pdf"
-            } else {
-                "image/png"
-            }
-            .to_string()),
+            mime_type: Some(
+                if file_name.ends_with(".pdf") {
+                    "application/pdf"
+                } else {
+                    "image/png"
+                }
+                .to_string(),
+            ),
             byte_size: 16,
             sha256: sha256.to_string(),
             image_pixel_width: file_name.ends_with(".png").then_some(64),
@@ -2141,13 +2118,19 @@ mod tests {
             Some(duplicate_attachment_id.as_str())
         );
         let self_media = &content[1]["content"][0]["marks"][0]["attrs"];
-        assert_eq!(self_media["noteId"].as_str(), Some(duplicate_note_id.as_str()));
+        assert_eq!(
+            self_media["noteId"].as_str(),
+            Some(duplicate_note_id.as_str())
+        );
         assert_eq!(
             self_media["attachmentId"].as_str(),
             Some(duplicate_attachment_id.as_str())
         );
         let external_media = &content[2]["content"][0]["marks"][0]["attrs"];
-        assert_eq!(external_media["noteId"].as_str(), Some(external_note_id.as_str()));
+        assert_eq!(
+            external_media["noteId"].as_str(),
+            Some(external_note_id.as_str())
+        );
         assert_eq!(
             external_media["attachmentId"].as_str(),
             Some(external_attachment_id.as_str())
@@ -2269,11 +2252,7 @@ mod tests {
         .expect("serialize source editor state");
         let projections = crate::editor_projection::derive_editor_projections(&editor_state)
             .expect("project source editor state");
-        source_note.replace_document(
-            projections.markdown,
-            editor_state,
-            projections.plain_text,
-        );
+        source_note.replace_document(projections.markdown, editor_state, projections.plain_text);
         source_note.updated_at = now + 4;
         source_note = storage
             .save_note_owned_with_revision_status_scoped(
@@ -2303,8 +2282,16 @@ mod tests {
         let duplicate_attachments = storage
             .list_attachments(&duplicate.id)
             .expect("list duplicate attachments");
-        assert_eq!(duplicate_attachments.len(), 3, "stale attachment history must not be copied");
-        assert!(duplicate_attachments.iter().all(|attachment| attachment.id != stale_id));
+        assert_eq!(
+            duplicate_attachments.len(),
+            3,
+            "stale attachment history must not be copied"
+        );
+        assert!(
+            duplicate_attachments
+                .iter()
+                .all(|attachment| attachment.id != stale_id)
+        );
         let duplicate_original = duplicate_attachments
             .iter()
             .find(|attachment| attachment.file_name == "original.png")
@@ -2331,8 +2318,16 @@ mod tests {
 
         let duplicate_analysis = analyze_editor_state(duplicate.editor_state())
             .expect("analyze duplicated editor state");
-        assert!(duplicate_analysis.attachment_ids.contains(&duplicate_edited.id));
-        assert!(duplicate_analysis.attachment_ids.contains(&duplicate_pdf.id));
+        assert!(
+            duplicate_analysis
+                .attachment_ids
+                .contains(&duplicate_edited.id)
+        );
+        assert!(
+            duplicate_analysis
+                .attachment_ids
+                .contains(&duplicate_pdf.id)
+        );
         assert!(!duplicate_analysis.attachment_ids.contains(&edited_image_id));
         assert!(!duplicate_analysis.attachment_ids.contains(&pdf_id));
         assert_eq!(duplicate_analysis.note_links, vec![duplicate.id.clone()]);
@@ -2382,7 +2377,10 @@ mod tests {
             )
             .expect("expire note");
 
-        assert_eq!(storage.purge_expired_notes().expect("purge expired note"), 1);
+        assert_eq!(
+            storage.purge_expired_notes().expect("purge expired note"),
+            1
+        );
         assert!(storage.get_note(&note.id).expect("note lookup").is_none());
         let connection = storage.connection().expect("owner connection");
         let orphan_owner_count: i64 = connection
@@ -2543,7 +2541,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("residue count");
-        assert_eq!(residue_count, 1, "fail-closed purge must preserve ownership evidence");
+        assert_eq!(
+            residue_count, 1,
+            "fail-closed purge must preserve ownership evidence"
+        );
         cleanup(storage, root);
     }
 
@@ -2562,7 +2563,9 @@ mod tests {
         let transaction = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .expect("ordinary sync transaction");
-        transaction.execute("DELETE FROM sync_queue", []).expect("clear setup sync rows");
+        transaction
+            .execute("DELETE FROM sync_queue", [])
+            .expect("clear setup sync rows");
         storage
             .enqueue_sync_upsert(&transaction, "note", note.id.as_str(), &note)
             .expect("ordinary note upsert must remain enabled");
@@ -2592,8 +2595,14 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("ordinary attachment sync count");
-        assert_eq!(note_rows, 1, "ordinary note sync tombstone must remain queued");
-        assert_eq!(attachment_rows, 1, "ordinary attachment sync tombstone must remain queued");
+        assert_eq!(
+            note_rows, 1,
+            "ordinary note sync tombstone must remain queued"
+        );
+        assert_eq!(
+            attachment_rows, 1,
+            "ordinary attachment sync tombstone must remain queued"
+        );
         cleanup(storage, root);
     }
 
@@ -2637,7 +2646,9 @@ mod tests {
         storage
             .enqueue_sync_delete(&transaction, "attachment", &attachment.id)
             .expect("protected attachment delete must be suppressed");
-        transaction.commit().expect("commit suppressed sync attempts");
+        transaction
+            .commit()
+            .expect("commit suppressed sync attempts");
 
         let forbidden: i64 = storage
             .connection()
@@ -2650,7 +2661,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("forbidden sync count");
-        assert_eq!(forbidden, 0, "protected entities must have no plaintext sync rows");
+        assert_eq!(
+            forbidden, 0,
+            "protected entities must have no plaintext sync rows"
+        );
         cleanup(storage, root);
     }
 
@@ -2705,7 +2719,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("cleanup owner count");
-        assert_eq!(canonical_owner, 0, "ciphertext cleanup owner must retire after deletion");
+        assert_eq!(
+            canonical_owner, 0,
+            "ciphertext cleanup owner must retire after deletion"
+        );
         cleanup(storage, root);
     }
 
@@ -2779,7 +2796,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("cleanup owner count");
-        assert_eq!(owner_count, 1, "database commit must retain one durable cleanup owner");
+        assert_eq!(
+            owner_count, 1,
+            "database commit must retain one durable cleanup owner"
+        );
 
         drop(storage);
         let reopened = Storage::at_with_backup(root.join("data"), root.join("backups"))
@@ -2797,7 +2817,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("reopened cleanup owner count");
-        assert_eq!(owner_count, 0, "startup recovery must retire the consumed cleanup owner");
+        assert_eq!(
+            owner_count, 0,
+            "startup recovery must retire the consumed cleanup owner"
+        );
         cleanup(reopened, root);
     }
 
@@ -2835,7 +2858,10 @@ mod tests {
             )
             .expect("expire protected note");
 
-        assert_eq!(storage.purge_expired_notes().expect("purge protected note"), 1);
+        assert_eq!(
+            storage.purge_expired_notes().expect("purge protected note"),
+            1
+        );
         assert!(storage.get_note(&note.id).expect("note lookup").is_none());
         assert!(
             !ciphertext_path.exists(),
@@ -2890,7 +2916,9 @@ mod tests {
         let staged = staged_plaintext.path().to_path_buf();
         fs::create_dir_all(staged.parent().expect("staging parent"))
             .expect("create staging parent");
-        let mut staged_file = staged_plaintext.create_file().expect("create staged plaintext");
+        let mut staged_file = staged_plaintext
+            .create_file()
+            .expect("create staged plaintext");
         std::io::Write::write_all(&mut staged_file, b"late producer plaintext")
             .expect("write staged plaintext");
         drop(staged_file);
@@ -2903,7 +2931,10 @@ mod tests {
         drop(producer);
         delete_thread.join().expect("delete thread");
 
-        assert!(!staged.exists(), "delete must scrub staging created by the drained producer");
+        assert!(
+            !staged.exists(),
+            "delete must scrub staging created by the drained producer"
+        );
         assert!(
             crate::native::staging::claim_staged_image_import(
                 &image_stage_token,
@@ -2922,9 +2953,11 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("owner count");
-        assert_eq!(owner_count, 0, "delete must not leave a stale staging owner");
+        assert_eq!(
+            owner_count, 0,
+            "delete must not leave a stale staging owner"
+        );
 
         cleanup(storage, root);
     }
-
 }

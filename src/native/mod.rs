@@ -78,9 +78,8 @@ fn output_token() -> String {
 }
 
 fn copy_file_atomically(source: &Path, destination: &Path, label: &str) -> NativeResult<()> {
-    output::copy_file_atomically(source, destination).map_err(|error| {
-        NativeError::operation(format!("Could not save {label}: {error}"))
-    })
+    output::copy_file_atomically(source, destination)
+        .map_err(|error| NativeError::operation(format!("Could not save {label}: {error}")))
 }
 
 fn existing_path(path: &Path) -> NativeResult<PathBuf> {

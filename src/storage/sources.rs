@@ -2,9 +2,7 @@ use std::collections::HashSet;
 
 use rusqlite::{OptionalExtension, Transaction, TransactionBehavior, params};
 
-use crate::domain::{
-    Citation, NoteId, NoteSourceSummary, Source, SourceId, SourceKind,
-};
+use crate::domain::{Citation, NoteId, NoteSourceSummary, Source, SourceId, SourceKind};
 
 use crate::security::sensitive_data::SensitiveSourceLink;
 
@@ -86,14 +84,14 @@ impl Storage {
         note_id: &NoteId,
         query: &str,
     ) -> StorageResult<Vec<Source>> {
-        let protected_attached = self
-            .protected_note_sources_if_unlocked(note_id)?
-            .map(|summaries| {
-                summaries
-                    .into_iter()
-                    .map(|summary| summary.source.id)
-                    .collect::<HashSet<_>>()
-            });
+        let protected_attached =
+            self.protected_note_sources_if_unlocked(note_id)?
+                .map(|summaries| {
+                    summaries
+                        .into_iter()
+                        .map(|summary| summary.source.id)
+                        .collect::<HashSet<_>>()
+                });
         let connection = self.connection()?;
         let query = query.trim();
         let pattern = format!("%{}%", escape_like_pattern(query));
@@ -187,7 +185,11 @@ impl Storage {
             let now = unix_timestamp();
             if self
                 .mutate_protected_metadata_if_unlocked(note_id, |metadata| {
-                    if !metadata.sources.iter().any(|link| link.source.id == source.id) {
+                    if !metadata
+                        .sources
+                        .iter()
+                        .any(|link| link.source.id == source.id)
+                    {
                         metadata.sources.push(SensitiveSourceLink {
                             source: source.clone(),
                             linked_at: now,
@@ -254,9 +256,11 @@ impl Storage {
                     .sources
                     .iter_mut()
                     .find(|link| &link.source.id == source_id)
-                    .ok_or_else(|| StorageError::Validation(
-                        "attach the source to this note before adding a citation".to_string(),
-                    ))?;
+                    .ok_or_else(|| {
+                        StorageError::Validation(
+                            "attach the source to this note before adding a citation".to_string(),
+                        )
+                    })?;
                 link.citations.push(citation.clone());
                 Ok(())
             })?
@@ -320,7 +324,6 @@ impl Storage {
         transaction.commit()?;
         Ok(())
     }
-
 }
 
 fn source_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Source> {
@@ -348,10 +351,14 @@ fn source_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Source> {
 fn validate_source_title(title: &str) -> StorageResult<String> {
     let title = title.trim();
     if title.is_empty() {
-        return Err(StorageError::Validation("source title cannot be empty".to_string()));
+        return Err(StorageError::Validation(
+            "source title cannot be empty".to_string(),
+        ));
     }
     if title.len() > MAX_SOURCE_TITLE_LEN || title.chars().any(char::is_control) {
-        return Err(StorageError::Validation("source title is invalid".to_string()));
+        return Err(StorageError::Validation(
+            "source title is invalid".to_string(),
+        ));
     }
     Ok(title.to_string())
 }
@@ -361,7 +368,9 @@ fn normalize_source_reference(reference: Option<&str>) -> StorageResult<Option<S
         return Ok(None);
     };
     if reference.len() > MAX_SOURCE_REFERENCE_LEN || reference.chars().any(char::is_control) {
-        return Err(StorageError::Validation("source reference is invalid".to_string()));
+        return Err(StorageError::Validation(
+            "source reference is invalid".to_string(),
+        ));
     }
     Ok(Some(reference.to_string()))
 }
@@ -372,7 +381,9 @@ fn validate_citation_locator(locator: &str) -> StorageResult<String> {
         || locator.len() > MAX_CITATION_LOCATOR_LEN
         || locator.chars().any(char::is_control)
     {
-        return Err(StorageError::Validation("citation locator is invalid".to_string()));
+        return Err(StorageError::Validation(
+            "citation locator is invalid".to_string(),
+        ));
     }
     Ok(locator.to_string())
 }
@@ -403,7 +414,9 @@ fn ensure_note_exists_and_editable(
         )
         .optional()?;
     match trashed {
-        None => Err(StorageError::Validation("the note no longer exists".to_string())),
+        None => Err(StorageError::Validation(
+            "the note no longer exists".to_string(),
+        )),
         Some(value) if value != 0 => Err(StorageError::Validation(
             "sources are read-only while the note is in Trash".to_string(),
         )),
@@ -418,13 +431,17 @@ fn ensure_note_exists_and_editable(
 
 fn ensure_source_exists(transaction: &Transaction<'_>, source_id: &SourceId) -> StorageResult<()> {
     let exists = transaction
-        .query_row("SELECT 1 FROM sources WHERE id = ?1", [source_id], |_| Ok(()))
+        .query_row("SELECT 1 FROM sources WHERE id = ?1", [source_id], |_| {
+            Ok(())
+        })
         .optional()?
         .is_some();
     if exists {
         Ok(())
     } else {
-        Err(StorageError::Validation("the selected source no longer exists".to_string()))
+        Err(StorageError::Validation(
+            "the selected source no longer exists".to_string(),
+        ))
     }
 }
 

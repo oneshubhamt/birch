@@ -150,8 +150,7 @@ impl VaultReadPermit {
         let Some(session) = state.notes.get(&self.lease.note_id) else {
             return Ok(false);
         };
-        Ok(!session.revoking
-            && self.belongs_to(&self.lease.note_id, session.generation))
+        Ok(!session.revoking && self.belongs_to(&self.lease.note_id, session.generation))
     }
 
     fn belongs_to(&self, note_id: &NoteId, generation: u64) -> bool {
@@ -219,7 +218,11 @@ impl VaultPlaintextPath {
         }
 
         let materialized_key = (note_id.clone(), attachment_id);
-        if let Some(existing) = state.materialized_attachments.get(&materialized_key).cloned() {
+        if let Some(existing) = state
+            .materialized_attachments
+            .get(&materialized_key)
+            .cloned()
+        {
             match super::plaintext::managed_path_is_present(&existing) {
                 Ok(true) => {
                     // Another authorized reader won the materialization race. Keep its
@@ -248,7 +251,9 @@ impl VaultPlaintextPath {
         if remove_transient_entry {
             state.transient_plaintext.remove(note_id);
         }
-        state.materialized_attachments.insert(materialized_key, path.clone());
+        state
+            .materialized_attachments
+            .insert(materialized_key, path.clone());
         self.path = None;
         Ok(path)
     }
@@ -270,7 +275,10 @@ impl VaultPlaintextPath {
         let Ok(mut state) = self.permit.lease.runtime.state.lock() else {
             return;
         };
-        let remove_entry = if let Some(paths) = state.transient_plaintext.get_mut(&self.permit.lease.note_id) {
+        let remove_entry = if let Some(paths) = state
+            .transient_plaintext
+            .get_mut(&self.permit.lease.note_id)
+        {
             paths.remove(path);
             paths.is_empty()
         } else {
@@ -358,8 +366,12 @@ impl VaultRuntime {
     /// silently ignoring a cleanup failure would allow Rustnote to continue while
     /// plaintext from a crashed process remains inside an app-managed namespace.
     pub(crate) fn cleanup_stale_plaintext() -> crate::native::NativeResult<()> {
-        let vault_root = crate::native::private_temp::rustnote_temp_directory("vault")
-            .map_err(|error| crate::native::NativeError::from(format!("Could not prepare Vault temporary cleanup: {error}")))?;
+        let vault_root =
+            crate::native::private_temp::rustnote_temp_directory("vault").map_err(|error| {
+                crate::native::NativeError::from(format!(
+                    "Could not prepare Vault temporary cleanup: {error}"
+                ))
+            })?;
         crate::native::temp_owner::cleanup_session_directories(
             &vault_root,
             "vault temporary material",
@@ -472,7 +484,11 @@ impl VaultRuntime {
             for session in state.notes.values_mut() {
                 session.revoking = true;
             }
-            while state.notes.values().any(|session| session.active_permits > 0) {
+            while state
+                .notes
+                .values()
+                .any(|session| session.active_permits > 0)
+            {
                 state = self
                     .inner
                     .idle
@@ -722,7 +738,6 @@ impl VaultRuntime {
         let sequence = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
         Ok(temp_root.join(format!("attachment-{sequence}.tmp")))
     }
-
 }
 
 fn plaintext_paths(state: &VaultState, note_id: &NoteId) -> Vec<PathBuf> {
@@ -833,7 +848,10 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(1));
         }
-        assert!(revocation_visible, "Lock should publish revocation promptly");
+        assert!(
+            revocation_visible,
+            "Lock should publish revocation promptly"
+        );
 
         assert!(
             tracked
@@ -890,24 +908,20 @@ mod tests {
 
         assert!(
             runtime
-                .materialized_attachment(
-                    access.permit(),
-                    &note_id,
-                    "attachment-ambiguous",
-                )
+                .materialized_attachment(access.permit(), &note_id, "attachment-ambiguous",)
                 .is_err(),
             "ambiguous metadata must not be reported as absence"
         );
         assert!(
             tracked
-                .promote_materialized_attachment(
-                    &note_id,
-                    "attachment-ambiguous".to_string(),
-                )
+                .promote_materialized_attachment(&note_id, "attachment-ambiguous".to_string(),)
                 .is_err(),
             "ambiguous prior materialization must block replacement"
         );
-        assert!(candidate.is_file(), "rejected candidate must remain tracked for cleanup");
+        assert!(
+            candidate.is_file(),
+            "rejected candidate must remain tracked for cleanup"
+        );
         {
             let state = runtime.state().expect("runtime state after rejection");
             assert_eq!(
@@ -925,27 +939,26 @@ mod tests {
 
         assert_eq!(
             runtime
-                .materialized_attachment(
-                    access.permit(),
-                    &note_id,
-                    "attachment-ambiguous",
-                )
+                .materialized_attachment(access.permit(), &note_id, "attachment-ambiguous",)
                 .expect("lookup after repair"),
             Some(registered.clone())
         );
         let reused = tracked
-            .promote_materialized_attachment(
-                &note_id,
-                "attachment-ambiguous".to_string(),
-            )
+            .promote_materialized_attachment(&note_id, "attachment-ambiguous".to_string())
             .expect("retry promotion after repair");
         assert_eq!(reused, registered);
-        assert!(!candidate.exists(), "retry must discard the redundant candidate");
+        assert!(
+            !candidate.exists(),
+            "retry must discard the redundant candidate"
+        );
 
         drop(tracked);
         drop(access);
         runtime.remove_note_key(&note_id).expect("Lock");
-        assert!(!registered.exists(), "Lock must remove repaired canonical plaintext");
+        assert!(
+            !registered.exists(),
+            "Lock must remove repaired canonical plaintext"
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -987,14 +1000,23 @@ mod tests {
             .expect("reuse first");
         assert_eq!(canonical, first);
         assert_eq!(reused, first);
-        assert!(first.exists(), "canonical materialization must remain published");
-        assert!(!second.exists(), "redundant materialization must be removed");
+        assert!(
+            first.exists(),
+            "canonical materialization must remain published"
+        );
+        assert!(
+            !second.exists(),
+            "redundant materialization must be removed"
+        );
 
         drop(first_guard);
         drop(second_guard);
         drop(access);
         runtime.remove_note_key(&note_id).expect("Lock");
-        assert!(!first.exists(), "Lock must remove the canonical materialization");
+        assert!(
+            !first.exists(),
+            "Lock must remove the canonical materialization"
+        );
     }
 
     #[test]
@@ -1024,14 +1046,29 @@ mod tests {
         drop(access);
 
         let failure = runtime.remove_note_key_with(&note_id, |_| {
-            Err(io::Error::new(io::ErrorKind::PermissionDenied, "injected cleanup failure"))
+            Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "injected cleanup failure",
+            ))
         });
-        assert!(failure.is_err(), "Lock must fail when plaintext cleanup fails");
-        assert!(path.exists(), "failed cleanup must leave the plaintext for retry");
+        assert!(
+            failure.is_err(),
+            "Lock must fail when plaintext cleanup fails"
+        );
+        assert!(
+            path.exists(),
+            "failed cleanup must leave the plaintext for retry"
+        );
         {
             let state = runtime.state().expect("runtime state");
-            let session = state.notes.get(&note_id).expect("revoking session retained");
-            assert!(session.revoking, "failed Lock must remain in revocation state");
+            let session = state
+                .notes
+                .get(&note_id)
+                .expect("revoking session retained");
+            assert!(
+                session.revoking,
+                "failed Lock must remain in revocation state"
+            );
             assert!(
                 plaintext_paths(&state, &note_id).contains(&path),
                 "failed Lock must retain its plaintext cleanup obligation"
@@ -1193,7 +1230,9 @@ mod tests {
         let runtime = VaultRuntime::default();
         let first = NoteId::parse("note-vault-library-revocation-a").expect("first note id");
         let second = NoteId::parse("note-vault-library-revocation-b").expect("second note id");
-        runtime.insert_note_key(first.clone(), key()).expect("insert first");
+        runtime
+            .insert_note_key(first.clone(), key())
+            .expect("insert first");
         runtime
             .insert_note_key(second.clone(), key())
             .expect("insert second");
@@ -1251,7 +1290,10 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(1));
         }
-        assert!(revocation_visible, "Lock should publish revocation promptly");
+        assert!(
+            revocation_visible,
+            "Lock should publish revocation promptly"
+        );
         assert!(
             runtime
                 .acquire_note_access(&note_id)

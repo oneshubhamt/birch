@@ -64,7 +64,10 @@ impl std::fmt::Display for AutosaveError {
                 formatter.write_str("autosave event listener is already active")
             }
             Self::Context { context, source } => write!(formatter, "{context}: {source}"),
-            Self::Combined { primary, additional } => {
+            Self::Combined {
+                primary,
+                additional,
+            } => {
                 write!(formatter, "{primary}; {additional}")
             }
         }
@@ -122,14 +125,16 @@ pub(super) type AutosaveEventSender = UnboundedSender<AutosaveEvent>;
 
 enum AutosaveCommand {
     Schedule(Note, u64, NoteSaveScope),
-    Flush(Note, u64, NoteSaveScope, bool, bool, Sender<ExplicitFlushOutcome>),
-    FlushPending(bool, bool, Sender<AutosaveResult<Option<Arc<Note>>>>),
-    CheckpointNote(
-        NoteId,
+    Flush(
+        Note,
         u64,
+        NoteSaveScope,
         bool,
-        Sender<AutosaveResult<Option<Arc<Note>>>>,
+        bool,
+        Sender<ExplicitFlushOutcome>,
     ),
+    FlushPending(bool, bool, Sender<AutosaveResult<Option<Arc<Note>>>>),
+    CheckpointNote(NoteId, u64, bool, Sender<AutosaveResult<Option<Arc<Note>>>>),
     CheckpointAll(Sender<AutosaveResult<()>>),
     DiscardNote(NoteId, u64, Sender<AutosaveResult<()>>),
     BlockVaultNote(NoteId, u64, Sender<AutosaveResult<()>>),
@@ -248,9 +253,9 @@ impl ExplicitFlushOutcome {
     fn into_result(self) -> AutosaveResult<Arc<Note>> {
         match self {
             Self::Complete(saved) => Ok(saved),
-            Self::PendingFailed { pending_error, .. } => {
-                Err(AutosaveError::Operation(format!("Earlier pending save failed: {pending_error}")))
-            }
+            Self::PendingFailed { pending_error, .. } => Err(AutosaveError::Operation(format!(
+                "Earlier pending save failed: {pending_error}"
+            ))),
             Self::TargetFailed { target_error } => Err(target_error),
             Self::PendingAndTargetFailed {
                 pending_error,
@@ -283,7 +288,10 @@ impl ExplicitFlushOutcome {
     }
 }
 
-fn combine_flush_errors(pending_error: AutosaveError, target_error: AutosaveError) -> AutosaveError {
+fn combine_flush_errors(
+    pending_error: AutosaveError,
+    target_error: AutosaveError,
+) -> AutosaveError {
     AutosaveError::Combined {
         primary: Box::new(AutosaveError::Operation(format!(
             "Earlier pending save failed: {pending_error}"
@@ -322,21 +330,14 @@ impl AutosaveController {
             let _ = event_sender.send(AutosaveEvent::Failed(warning));
         }
 
-        let started_journal = EmergencyJournal::start(
-            storage.data_directory().to_path_buf(),
-            event_sender.clone(),
-        )?;
+        let started_journal =
+            EmergencyJournal::start(storage.data_directory().to_path_buf(), event_sender.clone())?;
         let journal = started_journal.client.clone();
         let journal_for_worker = journal.clone();
         let worker = match thread::Builder::new()
             .name("rustnote-autosave".to_string())
             .spawn(move || {
-                autosave_worker(
-                    storage,
-                    command_receiver,
-                    event_sender,
-                    journal_for_worker,
-                )
+                autosave_worker(storage, command_receiver, event_sender, journal_for_worker)
             }) {
             Ok(worker) => worker,
             Err(error) => {
@@ -363,11 +364,7 @@ impl AutosaveController {
         self.schedule_scoped(note, NoteSaveScope::ALL)
     }
 
-    pub(crate) fn schedule_scoped(
-        &self,
-        note: Note,
-        scope: NoteSaveScope,
-    ) -> AutosaveResult<()> {
+    pub(crate) fn schedule_scoped(&self, note: Note, scope: NoteSaveScope) -> AutosaveResult<()> {
         let version = self.advance_note_version(&note.id)?;
         self.inner
             .commands
@@ -380,25 +377,26 @@ impl AutosaveController {
         note: Note,
         scope: NoteSaveScope,
     ) -> AutosaveResult<Arc<Note>> {
-        self.flush_note_outcome_scoped(note, scope, true, true)?.into_result()
+        self.flush_note_outcome_scoped(note, scope, true, true)?
+            .into_result()
     }
-
 
     pub(crate) fn flush_live_note_scoped(
         &self,
         note: Note,
         scope: NoteSaveScope,
     ) -> AutosaveResult<Arc<Note>> {
-        self.flush_note_outcome_scoped(note, scope, false, true)?.into_result()
+        self.flush_note_outcome_scoped(note, scope, false, true)?
+            .into_result()
     }
-
 
     pub(crate) fn flush_note_silent_scoped(
         &self,
         note: Note,
         scope: NoteSaveScope,
     ) -> AutosaveResult<Arc<Note>> {
-        self.flush_note_outcome_scoped(note, scope, true, false)?.into_result()
+        self.flush_note_outcome_scoped(note, scope, true, false)?
+            .into_result()
     }
 
     /// Queue an explicit note flush immediately and return a ticket whose
@@ -481,8 +479,10 @@ impl AutosaveController {
             .map_err(|_| AutosaveError::WorkerStopped("flushing"))?
     }
 
-
-    pub(crate) fn checkpoint_note_silent(&self, note_id: &NoteId) -> AutosaveResult<Option<Arc<Note>>> {
+    pub(crate) fn checkpoint_note_silent(
+        &self,
+        note_id: &NoteId,
+    ) -> AutosaveResult<Option<Arc<Note>>> {
         self.checkpoint_note_with_event(note_id, false)
     }
 
@@ -816,9 +816,7 @@ fn autosave_worker(
                 let (note_result, checkpoint_scope) = match pending_draft {
                     Some(draft) => (Ok(Some(draft.note)), draft.scope),
                     None => (
-                        storage
-                            .get_note(&note_id)
-                            .map_err(AutosaveError::Storage),
+                        storage.get_note(&note_id).map_err(AutosaveError::Storage),
                         NoteSaveScope::NONE,
                     ),
                 };
@@ -841,12 +839,7 @@ fn autosave_worker(
                             Ok(saved) => Ok(Some(saved)),
                             Err(failure) => {
                                 let (note, message) = failure.into_parts();
-                                queue_latest(
-                                    &mut pending,
-                                    note,
-                                    version,
-                                    checkpoint_scope,
-                                );
+                                queue_latest(&mut pending, note, version, checkpoint_scope);
                                 Err(message)
                             }
                         }
@@ -885,7 +878,8 @@ fn autosave_worker(
                 remove_note(&mut pending, &note_id);
                 dirty_notes.remove(&note_id);
                 let result = journal.clear(&note_id, version).map_err(|error| {
-                    AutosaveError::Journal(error).context("could not clear the note's emergency journal")
+                    AutosaveError::Journal(error)
+                        .context("could not clear the note's emergency journal")
                 });
                 debounce_armed = !pending.is_empty();
                 let _ = reply.send(result);
@@ -984,16 +978,8 @@ fn checkpoint_all_work(
     events: &AutosaveEventSender,
     journal: &EmergencyJournal,
 ) -> AutosaveResult<()> {
-    let pending_result = flush_pending_queue(
-        storage,
-        pending,
-        dirty_notes,
-        events,
-        journal,
-        true,
-        true,
-    )
-    .map(|_| ());
+    let pending_result =
+        flush_pending_queue(storage, pending, dirty_notes, events, journal, true, true).map(|_| ());
     let pending_note_ids = pending
         .iter()
         .map(|draft| draft.note.id.clone())
@@ -1073,9 +1059,7 @@ fn queue_latest(
 }
 
 fn take_note(pending: &mut VecDeque<PendingDraft>, note_id: &NoteId) -> Option<PendingDraft> {
-    let index = pending
-        .iter()
-        .position(|draft| &draft.note.id == note_id)?;
+    let index = pending.iter().position(|draft| &draft.note.id == note_id)?;
     pending.remove(index)
 }
 
@@ -1117,7 +1101,11 @@ fn flush_pending_queue(
             Ok(saved) => last_saved = Some(saved),
             Err(failure) => {
                 let (note, message) = failure.into_parts();
-                pending.push_back(PendingDraft { note, version, scope });
+                pending.push_back(PendingDraft {
+                    note,
+                    version,
+                    scope,
+                });
                 failures.push(message);
             }
         }
@@ -1255,10 +1243,14 @@ mod tests {
         let note = storage.create_note(None).expect("create test note");
         let controller = AutosaveController::try_new(storage.clone()).expect("start autosave");
 
-        controller.schedule(note.clone()).expect("schedule first draft");
+        controller
+            .schedule(note.clone())
+            .expect("schedule first draft");
         assert!(controller.is_current_note_version(&note.id, 1));
 
-        controller.schedule(note.clone()).expect("schedule second draft");
+        controller
+            .schedule(note.clone())
+            .expect("schedule second draft");
         assert!(!controller.is_current_note_version(&note.id, 1));
         assert!(controller.is_current_note_version(&note.id, 2));
 
@@ -1277,8 +1269,12 @@ mod tests {
         second.title = "Second pending title".to_string();
 
         let controller = AutosaveController::try_new(storage.clone()).expect("start autosave");
-        controller.schedule(first.clone()).expect("schedule first note");
-        controller.schedule(second.clone()).expect("schedule second note");
+        controller
+            .schedule(first.clone())
+            .expect("schedule first note");
+        controller
+            .schedule(second.clone())
+            .expect("schedule second note");
         controller
             .flush_pending_silent()
             .expect("flush pending autosave work");
@@ -1307,7 +1303,9 @@ mod tests {
         stale.title = marker.clone();
 
         let controller = AutosaveController::try_new(storage.clone()).expect("start autosave");
-        controller.schedule(stale.clone()).expect("schedule stale draft");
+        controller
+            .schedule(stale.clone())
+            .expect("schedule stale draft");
         controller
             .block_note_for_vault(&note.id)
             .expect("establish vault barrier");
@@ -1318,7 +1316,9 @@ mod tests {
 
         // A stale UI task arriving after protection must be dropped by both the
         // worker barrier and the authoritative storage privacy check.
-        controller.schedule(stale).expect("queue stale post-protection draft");
+        controller
+            .schedule(stale)
+            .expect("queue stale post-protection draft");
         controller
             .flush_pending_silent()
             .expect("drain autosave queue");
@@ -1339,7 +1339,9 @@ mod tests {
                 }
                 let bytes = fs::read(entry.path()).expect("read journal artifact");
                 assert!(
-                    !bytes.windows(marker.len()).any(|window| window == marker.as_bytes()),
+                    !bytes
+                        .windows(marker.len())
+                        .any(|window| window == marker.as_bytes()),
                     "protected-note stale plaintext must never re-enter the emergency journal"
                 );
             }
@@ -1431,5 +1433,4 @@ mod tests {
 
         cleanup(controller, storage, root);
     }
-
 }

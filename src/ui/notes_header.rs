@@ -1,30 +1,28 @@
 use std::time::Duration;
 
-use dioxus::prelude::*;
 use crate::application::{
     context::ApplicationServices, editor::EditorService, executor::ApplicationExecutor,
     library::LibraryService,
 };
+use dioxus::prelude::*;
 
 use crate::domain::{DEFAULT_NOTEBOOK_ID, Note, NoteFilters, NoteId, Notebook, Section};
 
 use super::filter_popover::{
     ActiveFilterRow, ActiveFilterRowView, FilterPopover, FilterPopoverView, apply_note_filters,
 };
+use super::note_card::{
+    NoteCard, NoteCardActions, NoteCardView, apply_note_card_action, apply_note_card_tag_action,
+};
 use super::note_list_data::{
     NOTE_CARD_ROW_PX, NoteNavigation, load_note_page_for_viewport, navigate_to_note_index,
     navigation_target, reload_note_list, select_note, virtual_note_window, virtual_scroll_anchor,
 };
-use super::note_card::{
-    NoteCard, NoteCardActions, NoteCardView, apply_note_card_action, apply_note_card_tag_action,
-};
-use super::responsive::{
-    focus_editor_panel, focus_selected_note_surface, focus_title_input,
-};
-use super::synchronization::SynchronizationMode;
+use super::responsive::{focus_editor_panel, focus_selected_note_surface, focus_title_input};
 use super::search_help::SearchHelpPopover;
-use super::task_error::DataTaskError;
 use super::sidebar::notebook_name_for;
+use super::synchronization::SynchronizationMode;
+use super::task_error::DataTaskError;
 use super::{
     CompactPane, LIBRARY_SEARCH_DEBOUNCE_MS, ListPopover, NoteCardAction, NoteCardTagAction,
     NoteSort, NotesListState, request_note_list_preferences_save,
@@ -73,8 +71,7 @@ pub(super) fn NotesListPanel(view: NotesListPanelView) -> Element {
         mut status,
         ..
     } = library_state;
-    let (_, _, aggregate_revocation_active) =
-        library_state.privacy_epoch.observe_multi_note();
+    let (_, _, aggregate_revocation_active) = library_state.privacy_epoch.observe_multi_note();
     let active_filter_count = filters.read().active_count();
     let total_note_count = *note_count.read();
     let cache_snapshot = note_cache.read();
@@ -117,7 +114,12 @@ pub(super) fn NotesListPanel(view: NotesListPanelView) -> Element {
         .read()
         .as_ref()
         .map(|note| note.id.clone())
-        .or_else(|| vault_transition.read().as_ref().map(|transition| transition.note_id.clone()));
+        .or_else(|| {
+            vault_transition
+                .read()
+                .as_ref()
+                .map(|transition| transition.note_id.clone())
+        });
     let creation_notebook_name = selected_notebook
         .read()
         .as_ref()
@@ -565,10 +567,7 @@ pub(super) fn NotesListPanel(view: NotesListPanelView) -> Element {
     }
 }
 
-pub(super) fn create_contextual_note(
-    services: ApplicationServices,
-    state: NotesListState,
-) {
+pub(super) fn create_contextual_note(services: ApplicationServices, state: NotesListState) {
     let editor = services.editor();
     let library = services.library();
     let NotesListState {
@@ -684,9 +683,7 @@ fn create_contextual_note_blocking(
     let preference_warning = library
         .set_note_list_preferences(&sort, &filter)
         .err()
-        .map(|error| {
-            format!("Note created, but list preference could not be saved: {error}")
-        });
+        .map(|error| format!("Note created, but list preference could not be saved: {error}"));
     Ok((note, preference_warning))
 }
 
@@ -724,10 +721,7 @@ pub(super) fn switch_library_section(
     });
 }
 
-pub(super) fn toggle_selected_pin(
-    services: ApplicationServices,
-    state: NotesListState,
-) {
+pub(super) fn toggle_selected_pin(services: ApplicationServices, state: NotesListState) {
     let Some(note_id) = state
         .selected_note
         .read()
@@ -736,11 +730,7 @@ pub(super) fn toggle_selected_pin(
     else {
         return;
     };
-    apply_note_card_action(
-        services,
-        NoteCardAction::TogglePin(note_id),
-        state,
-    );
+    apply_note_card_action(services, NoteCardAction::TogglePin(note_id), state);
 }
 
 #[derive(Clone, Copy, PartialEq)]

@@ -310,7 +310,9 @@ pub fn preview_extension(file_name: &str, mime_type: Option<&str>) -> Option<&'s
         return None;
     }
 
-    let file_extension = Path::new(file_name).extension().and_then(|value| value.to_str());
+    let file_extension = Path::new(file_name)
+        .extension()
+        .and_then(|value| value.to_str());
     if let Some((format, extension)) = file_extension.and_then(format_for_extension)
         && format.kind == media_kind
     {
@@ -336,9 +338,7 @@ fn mime_type_from_extension(extension: &str) -> Option<&'static str> {
     format_for_extension(extension).map(|(format, _)| format.mime_types[0])
 }
 
-fn format_for_extension(
-    extension: &str,
-) -> Option<(&'static AttachmentFormat, &'static str)> {
+fn format_for_extension(extension: &str) -> Option<(&'static AttachmentFormat, &'static str)> {
     let extension = extension.trim_start_matches('.');
     FORMATS.iter().find_map(|format| {
         format.extensions.iter().find_map(|candidate| {

@@ -18,7 +18,9 @@ pub enum EditorBridgeDecodeError {
 impl std::fmt::Display for EditorBridgeDecodeError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::EventEnvelope(error) => write!(formatter, "Could not decode the editor event: {error}"),
+            Self::EventEnvelope(error) => {
+                write!(formatter, "Could not decode the editor event: {error}")
+            }
             Self::UnsupportedVersion(version) => write!(
                 formatter,
                 "Unsupported editor bridge protocol version: {version}"
@@ -36,7 +38,9 @@ impl std::fmt::Display for EditorBridgeDecodeError {
                 "Could not decode the editor note-link event: {error}"
             ),
             Self::UnsupportedEvent(event) => write!(formatter, "Unsupported editor event: {event}"),
-            Self::DocumentState(error) => write!(formatter, "Could not decode the editor state: {error}"),
+            Self::DocumentState(error) => {
+                write!(formatter, "Could not decode the editor state: {error}")
+            }
         }
     }
 }
@@ -174,7 +178,9 @@ pub fn decode_editor_event(serialized: &str) -> Result<EditorEvent, EditorBridge
     let envelope: EditorEventEnvelope =
         serde_json::from_str(serialized).map_err(EditorBridgeDecodeError::EventEnvelope)?;
     if envelope.version != EDITOR_BRIDGE_PROTOCOL_VERSION {
-        return Err(EditorBridgeDecodeError::UnsupportedVersion(envelope.version));
+        return Err(EditorBridgeDecodeError::UnsupportedVersion(
+            envelope.version,
+        ));
     }
     match envelope.event.as_str() {
         "document_changed" => serde_json::from_value(envelope.payload)
@@ -208,7 +214,11 @@ mod tests {
         .expect("decode document event");
         assert!(matches!(
             document,
-            EditorEvent::DocumentChanged(EditorDocumentUpdate { generation: 7, revision: 11, .. })
+            EditorEvent::DocumentChanged(EditorDocumentUpdate {
+                generation: 7,
+                revision: 11,
+                ..
+            })
         ));
 
         let attachment = decode_editor_event(
@@ -241,7 +251,9 @@ mod tests {
             r#"{"version":2,"event":"document_changed","payload":{"generation":1,"revision":1,"editor_state":"{}"}}"#
         )
         .is_err());
-        assert!(decode_editor_event(r#"{"version":1,"event":"future_event","payload":{}}"#).is_err());
+        assert!(
+            decode_editor_event(r#"{"version":1,"event":"future_event","payload":{}}"#).is_err()
+        );
         assert!(decode_editor_event(
             r#"{"version":1,"event":"attachment_command","payload":{"kind":"file_action","attachment_id":"att-1"}}"#
         )

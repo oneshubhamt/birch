@@ -3,34 +3,35 @@ use std::path::PathBuf;
 use dioxus::prelude::*;
 use rfd::AsyncFileDialog;
 
-use crate::build_info::{APP_VERSION, BUILD_ID, FULL_BUILD_IDENTIFIER};
 use crate::application::context::ApplicationServices;
 use crate::application::errors::{EditorError, ExportError};
 use crate::application::persistence::unix_timestamp;
 use crate::application::settings::{
-    AUTO_FIRST_LINE_INDENT_STEP_POINTS, DEFAULT_TRASH_RETENTION_DAYS, EditorLineSpacing, EditorPreferences,
-    MIN_AUTO_FIRST_LINE_INDENT_POINTS, SettingsService, max_auto_first_line_indent_points,
+    AUTO_FIRST_LINE_INDENT_STEP_POINTS, DEFAULT_TRASH_RETENTION_DAYS, EditorLineSpacing,
+    EditorPreferences, MIN_AUTO_FIRST_LINE_INDENT_POINTS, SettingsService,
+    max_auto_first_line_indent_points,
 };
+use crate::build_info::{APP_VERSION, BUILD_ID, FULL_BUILD_IDENTIFIER};
 use crate::domain::{Note, Notebook, Section};
 
-use crate::application::executor::{
-    ApplicationExecutionError, ApplicationExecutionStatus, ApplicationExecutor, ApplicationOperation,
-    ExecutionFailure,
-};
-use crate::application::errors::DataAccessError;
 use super::editor_preferences::commit_editor_preferences;
 use super::live_editor::live_editor_dispose_script;
-use super::note_metadata::format_file_size;
 use super::note_list_data::reload_note_list;
-use super::synchronization::{
-    EditorSession, EditorSynchronizationContext, SynchronizationError, SynchronizationMode, synchronize_current_editor_scoped,
-    synchronize_then_begin_whole_library_operation,
-};
+use super::note_metadata::format_file_size;
 use super::settings_support::{
     PendingRestore, PendingRestoreSource, SettingsAction, SettingsHeading, ShortcutLine,
     load_initial_settings, load_settings_diagnostics,
 };
+use super::synchronization::{
+    EditorSession, EditorSynchronizationContext, SynchronizationError, SynchronizationMode,
+    synchronize_current_editor_scoped, synchronize_then_begin_whole_library_operation,
+};
 use super::{CompactPane, NotesListState, SettingsSection, refresh_notebooks, refresh_tags};
+use crate::application::errors::DataAccessError;
+use crate::application::executor::{
+    ApplicationExecutionError, ApplicationExecutionStatus, ApplicationExecutor,
+    ApplicationOperation, ExecutionFailure,
+};
 
 #[derive(Debug)]
 enum SettingsExportError {
@@ -69,11 +70,15 @@ impl std::error::Error for SettingsExportError {
 }
 
 impl From<ExportError> for SettingsExportError {
-    fn from(error: ExportError) -> Self { Self::Export(error) }
+    fn from(error: ExportError) -> Self {
+        Self::Export(error)
+    }
 }
 
 impl From<ApplicationExecutionError> for SettingsExportError {
-    fn from(error: ApplicationExecutionError) -> Self { Self::Execution(error) }
+    fn from(error: ApplicationExecutionError) -> Self {
+        Self::Execution(error)
+    }
 }
 
 #[derive(Debug)]
@@ -117,9 +122,9 @@ impl std::fmt::Display for SettingsRestoreError {
             Self::Editor(error) => std::fmt::Display::fmt(error, formatter),
             Self::Data(error) => std::fmt::Display::fmt(error, formatter),
             Self::Execution(error) => std::fmt::Display::fmt(error, formatter),
-            Self::EditorDispose => formatter.write_str(
-                "Could not dispose the current editor before archive restore"
-            ),
+            Self::EditorDispose => {
+                formatter.write_str("Could not dispose the current editor before archive restore")
+            }
         }
     }
 }
@@ -136,11 +141,15 @@ impl std::error::Error for SettingsRestoreError {
 }
 
 impl From<EditorError> for SettingsRestoreError {
-    fn from(error: EditorError) -> Self { Self::Editor(error) }
+    fn from(error: EditorError) -> Self {
+        Self::Editor(error)
+    }
 }
 
 impl From<DataAccessError> for SettingsRestoreError {
-    fn from(error: DataAccessError) -> Self { Self::Data(error) }
+    fn from(error: DataAccessError) -> Self {
+        Self::Data(error)
+    }
 }
 
 impl ExecutionFailure for SettingsRestoreError {
@@ -342,11 +351,12 @@ fn persist_storage_locations(
     let active_backup_directory = active_paths.automatic_backup_directory;
 
     spawn(async move {
-        let result = background.execute(operation, move || {
-            SettingsService::save_configured_locations(data_directory, backup_directory)
-                .map_err(super::task_error::DataTaskError::from)
-        })
-        .await;
+        let result = background
+            .execute(operation, move || {
+                SettingsService::save_configured_locations(data_directory, backup_directory)
+                    .map_err(super::task_error::DataTaskError::from)
+            })
+            .await;
         match result {
             Ok(locations) => {
                 let restart_required = locations.data_directory != active_data_directory
@@ -443,10 +453,9 @@ pub(super) fn SettingsPanel(view: SettingsProps, actions: SettingsActions) -> El
     let mut diagnostics_feedback = use_signal(|| None::<String>);
     let initial_storage_locations = initial_settings_value.storage_locations.clone();
     let active_paths = settings.active_paths();
-    let initial_restart_required =
-        initial_storage_locations.data_directory != active_paths.data_directory
-            || initial_storage_locations.backup_directory
-                != active_paths.automatic_backup_directory;
+    let initial_restart_required = initial_storage_locations.data_directory
+        != active_paths.data_directory
+        || initial_storage_locations.backup_directory != active_paths.automatic_backup_directory;
     let initial_data_directory = initial_storage_locations.data_directory;
     let initial_backup_directory = initial_storage_locations.backup_directory;
     let configured_data_directory = use_signal(move || initial_data_directory);
@@ -517,9 +526,8 @@ pub(super) fn SettingsPanel(view: SettingsProps, actions: SettingsActions) -> El
                     diagnostics_feedback.set(data.feedback);
                 }
                 Err(error) => {
-                    diagnostics_feedback.set(Some(format!(
-                        "Could not load storage diagnostics: {error}"
-                    )));
+                    diagnostics_feedback
+                        .set(Some(format!("Could not load storage diagnostics: {error}")));
                 }
             }
         }

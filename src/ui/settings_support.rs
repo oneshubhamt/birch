@@ -2,10 +2,12 @@ use std::path::PathBuf;
 
 use dioxus::prelude::*;
 
+use crate::application::settings::{
+    DEFAULT_TRASH_RETENTION_DAYS, SettingsService, StorageLocations,
+};
 use crate::domain::{
     BackupRepositoryStatus, CompleteArchiveSummary, RevisionRetention, RevisionStorageUsage,
 };
-use crate::application::settings::{DEFAULT_TRASH_RETENTION_DAYS, SettingsService, StorageLocations};
 
 #[derive(Clone)]
 pub(super) struct InitialSettingsData {
@@ -35,7 +37,9 @@ pub(super) fn load_initial_settings(settings: &SettingsService) -> InitialSettin
         }
     };
     let storage_locations = SettingsService::configured_locations().unwrap_or_else(|error| {
-        errors.push(format!("Could not load configured storage locations: {error}"));
+        errors.push(format!(
+            "Could not load configured storage locations: {error}"
+        ));
         StorageLocations {
             data_directory: settings.active_paths().data_directory,
             backup_directory: settings.active_paths().automatic_backup_directory,
@@ -69,7 +73,6 @@ pub(super) fn load_initial_settings(settings: &SettingsService) -> InitialSettin
         },
     }
 }
-
 
 #[derive(Clone)]
 pub(super) struct SettingsDiagnosticsData {

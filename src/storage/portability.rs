@@ -12,20 +12,23 @@ use crate::{
     domain::{DEFAULT_NOTEBOOK_ID, Note, NoteId, Notebook},
     editor_projection::derive_editor_projections,
     portability::{
-        ImportInspection, ImportPlan, ImportPlanPayload, ImportSummary, ImportUndoToken, PlannedImportFile,
-        PlannedImportResource, PortabilityFormat, PortabilityScope, ResourceResolution, canonical_editor_state,
-        decode_editable, encode_editable, is_asset_namespace_name, resolve_import_placeholders,
-        rewrite_note_link_placeholders, safe_relative_resource_path,
+        ImportInspection, ImportPlan, ImportPlanPayload, ImportSummary, ImportUndoToken,
+        PlannedImportFile, PlannedImportResource, PortabilityFormat, PortabilityScope,
+        ResourceResolution, canonical_editor_state, decode_editable, encode_editable,
+        is_asset_namespace_name, resolve_import_placeholders, rewrite_note_link_placeholders,
+        safe_relative_resource_path,
     },
 };
 
 use super::{
     Storage, StorageError, StorageResult,
-    attachments::{copy_file_atomically, sha256_bytes, sha256_file, validate_attachment_blob_identity},
     atomic_output::{AtomicDirectoryOutput, AtomicFileOutput},
+    attachments::{
+        copy_file_atomically, sha256_bytes, sha256_file, validate_attachment_blob_identity,
+    },
     backup_support::sanitize_component,
-    notes::note_from_row,
     notebooks::{notebook_export_paths, notebook_from_row},
+    notes::note_from_row,
 };
 
 const MAX_EDITABLE_FILE_BYTES: u64 = 32 * 1024 * 1024;
@@ -92,15 +95,18 @@ impl Storage {
                     continue;
                 }
                 if inspection.attachments >= MAX_IMPORT_RESOURCES {
-                    return Err(StorageError::Validation("import references too many attachment resources".to_string()));
+                    return Err(StorageError::Validation(
+                        "import references too many attachment resources".to_string(),
+                    ));
                 }
-                let (sha256, size) = if let Some((sha256, size)) = resource_fingerprints.get(&source_path) {
-                    (sha256.clone(), *size)
-                } else {
-                    let fingerprint = sha256_file(&source_path)?;
-                    resource_fingerprints.insert(source_path.clone(), fingerprint.clone());
-                    fingerprint
-                };
+                let (sha256, size) =
+                    if let Some((sha256, size)) = resource_fingerprints.get(&source_path) {
+                        (sha256.clone(), *size)
+                    } else {
+                        let fingerprint = sha256_file(&source_path)?;
+                        resource_fingerprints.insert(source_path.clone(), fingerprint.clone());
+                        fingerprint
+                    };
                 resource_bytes = resource_bytes.checked_add(size).ok_or_else(|| {
                     StorageError::Validation("import resource byte count overflowed".to_string())
                 })?;
@@ -110,7 +116,11 @@ impl Storage {
                     ));
                 }
                 inspection.attachments += 1;
-                resources.push(PlannedImportResource { source_path, byte_size: size, sha256 });
+                resources.push(PlannedImportResource {
+                    source_path,
+                    byte_size: size,
+                    sha256,
+                });
             }
 
             planned_files.push(PlannedImportFile {
@@ -129,11 +139,17 @@ impl Storage {
         Ok(ImportPlan {
             source: source.to_path_buf(),
             inspection,
-            payload: ImportPlanPayload::Editable { root, files: planned_files },
+            payload: ImportPlanPayload::Editable {
+                root,
+                files: planned_files,
+            },
         })
     }
 
-    pub(super) fn import_portability_plan(&self, plan: &ImportPlan) -> StorageResult<ImportSummary> {
+    pub(super) fn import_portability_plan(
+        &self,
+        plan: &ImportPlan,
+    ) -> StorageResult<ImportSummary> {
         match &plan.payload {
             ImportPlanPayload::Editable { root, files } => self.import_editable_files(root, files),
             ImportPlanPayload::RustnoteBundle { semantic_sha256 } => {
@@ -149,7 +165,9 @@ impl Storage {
     ) -> StorageResult<ImportSummary> {
         let metadata = fs::symlink_metadata(source)?;
         if metadata.file_type().is_symlink() || !metadata.is_file() {
-            return Err(StorageError::Validation("Rustnote bundle changed since inspection".to_string()));
+            return Err(StorageError::Validation(
+                "Rustnote bundle changed since inspection".to_string(),
+            ));
         }
         let staged_name = format!(".portability-import-{}.rustnote", super::new_id("plan"));
         let staged = self.data_directory.join(&staged_name);
@@ -169,7 +187,10 @@ impl Storage {
         }
         let result = (|| {
             let _ = owned_plaintext.copy_and_hash_from(source)?;
-            self.import_portable_bundle_matching_staged(owned_plaintext.path(), expected_semantic_sha256)
+            self.import_portable_bundle_matching_staged(
+                owned_plaintext.path(),
+                expected_semantic_sha256,
+            )
         })();
         match (result, self.discard_owned_plaintext(&mut owned_plaintext)) {
             (Ok(summary), Ok(())) => Ok(summary),
@@ -262,11 +283,18 @@ impl Storage {
         let notebooks = all_notebooks(&connection)?;
         let notes = export_notes(&connection, scope, format, &notebooks)?;
         if notes.is_empty() {
-            return Err(StorageError::Validation("the selected export scope contains no notes".to_string()));
+            return Err(StorageError::Validation(
+                "the selected export scope contains no notes".to_string(),
+            ));
         }
         let note_paths = notes
             .iter()
-            .map(|record| (record.note.id.as_str().to_string(), record.relative_path.to_string_lossy().replace('\\', "/")))
+            .map(|record| {
+                (
+                    record.note.id.as_str().to_string(),
+                    record.relative_path.to_string_lossy().replace('\\', "/"),
+                )
+            })
             .collect::<HashMap<_, _>>();
 
         if matches!(scope, PortabilityScope::Note(_)) {
@@ -276,25 +304,33 @@ impl Storage {
         }
 
         let final_directory = destination.to_path_buf();
-        let parent = final_directory.parent().ok_or_else(|| StorageError::Validation("export destination has no parent directory".to_string()))?;
+        let parent = final_directory.parent().ok_or_else(|| {
+            StorageError::Validation("export destination has no parent directory".to_string())
+        })?;
         fs::create_dir_all(parent)?;
         let output = AtomicDirectoryOutput::create(&final_directory)?;
         for note in &notes {
             let file_path = output.path().join(&note.relative_path);
             export_one_editable_note(self, &connection, note, format, &file_path, &note_paths)?;
         }
-        let (path, _) = output.commit(|directory| verify_export_tree(directory, notes.len(), format))?;
+        let (path, _) =
+            output.commit(|directory| verify_export_tree(directory, notes.len(), format))?;
         Ok(path)
     }
 
-    fn import_editable_files(&self, root: &Path, files: &[PlannedImportFile]) -> StorageResult<ImportSummary> {
+    fn import_editable_files(
+        &self,
+        root: &Path,
+        files: &[PlannedImportFile],
+    ) -> StorageResult<ImportSummary> {
         let mut created_notes = Vec::<NoteId>::new();
         let mut created_notebooks = Vec::<String>::new();
         let result = (|| {
             let resolver = ImportResourceResolver::new(root)?;
             let mut imported_resource_count = 0_usize;
             let mut imported_resource_bytes = 0_u64;
-            let notebook_map = self.create_import_notebook_tree(root, files, &mut created_notebooks)?;
+            let notebook_map =
+                self.create_import_notebook_tree(root, files, &mut created_notebooks)?;
             let mut note_map = HashMap::<PathBuf, NoteId>::new();
             let mut stem_map = HashMap::<String, Option<NoteId>>::new();
             for file in files {
@@ -303,11 +339,23 @@ impl Storage {
                 let note = self.create_note(Some(&notebook_id))?;
                 created_notes.push(note.id.clone());
                 note_map.insert(file.relative_path.clone(), note.id.clone());
-                let stem = file.relative_path.file_stem().and_then(|value| value.to_str()).unwrap_or_default().to_ascii_lowercase();
-                stem_map.entry(stem).and_modify(|entry| *entry = None).or_insert_with(|| Some(note.id.clone()));
+                let stem = file
+                    .relative_path
+                    .file_stem()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default()
+                    .to_ascii_lowercase();
+                stem_map
+                    .entry(stem)
+                    .and_modify(|entry| *entry = None)
+                    .or_insert_with(|| Some(note.id.clone()));
             }
 
-            let mut summary = ImportSummary { notes: files.len(), notebooks: created_notebooks.len(), ..ImportSummary::default() };
+            let mut summary = ImportSummary {
+                notes: files.len(),
+                notebooks: created_notebooks.len(),
+                ..ImportSummary::default()
+            };
             for file in files {
                 let bytes = read_import_file_bytes(&file.path, file.byte_size)?;
                 if sha256_bytes(&bytes) != file.sha256 {
@@ -316,11 +364,18 @@ impl Storage {
                         file.path.display()
                     )));
                 }
-                let mut decoded = decode_editable(file.format, &bytes).map_err(|error| StorageError::Validation(error.to_string()))?;
-                let note_id = note_map.get(&file.relative_path).cloned().ok_or_else(|| StorageError::Integrity("import note mapping is incomplete".to_string()))?;
-                let mut note = self.get_note(&note_id)?.ok_or_else(|| StorageError::Integrity("newly allocated import note disappeared".to_string()))?;
+                let mut decoded = decode_editable(file.format, &bytes)
+                    .map_err(|error| StorageError::Validation(error.to_string()))?;
+                let note_id = note_map.get(&file.relative_path).cloned().ok_or_else(|| {
+                    StorageError::Integrity("import note mapping is incomplete".to_string())
+                })?;
+                let mut note = self.get_note(&note_id)?.ok_or_else(|| {
+                    StorageError::Integrity("newly allocated import note disappeared".to_string())
+                })?;
                 let mut resolutions = HashMap::new();
-                let planned_resources = file.resources.iter()
+                let planned_resources = file
+                    .resources
+                    .iter()
                     .map(|resource| (resource.source_path.clone(), resource))
                     .collect::<HashMap<_, _>>();
                 let mut resource_cache = HashMap::<PathBuf, ResourceResolution>::new();
@@ -338,16 +393,30 @@ impl Storage {
                     }
                     imported_resource_count = imported_resource_count.saturating_add(1);
                     if imported_resource_count > MAX_IMPORT_RESOURCES {
-                        return Err(StorageError::Validation("import references too many attachment resources".to_string()));
+                        return Err(StorageError::Validation(
+                            "import references too many attachment resources".to_string(),
+                        ));
                     }
                     imported_resource_bytes = imported_resource_bytes
                         .checked_add(planned.byte_size)
-                        .ok_or_else(|| StorageError::Validation("import resource byte count overflowed".to_string()))?;
+                        .ok_or_else(|| {
+                            StorageError::Validation(
+                                "import resource byte count overflowed".to_string(),
+                            )
+                        })?;
                     if imported_resource_bytes > MAX_IMPORT_RESOURCE_TOTAL_BYTES {
-                        return Err(StorageError::Validation("import attachment resources exceed the supported 64 GiB total".to_string()));
+                        return Err(StorageError::Validation(
+                            "import attachment resources exceed the supported 64 GiB total"
+                                .to_string(),
+                        ));
                     }
                     let mime = mime_type_from_path(&source);
-                    let attachment = self.add_attachment_file_as(&note_id, &resource.display_name, mime, &source)?;
+                    let attachment = self.add_attachment_file_as(
+                        &note_id,
+                        &resource.display_name,
+                        mime,
+                        &source,
+                    )?;
                     if attachment.sha256 != planned.sha256
                         || u64::try_from(attachment.byte_size).ok() != Some(planned.byte_size)
                     {
@@ -356,7 +425,10 @@ impl Storage {
                             resource.path
                         )));
                     }
-                    let kind = attachment_kind(&attachment.file_name, attachment.mime_type.as_deref()).as_str().to_string();
+                    let kind =
+                        attachment_kind(&attachment.file_name, attachment.mime_type.as_deref())
+                            .as_str()
+                            .to_string();
                     let resolution = ResourceResolution {
                         attachment_id: attachment.id,
                         kind,
@@ -368,14 +440,26 @@ impl Storage {
                     resolutions.insert(resource.token.clone(), resolution);
                     summary.attachments += 1;
                 }
-                resolve_import_placeholders(&mut decoded.document, &resolutions).map_err(|error| StorageError::Validation(error.to_string()))?;
+                resolve_import_placeholders(&mut decoded.document, &resolutions)
+                    .map_err(|error| StorageError::Validation(error.to_string()))?;
                 let relative_parent = file.relative_path.parent().unwrap_or_else(|| Path::new(""));
                 rewrite_note_link_placeholders(&mut decoded.document, &|target| {
                     resolve_import_note_target(relative_parent, target, &note_map, &stem_map)
                 });
-                let editor_state = canonical_editor_state(decoded.document).map_err(|error| StorageError::Validation(error.to_string()))?;
-                let projections = derive_editor_projections(&editor_state).map_err(StorageError::from)?;
-                note.title = decoded.title_hint.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| file.relative_path.file_stem().and_then(|value| value.to_str()).unwrap_or("Untitled note").to_string());
+                let editor_state = canonical_editor_state(decoded.document)
+                    .map_err(|error| StorageError::Validation(error.to_string()))?;
+                let projections =
+                    derive_editor_projections(&editor_state).map_err(StorageError::from)?;
+                note.title = decoded
+                    .title_hint
+                    .filter(|value| !value.trim().is_empty())
+                    .unwrap_or_else(|| {
+                        file.relative_path
+                            .file_stem()
+                            .and_then(|value| value.to_str())
+                            .unwrap_or("Untitled note")
+                            .to_string()
+                    });
                 note.replace_document(projections.markdown, editor_state, projections.plain_text);
                 self.save_note_owned(note)?;
                 summary.warnings.extend(decoded.warnings);
@@ -390,16 +474,14 @@ impl Storage {
 
         match result {
             Ok(summary) => Ok(summary),
-            Err(primary) => match self.rollback_portability_import(
-                &created_notes,
-                &created_notebooks,
-                &[],
-            ) {
-                Ok(()) => Err(primary),
-                Err(rollback) => Err(StorageError::Integrity(format!(
-                    "{primary}; failed import rollback left cleanup work pending: {rollback}"
-                ))),
-            },
+            Err(primary) => {
+                match self.rollback_portability_import(&created_notes, &created_notebooks, &[]) {
+                    Ok(()) => Err(primary),
+                    Err(rollback) => Err(StorageError::Integrity(format!(
+                        "{primary}; failed import rollback left cleanup work pending: {rollback}"
+                    ))),
+                }
+            }
         }
     }
 
@@ -419,14 +501,27 @@ impl Storage {
             .into_iter()
             .collect::<Vec<_>>();
         directories.sort_by_key(|path| (path.components().count(), path.clone()));
-        let root_name = root.file_name().and_then(|value| value.to_str()).filter(|value| !value.trim().is_empty()).unwrap_or("Imported notes");
+        let root_name = root
+            .file_name()
+            .and_then(|value| value.to_str())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("Imported notes");
         let root_notebook = self.create_notebook(root_name, None)?;
         created.push(root_notebook.id.clone());
         let mut map = HashMap::from([(PathBuf::new(), root_notebook.id.clone())]);
         for directory in directories {
-            if directory.as_os_str().is_empty() { continue; }
-            let parent = directory.parent().and_then(|path| map.get(path)).cloned().unwrap_or_else(|| root_notebook.id.clone());
-            let name = directory.file_name().and_then(|value| value.to_str()).unwrap_or("Imported notes");
+            if directory.as_os_str().is_empty() {
+                continue;
+            }
+            let parent = directory
+                .parent()
+                .and_then(|path| map.get(path))
+                .cloned()
+                .unwrap_or_else(|| root_notebook.id.clone());
+            let name = directory
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("Imported notes");
             let notebook = self.create_notebook(name, Some(&parent))?;
             created.push(notebook.id.clone());
             map.insert(directory, notebook.id);
@@ -435,7 +530,9 @@ impl Storage {
     }
 
     pub(super) fn undo_portability_import(&self, token: &ImportUndoToken) -> StorageResult<()> {
-        if token.is_empty() { return Ok(()); }
+        if token.is_empty() {
+            return Ok(());
+        }
         self.rollback_portability_import(&token.note_ids, &token.notebook_ids, &token.blob_hashes)
     }
 
@@ -553,11 +650,10 @@ impl Storage {
             if referenced == 0
                 && let Some(relative) = canonical_blob_relative_path(&hash)
             {
-                let stage_id = self
-                    .ensure_portability_blob_plaintext_stage_in_transaction(
-                        &transaction,
-                        &relative,
-                    )?;
+                let stage_id = self.ensure_portability_blob_plaintext_stage_in_transaction(
+                    &transaction,
+                    &relative,
+                )?;
                 disposable_blob_stages.push(stage_id);
             }
         }
@@ -584,43 +680,69 @@ impl Storage {
         drop(_privacy_guard);
         Ok(())
     }
-
 }
 
 fn discover_import_files(source: &Path) -> StorageResult<(PathBuf, Vec<ImportFile>)> {
     let metadata = fs::symlink_metadata(source)?;
     if metadata.file_type().is_symlink() {
-        return Err(StorageError::Validation("import source cannot be a symbolic link".to_string()));
+        return Err(StorageError::Validation(
+            "import source cannot be a symbolic link".to_string(),
+        ));
     }
     let root = source.to_path_buf();
     let mut files = Vec::new();
     if metadata.is_file() {
-        let format = PortabilityFormat::from_path(source).filter(|format| *format != PortabilityFormat::RustnoteBundle).ok_or_else(|| StorageError::Validation("unsupported import file type".to_string()))?;
-        validate_import_file(source, format, PathBuf::from(source.file_name().unwrap_or_default()), &mut files)?;
+        let format = PortabilityFormat::from_path(source)
+            .filter(|format| *format != PortabilityFormat::RustnoteBundle)
+            .ok_or_else(|| StorageError::Validation("unsupported import file type".to_string()))?;
+        validate_import_file(
+            source,
+            format,
+            PathBuf::from(source.file_name().unwrap_or_default()),
+            &mut files,
+        )?;
     } else if metadata.is_dir() {
         discover_import_directory(source, source, &mut files)?;
     } else {
-        return Err(StorageError::Validation("import source must be a regular file or directory".to_string()));
+        return Err(StorageError::Validation(
+            "import source must be a regular file or directory".to_string(),
+        ));
     }
     files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     if files.is_empty() {
-        return Err(StorageError::Validation("no supported TXT, Markdown, or HTML files were found".to_string()));
+        return Err(StorageError::Validation(
+            "no supported TXT, Markdown, or HTML files were found".to_string(),
+        ));
     }
     if files.len() > MAX_IMPORT_BATCH_FILES {
-        return Err(StorageError::Validation("import contains too many files".to_string()));
+        return Err(StorageError::Validation(
+            "import contains too many files".to_string(),
+        ));
     }
-    let total = files.iter().try_fold(0_u64, |total, file| total.checked_add(file.byte_size).ok_or_else(|| StorageError::Validation("import byte count overflowed".to_string())))?;
+    let total = files.iter().try_fold(0_u64, |total, file| {
+        total
+            .checked_add(file.byte_size)
+            .ok_or_else(|| StorageError::Validation("import byte count overflowed".to_string()))
+    })?;
     if total > MAX_IMPORT_BATCH_BYTES {
-        return Err(StorageError::Validation("import batch is larger than 256 MiB".to_string()));
+        return Err(StorageError::Validation(
+            "import batch is larger than 256 MiB".to_string(),
+        ));
     }
     Ok((root, files))
 }
 
-fn discover_import_directory(root: &Path, directory: &Path, files: &mut Vec<ImportFile>) -> StorageResult<()> {
+fn discover_import_directory(
+    root: &Path,
+    directory: &Path,
+    files: &mut Vec<ImportFile>,
+) -> StorageResult<()> {
     for entry in fs::read_dir(directory)? {
         let entry = entry?;
         let metadata = entry.file_type()?;
-        if metadata.is_symlink() { continue; }
+        if metadata.is_symlink() {
+            continue;
+        }
         let path = entry.path();
         if metadata.is_dir() {
             if is_asset_namespace_name(&entry.file_name()) {
@@ -631,18 +753,40 @@ fn discover_import_directory(root: &Path, directory: &Path, files: &mut Vec<Impo
             && let Some(format) = PortabilityFormat::from_path(&path)
             && format != PortabilityFormat::RustnoteBundle
         {
-            let relative = path.strip_prefix(root).map_err(|_| StorageError::Integrity("import path escaped its selected root".to_string()))?.to_path_buf();
+            let relative = path
+                .strip_prefix(root)
+                .map_err(|_| {
+                    StorageError::Integrity("import path escaped its selected root".to_string())
+                })?
+                .to_path_buf();
             validate_import_file(&path, format, relative, files)?;
         }
     }
     Ok(())
 }
 
-fn validate_import_file(path: &Path, format: PortabilityFormat, relative_path: PathBuf, files: &mut Vec<ImportFile>) -> StorageResult<()> {
+fn validate_import_file(
+    path: &Path,
+    format: PortabilityFormat,
+    relative_path: PathBuf,
+    files: &mut Vec<ImportFile>,
+) -> StorageResult<()> {
     let metadata = fs::symlink_metadata(path)?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() { return Ok(()); }
-    if metadata.len() > MAX_EDITABLE_FILE_BYTES { return Err(StorageError::Validation(format!("import file is larger than 32 MiB: {}", path.display()))); }
-    files.push(ImportFile { path: path.to_path_buf(), relative_path, format, byte_size: metadata.len() });
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Ok(());
+    }
+    if metadata.len() > MAX_EDITABLE_FILE_BYTES {
+        return Err(StorageError::Validation(format!(
+            "import file is larger than 32 MiB: {}",
+            path.display()
+        )));
+    }
+    files.push(ImportFile {
+        path: path.to_path_buf(),
+        relative_path,
+        format,
+        byte_size: metadata.len(),
+    });
     Ok(())
 }
 
@@ -680,7 +824,6 @@ pub(super) fn ensure_portability_scope_unprotected(
     Ok(())
 }
 
-
 fn portable_scope_note_ids(
     connection: &Connection,
     scope: &PortabilityScope,
@@ -714,10 +857,17 @@ fn portable_scope_note_ids(
 
 fn all_notebooks(connection: &Connection) -> StorageResult<Vec<Notebook>> {
     let mut statement = connection.prepare("SELECT id, name, parent_id, sort_order, created_at, updated_at FROM notebooks ORDER BY parent_id IS NOT NULL, sort_order, lower(name), id")?;
-    Ok(statement.query_map([], notebook_from_row)?.collect::<Result<Vec<_>, _>>()?)
+    Ok(statement
+        .query_map([], notebook_from_row)?
+        .collect::<Result<Vec<_>, _>>()?)
 }
 
-fn export_notes(connection: &Connection, scope: &PortabilityScope, format: PortabilityFormat, notebooks: &[Notebook]) -> StorageResult<Vec<ExportNote>> {
+fn export_notes(
+    connection: &Connection,
+    scope: &PortabilityScope,
+    format: PortabilityFormat,
+    notebooks: &[Notebook],
+) -> StorageResult<Vec<ExportNote>> {
     let allowed_notebooks = match scope {
         PortabilityScope::Library | PortabilityScope::Note(_) => None,
         PortabilityScope::Notebook(root) => Some(notebook_descendants(notebooks, root)?),
@@ -737,9 +887,13 @@ fn export_notes(connection: &Connection, scope: &PortabilityScope, format: Porta
         let included = match scope {
             PortabilityScope::Library => true,
             PortabilityScope::Note(note_id) => &note.id == note_id,
-            PortabilityScope::Notebook(_) => allowed_notebooks.as_ref().is_some_and(|ids| ids.contains(&note.notebook_id)),
+            PortabilityScope::Notebook(_) => allowed_notebooks
+                .as_ref()
+                .is_some_and(|ids| ids.contains(&note.notebook_id)),
         };
-        if !included { continue; }
+        if !included {
+            continue;
+        }
         let directory = if matches!(scope, PortabilityScope::Note(_)) {
             PathBuf::new()
         } else if note.trashed {
@@ -747,43 +901,124 @@ fn export_notes(connection: &Connection, scope: &PortabilityScope, format: Porta
         } else if note.archived {
             PathBuf::from("_Archive")
         } else {
-            notebook_paths.get(&note.notebook_id).cloned().unwrap_or_default()
+            notebook_paths
+                .get(&note.notebook_id)
+                .cloned()
+                .unwrap_or_default()
         };
-        let relative_path = unique_note_export_path(&directory, note.display_title(), format, &mut used_paths);
-        notes.push(ExportNote { note, relative_path });
+        let relative_path =
+            unique_note_export_path(&directory, note.display_title(), format, &mut used_paths);
+        notes.push(ExportNote {
+            note,
+            relative_path,
+        });
     }
     Ok(notes)
 }
 
-fn export_one_editable_note(storage: &Storage, connection: &Connection, record: &ExportNote, format: PortabilityFormat, destination: &Path, note_paths: &HashMap<String, String>) -> StorageResult<()> {
-    if let Some(parent) = destination.parent() { fs::create_dir_all(parent)?; }
-    let asset_directory_name = format!("{}.assets", destination.file_stem().and_then(|value| value.to_str()).unwrap_or("note"));
-    let asset_directory = destination.parent().unwrap_or_else(|| Path::new(".")).join(&asset_directory_name);
-    if matches!(format, PortabilityFormat::Markdown | PortabilityFormat::Html) && asset_directory.exists() {
-        return Err(StorageError::Validation(format!("portable asset destination already exists: {}", asset_directory.display())));
+fn export_one_editable_note(
+    storage: &Storage,
+    connection: &Connection,
+    record: &ExportNote,
+    format: PortabilityFormat,
+    destination: &Path,
+    note_paths: &HashMap<String, String>,
+) -> StorageResult<()> {
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let asset_directory_name = format!(
+        "{}.assets",
+        destination
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or("note")
+    );
+    let asset_directory = destination
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(&asset_directory_name);
+    if matches!(
+        format,
+        PortabilityFormat::Markdown | PortabilityFormat::Html
+    ) && asset_directory.exists()
+    {
+        return Err(StorageError::Validation(format!(
+            "portable asset destination already exists: {}",
+            asset_directory.display()
+        )));
     }
     let mut attachment_paths = HashMap::new();
     let result = (|| -> StorageResult<()> {
-    if matches!(format, PortabilityFormat::Markdown | PortabilityFormat::Html) {
-        let attachments = storage.list_attachments_with_connection(connection, &record.note.id)?;
-        for attachment in attachments.into_iter().filter(|attachment| attachment.embedded) {
-            let (relative_blob, _, expected_size) = validate_attachment_blob_identity(&format!("attachment {}", attachment.id), &attachment.sha256, attachment.byte_size)?;
-            fs::create_dir_all(&asset_directory)?;
-            let short_id = attachment.id.chars().rev().take(8).collect::<String>().chars().rev().collect::<String>();
-            let file_name = format!("{}-{}", sanitize_component(&short_id), sanitize_component(&attachment.file_name));
-            let target = asset_directory.join(&file_name);
-            copy_file_atomically(&storage.attachments_directory.join(relative_blob), &target)?;
-            let (checksum, size) = sha256_file(&target)?;
-            if checksum != attachment.sha256 || size != expected_size { return Err(StorageError::Integrity(format!("exported attachment {} failed verification", attachment.id))); }
-            attachment_paths.insert(attachment.id, PathBuf::from(&asset_directory_name).join(file_name).to_string_lossy().replace('\\', "/"));
+        if matches!(
+            format,
+            PortabilityFormat::Markdown | PortabilityFormat::Html
+        ) {
+            let attachments =
+                storage.list_attachments_with_connection(connection, &record.note.id)?;
+            for attachment in attachments
+                .into_iter()
+                .filter(|attachment| attachment.embedded)
+            {
+                let (relative_blob, _, expected_size) = validate_attachment_blob_identity(
+                    &format!("attachment {}", attachment.id),
+                    &attachment.sha256,
+                    attachment.byte_size,
+                )?;
+                fs::create_dir_all(&asset_directory)?;
+                let short_id = attachment
+                    .id
+                    .chars()
+                    .rev()
+                    .take(8)
+                    .collect::<String>()
+                    .chars()
+                    .rev()
+                    .collect::<String>();
+                let file_name = format!(
+                    "{}-{}",
+                    sanitize_component(&short_id),
+                    sanitize_component(&attachment.file_name)
+                );
+                let target = asset_directory.join(&file_name);
+                copy_file_atomically(&storage.attachments_directory.join(relative_blob), &target)?;
+                let (checksum, size) = sha256_file(&target)?;
+                if checksum != attachment.sha256 || size != expected_size {
+                    return Err(StorageError::Integrity(format!(
+                        "exported attachment {} failed verification",
+                        attachment.id
+                    )));
+                }
+                attachment_paths.insert(
+                    attachment.id,
+                    PathBuf::from(&asset_directory_name)
+                        .join(file_name)
+                        .to_string_lossy()
+                        .replace('\\', "/"),
+                );
+            }
         }
-    }
-    let relative_note_paths = relative_note_paths_from(record, note_paths);
-    let bytes = encode_editable(format, &record.note.title, record.note.editor_state(), &attachment_paths, &relative_note_paths).map_err(|error| StorageError::Validation(error.to_string()))?;
-    let mut output = AtomicFileOutput::create(destination)?;
-    output.writer()?.write_all(&bytes)?;
-    output.commit(|path| { let metadata = fs::symlink_metadata(path)?; if metadata.file_type().is_symlink() || !metadata.is_file() { return Err(StorageError::Integrity("portable note was not written as a regular file".to_string())); } Ok(()) })?;
-    Ok(())
+        let relative_note_paths = relative_note_paths_from(record, note_paths);
+        let bytes = encode_editable(
+            format,
+            &record.note.title,
+            record.note.editor_state(),
+            &attachment_paths,
+            &relative_note_paths,
+        )
+        .map_err(|error| StorageError::Validation(error.to_string()))?;
+        let mut output = AtomicFileOutput::create(destination)?;
+        output.writer()?.write_all(&bytes)?;
+        output.commit(|path| {
+            let metadata = fs::symlink_metadata(path)?;
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err(StorageError::Integrity(
+                    "portable note was not written as a regular file".to_string(),
+                ));
+            }
+            Ok(())
+        })?;
+        Ok(())
     })();
     if result.is_err() {
         let _ = fs::remove_dir_all(&asset_directory);
@@ -791,59 +1026,114 @@ fn export_one_editable_note(storage: &Storage, connection: &Connection, record: 
     result
 }
 
-fn relative_note_paths_from(record: &ExportNote, note_paths: &HashMap<String, String>) -> HashMap<String, String> {
+fn relative_note_paths_from(
+    record: &ExportNote,
+    note_paths: &HashMap<String, String>,
+) -> HashMap<String, String> {
     let current = &record.relative_path;
     let current_parent = current.parent().unwrap_or_else(|| Path::new(""));
-    note_paths.iter().map(|(id, target)| {
-        let relative = relative_path_between(current_parent, Path::new(target)).unwrap_or_else(|| PathBuf::from(target));
-        (id.clone(), relative.to_string_lossy().replace('\\', "/"))
-    }).collect()
+    note_paths
+        .iter()
+        .map(|(id, target)| {
+            let relative = relative_path_between(current_parent, Path::new(target))
+                .unwrap_or_else(|| PathBuf::from(target));
+            (id.clone(), relative.to_string_lossy().replace('\\', "/"))
+        })
+        .collect()
 }
 
 fn relative_path_between(from: &Path, to: &Path) -> Option<PathBuf> {
     let from_components = from.components().collect::<Vec<_>>();
     let to_components = to.components().collect::<Vec<_>>();
     let mut common = 0_usize;
-    while common < from_components.len() && common < to_components.len() && from_components[common] == to_components[common] { common += 1; }
+    while common < from_components.len()
+        && common < to_components.len()
+        && from_components[common] == to_components[common]
+    {
+        common += 1;
+    }
     let mut result = PathBuf::new();
-    for _ in common..from_components.len() { result.push(".."); }
-    for component in &to_components[common..] { result.push(component.as_os_str()); }
+    for _ in common..from_components.len() {
+        result.push("..");
+    }
+    for component in &to_components[common..] {
+        result.push(component.as_os_str());
+    }
     Some(result)
 }
 
-fn verify_export_tree(directory: &Path, expected_notes: usize, format: PortabilityFormat) -> StorageResult<()> {
+fn verify_export_tree(
+    directory: &Path,
+    expected_notes: usize,
+    format: PortabilityFormat,
+) -> StorageResult<()> {
     let mut count = 0_usize;
     fn walk(directory: &Path, extension: &str, count: &mut usize) -> StorageResult<()> {
         for entry in fs::read_dir(directory)? {
             let entry = entry?;
             let metadata = entry.file_type()?;
             if metadata.is_symlink() {
-                return Err(StorageError::Integrity("portable export contains a symbolic link".to_string()));
+                return Err(StorageError::Integrity(
+                    "portable export contains a symbolic link".to_string(),
+                ));
             }
             if metadata.is_dir() {
                 if is_asset_namespace_name(&entry.file_name()) {
                     continue;
                 }
                 walk(&entry.path(), extension, count)?;
-            } else if entry.path().extension().and_then(|value| value.to_str()).is_some_and(|value| value.eq_ignore_ascii_case(extension)) {
+            } else if entry
+                .path()
+                .extension()
+                .and_then(|value| value.to_str())
+                .is_some_and(|value| value.eq_ignore_ascii_case(extension))
+            {
                 *count += 1;
             }
         }
         Ok(())
     }
     walk(directory, format.extension(), &mut count)?;
-    if count != expected_notes { return Err(StorageError::Integrity(format!("portable export expected {expected_notes} note files but wrote {count}"))); }
+    if count != expected_notes {
+        return Err(StorageError::Integrity(format!(
+            "portable export expected {expected_notes} note files but wrote {count}"
+        )));
+    }
     Ok(())
 }
 
 fn notebook_descendants(notebooks: &[Notebook], root: &str) -> StorageResult<HashSet<String>> {
-    if !notebooks.iter().any(|notebook| notebook.id == root) { return Err(StorageError::Validation("selected notebook no longer exists".to_string())); }
+    if !notebooks.iter().any(|notebook| notebook.id == root) {
+        return Err(StorageError::Validation(
+            "selected notebook no longer exists".to_string(),
+        ));
+    }
     let mut ids = HashSet::from([root.to_string()]);
-    loop { let mut changed = false; for notebook in notebooks { if notebook.parent_id.as_ref().is_some_and(|parent| ids.contains(parent)) && ids.insert(notebook.id.clone()) { changed = true; } } if !changed { break; } }
+    loop {
+        let mut changed = false;
+        for notebook in notebooks {
+            if notebook
+                .parent_id
+                .as_ref()
+                .is_some_and(|parent| ids.contains(parent))
+                && ids.insert(notebook.id.clone())
+            {
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
     Ok(ids)
 }
 
-fn unique_note_export_path(directory: &Path, title: &str, format: PortabilityFormat, used: &mut HashSet<String>) -> PathBuf {
+fn unique_note_export_path(
+    directory: &Path,
+    title: &str,
+    format: PortabilityFormat,
+    used: &mut HashSet<String>,
+) -> PathBuf {
     let stem = sanitize_component(title);
     for index in 1..10_000_usize {
         let file_name = if index == 1 {
@@ -852,17 +1142,29 @@ fn unique_note_export_path(directory: &Path, title: &str, format: PortabilityFor
             format!("{stem}-{index}.{}", format.extension())
         };
         let candidate = directory.join(file_name);
-        let key = candidate.to_string_lossy().replace('\\', "/").to_ascii_lowercase();
+        let key = candidate
+            .to_string_lossy()
+            .replace('\\', "/")
+            .to_ascii_lowercase();
         if used.insert(key) {
             return candidate;
         }
     }
-    directory.join(format!("{stem}-{}.{}", super::new_id("export"), format.extension()))
+    directory.join(format!(
+        "{stem}-{}.{}",
+        super::new_id("export"),
+        format.extension()
+    ))
 }
 
-fn notebook_for_import_file(file: &PlannedImportFile, map: &HashMap<PathBuf, String>) -> Option<String> {
+fn notebook_for_import_file(
+    file: &PlannedImportFile,
+    map: &HashMap<PathBuf, String>,
+) -> Option<String> {
     let parent = file.relative_path.parent().unwrap_or_else(|| Path::new(""));
-    map.get(parent).cloned().or_else(|| map.get(Path::new("")).cloned())
+    map.get(parent)
+        .cloned()
+        .or_else(|| map.get(Path::new("")).cloned())
 }
 
 struct ImportResourceResolver {
@@ -876,7 +1178,9 @@ impl ImportResourceResolver {
     fn new(root: &Path) -> StorageResult<Self> {
         let metadata = fs::symlink_metadata(root)?;
         if metadata.file_type().is_symlink() {
-            return Err(StorageError::Validation("import source cannot be a symbolic link".to_string()));
+            return Err(StorageError::Validation(
+                "import source cannot be a symbolic link".to_string(),
+            ));
         }
         let source_is_file = metadata.is_file();
         let allowed = if source_is_file {
@@ -897,9 +1201,13 @@ impl ImportResourceResolver {
             StorageError::Validation(format!("unsafe imported resource path: {resource}"))
         })?;
         let base = if self.source_is_file {
-            self.selected_root.parent().unwrap_or_else(|| Path::new(".")).to_path_buf()
+            self.selected_root
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .to_path_buf()
         } else {
-            self.selected_root.join(note_relative_path.parent().unwrap_or_else(|| Path::new("")))
+            self.selected_root
+                .join(note_relative_path.parent().unwrap_or_else(|| Path::new("")))
         };
         let candidate = base.join(resource);
         reject_symlink_components(&self.lexical_allowed_root, &candidate)?;
@@ -933,7 +1241,9 @@ fn reject_symlink_components(allowed_root: &Path, candidate: &Path) -> StorageRe
     })?;
     let mut current = allowed_root.to_path_buf();
     for component in relative.components() {
-        let Component::Normal(part) = component else { continue; };
+        let Component::Normal(part) = component else {
+            continue;
+        };
         current.push(part);
         if let Ok(metadata) = fs::symlink_metadata(&current)
             && metadata.file_type().is_symlink()
@@ -964,11 +1274,20 @@ fn read_import_file_bytes(path: &Path, expected_size: u64) -> StorageResult<Vec<
     fs::read(path).map_err(StorageError::from)
 }
 
-fn resolve_import_note_target(relative_parent: &Path, target: &str, note_map: &HashMap<PathBuf, NoteId>, stem_map: &HashMap<String, Option<NoteId>>) -> Option<NoteId> {
+fn resolve_import_note_target(
+    relative_parent: &Path,
+    target: &str,
+    note_map: &HashMap<PathBuf, NoteId>,
+    stem_map: &HashMap<String, Option<NoteId>>,
+) -> Option<NoteId> {
     let target = target.split('#').next().unwrap_or(target).trim();
-    if target.is_empty() { return None; }
+    if target.is_empty() {
+        return None;
+    }
     if !target.contains('/') && !target.contains('\\') && Path::new(target).extension().is_none() {
-        return stem_map.get(&target.to_ascii_lowercase()).and_then(Clone::clone);
+        return stem_map
+            .get(&target.to_ascii_lowercase())
+            .and_then(Clone::clone);
     }
     let relative = normalize_relative_path(&relative_parent.join(target))?;
     note_map.get(&relative).cloned()
@@ -980,7 +1299,9 @@ fn normalize_relative_path(path: &Path) -> Option<PathBuf> {
         match component {
             Component::Normal(part) => stack.push(part.to_os_string()),
             Component::CurDir => {}
-            Component::ParentDir => { stack.pop()?; }
+            Component::ParentDir => {
+                stack.pop()?;
+            }
             Component::RootDir | Component::Prefix(_) => return None,
         }
     }
@@ -991,19 +1312,21 @@ use std::io::Write;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::new_id;
+    use super::*;
 
     fn test_storage(label: &str) -> (Storage, PathBuf) {
         let root = std::env::temp_dir().join(format!("rustnote-{}", new_id(label)));
-        let storage = Storage::at_with_backup(root.join("data"), root.join("backups")).expect("storage");
+        let storage =
+            Storage::at_with_backup(root.join("data"), root.join("backups")).expect("storage");
         (storage, root)
     }
 
     #[test]
     fn editable_import_is_bounded_and_rejects_symlink_source() {
         let (_storage, root) = test_storage("portable-inspect");
-        let path = root.join("note.md"); fs::write(&path, "# Note\n\nBody").expect("write");
+        let path = root.join("note.md");
+        fs::write(&path, "# Note\n\nBody").expect("write");
         let (_, files) = discover_import_files(&path).expect("discover");
         assert_eq!(files.len(), 1);
     }
@@ -1014,8 +1337,16 @@ mod tests {
         let folder = root.join("export");
         let assets = folder.join("Topic.assets");
         fs::create_dir_all(&assets).expect("asset directory");
-        fs::write(folder.join("Topic.md"), "![Attachment](Topic.assets/reference.md)\n").expect("note");
-        fs::write(assets.join("reference.md"), "this is an attachment, not another note").expect("asset");
+        fs::write(
+            folder.join("Topic.md"),
+            "![Attachment](Topic.assets/reference.md)\n",
+        )
+        .expect("note");
+        fs::write(
+            assets.join("reference.md"),
+            "this is an attachment, not another note",
+        )
+        .expect("asset");
 
         let (_, files) = discover_import_files(&folder).expect("discover");
         assert_eq!(files.len(), 1);
@@ -1025,16 +1356,26 @@ mod tests {
     #[test]
     fn undo_import_removes_nested_notebooks_independent_of_token_order() {
         let (storage, root) = test_storage("portable-undo-notebooks");
-        let parent = storage.create_notebook("Imported parent", None).expect("parent notebook");
-        let child = storage.create_notebook("Imported child", Some(&parent.id)).expect("child notebook");
+        let parent = storage
+            .create_notebook("Imported parent", None)
+            .expect("parent notebook");
+        let child = storage
+            .create_notebook("Imported child", Some(&parent.id))
+            .expect("child notebook");
         let token = ImportUndoToken {
             note_ids: Vec::new(),
             notebook_ids: vec![parent.id.clone(), child.id.clone()],
             blob_hashes: Vec::new(),
         };
-        storage.undo_portability_import(&token).expect("undo nested notebooks");
+        storage
+            .undo_portability_import(&token)
+            .expect("undo nested notebooks");
         let notebooks = storage.list_notebooks().expect("list notebooks");
-        assert!(!notebooks.iter().any(|notebook| notebook.id == parent.id || notebook.id == child.id));
+        assert!(
+            !notebooks
+                .iter()
+                .any(|notebook| notebook.id == parent.id || notebook.id == child.id)
+        );
         drop(storage);
         let _ = fs::remove_dir_all(root);
     }
@@ -1049,23 +1390,32 @@ mod tests {
         fs::write(assets.join("map.png"), b"image-bytes").expect("asset");
 
         let resolver = ImportResourceResolver::new(&folder).expect("resolver");
-        let source = resolver.resolve(Path::new("Topic.md"), "Topic.assets/map.png")
+        let source = resolver
+            .resolve(Path::new("Topic.md"), "Topic.assets/map.png")
             .expect("safe resource");
         assert_eq!(
             source,
             fs::canonicalize(assets.join("map.png")).expect("canonical asset path")
         );
-        assert!(resolver.resolve(Path::new("Topic.md"), "../outside.png").is_err());
+        assert!(
+            resolver
+                .resolve(Path::new("Topic.md"), "../outside.png")
+                .is_err()
+        );
     }
     #[test]
     fn planned_import_rejects_note_file_changes_after_preview() {
         let (storage, root) = test_storage("portable-plan-note-change");
         let path = root.join("note.md");
         fs::write(&path, "# Original\n\nBody\n").expect("write original");
-        let plan = storage.prepare_portability_import(&path).expect("prepare plan");
+        let plan = storage
+            .prepare_portability_import(&path)
+            .expect("prepare plan");
         fs::write(&path, "# Changed\n\nBody\n").expect("mutate source");
 
-        let error = storage.import_portability_plan(&plan).expect_err("changed source must fail");
+        let error = storage
+            .import_portability_plan(&plan)
+            .expect_err("changed source must fail");
         assert!(error.to_string().contains("changed after it was inspected"));
         drop(storage);
         let _ = fs::remove_dir_all(root);
@@ -1079,15 +1429,18 @@ mod tests {
         fs::create_dir_all(&assets).expect("asset directory");
         fs::write(folder.join("Topic.md"), "![Map](Topic.assets/map.png)\n").expect("note");
         fs::write(assets.join("map.png"), b"original-bytes").expect("asset");
-        let plan = storage.prepare_portability_import(&folder).expect("prepare plan");
+        let plan = storage
+            .prepare_portability_import(&folder)
+            .expect("prepare plan");
         fs::write(assets.join("map.png"), b"changed--bytes").expect("mutate asset");
 
-        let error = storage.import_portability_plan(&plan).expect_err("changed asset must fail");
+        let error = storage
+            .import_portability_plan(&plan)
+            .expect_err("changed asset must fail");
         assert!(error.to_string().contains("changed after it was inspected"));
         drop(storage);
         let _ = fs::remove_dir_all(root);
     }
-
 
     #[test]
     fn planned_folder_import_does_not_expand_when_new_files_appear_after_preview() {
@@ -1095,16 +1448,21 @@ mod tests {
         let folder = root.join("import");
         fs::create_dir_all(&folder).expect("import folder");
         fs::write(folder.join("A.md"), "# A\n").expect("first note");
-        let plan = storage.prepare_portability_import(&folder).expect("prepare plan");
+        let plan = storage
+            .prepare_portability_import(&folder)
+            .expect("prepare plan");
         fs::write(folder.join("B.md"), "# B\n").expect("late note");
 
-        let summary = storage.import_portability_plan(&plan).expect("import approved plan");
+        let summary = storage
+            .import_portability_plan(&plan)
+            .expect("import approved plan");
         assert_eq!(summary.notes, 1);
-        storage.undo_portability_import(summary.undo.as_ref().expect("undo token")).expect("undo");
+        storage
+            .undo_portability_import(summary.undo.as_ref().expect("undo token"))
+            .expect("undo");
         drop(storage);
         let _ = fs::remove_dir_all(root);
     }
-
 
     #[test]
     fn undo_import_keeps_blob_cleanup_owned_until_unlink_succeeds() {
@@ -1150,7 +1508,10 @@ mod tests {
         storage
             .undo_portability_import(&token)
             .expect("retry cleanup through existing durable owner");
-        assert!(!blob.exists(), "retry must remove the unreferenced plaintext blob");
+        assert!(
+            !blob.exists(),
+            "retry must remove the unreferenced plaintext blob"
+        );
         let owner_exists: i64 = storage
             .connection()
             .expect("owner retry connection")
@@ -1160,10 +1521,12 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("owner retry lookup");
-        assert_eq!(owner_exists, 0, "owner row may disappear only after unlink succeeds");
+        assert_eq!(
+            owner_exists, 0,
+            "owner row may disappear only after unlink succeeds"
+        );
 
         drop(storage);
         let _ = fs::remove_dir_all(root);
     }
-
 }

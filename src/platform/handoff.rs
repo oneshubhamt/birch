@@ -112,7 +112,10 @@ pub(super) fn reveal_external_file(
     launch(command)
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 pub(super) fn open_external_file(
     path: &Path,
     _file_name: Option<&str>,
@@ -123,7 +126,10 @@ pub(super) fn open_external_file(
     launch(command)
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 pub(super) fn reveal_external_file(
     path: &Path,
     _file_name: Option<&str>,
@@ -140,9 +146,8 @@ pub(super) fn open_external_file(
     file_name: Option<&str>,
     mime_type: Option<&str>,
 ) -> super::PlatformResult<()> {
-    let adapter = super::mobile::adapter().ok_or_else(|| {
-        "Rustnote's mobile platform adapter has not been registered".to_string()
-    })?;
+    let adapter = super::mobile::adapter()
+        .ok_or_else(|| "Rustnote's mobile platform adapter has not been registered".to_string())?;
     adapter.open_file(path, file_name.unwrap_or("attachment"), mime_type)
 }
 
@@ -152,9 +157,8 @@ pub(super) fn reveal_external_file(
     file_name: Option<&str>,
     mime_type: Option<&str>,
 ) -> super::PlatformResult<()> {
-    let adapter = super::mobile::adapter().ok_or_else(|| {
-        "Rustnote's mobile platform adapter has not been registered".to_string()
-    })?;
+    let adapter = super::mobile::adapter()
+        .ok_or_else(|| "Rustnote's mobile platform adapter has not been registered".to_string())?;
     adapter.reveal_or_share_file(path, file_name.unwrap_or("attachment"), mime_type)
 }
 
@@ -164,7 +168,9 @@ pub(super) fn open_external_file(
     _file_name: Option<&str>,
     _mime_type: Option<&str>,
 ) -> super::PlatformResult<()> {
-    Err(super::PlatformError::Unsupported("External file opening is not supported on this platform"))
+    Err(super::PlatformError::Unsupported(
+        "External file opening is not supported on this platform",
+    ))
 }
 
 #[cfg(not(any(unix, windows)))]
@@ -173,5 +179,7 @@ pub(super) fn reveal_external_file(
     _file_name: Option<&str>,
     _mime_type: Option<&str>,
 ) -> super::PlatformResult<()> {
-    Err(super::PlatformError::Unsupported("File reveal/share is not supported on this platform"))
+    Err(super::PlatformError::Unsupported(
+        "File reveal/share is not supported on this platform",
+    ))
 }

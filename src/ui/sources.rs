@@ -1,8 +1,9 @@
+use crate::application::{
+    executor::ApplicationExecutor, notes::NoteService, privacy::PrivacyPublicationService,
+};
 use dioxus::prelude::*;
-use crate::application::{executor::ApplicationExecutor, notes::NoteService, privacy::PrivacyPublicationService};
 
 use crate::domain::{NoteId, NoteSourceSummary, Source, SourceId, SourceKind};
-
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SourceComposerMode {
@@ -26,10 +27,7 @@ pub(super) struct SourcesPanelActions {
 }
 
 #[component]
-pub(super) fn SourcesPanel(
-    view: SourcesPanelView,
-    actions: SourcesPanelActions,
-) -> Element {
+pub(super) fn SourcesPanel(view: SourcesPanelView, actions: SourcesPanelActions) -> Element {
     let SourcesPanelView {
         notes,
         note_id,
@@ -96,7 +94,8 @@ pub(super) fn SourcesPanel(
     let load_note_privacy = note_privacy;
     let _load_effect = use_effect(move || {
         let _note_privacy = *load_note_privacy.read();
-        let Some(publication_token) = privacy_epoch.capture_note_publication(&load_privacy, &load_note_id, note_generation)
+        let Some(publication_token) =
+            privacy_epoch.capture_note_publication(&load_privacy, &load_note_id, note_generation)
         else {
             summaries.set(Vec::new());
             source_candidates.set(Vec::new());
@@ -132,7 +131,7 @@ pub(super) fn SourcesPanel(
                 Ok(items) => {
                     summaries_publication_token.set(Some(publication_token.clone()));
                     summaries.set(items);
-                },
+                }
                 Err(error) => {
                     summaries.set(Vec::new());
                     onstatus.call(format!("Could not load sources: {error}"));
@@ -148,8 +147,11 @@ pub(super) fn SourcesPanel(
         let _multi_note_privacy_reactivity = *multi_note_privacy.read();
         let mode = *composer_mode.read();
         let query = source_query.read().clone();
-        let Some(publication_token) = privacy_epoch.capture_multi_note_publication_with_lifecycle(&search_privacy, library_generation, note_generation)
-        else {
+        let Some(publication_token) = privacy_epoch.capture_multi_note_publication_with_lifecycle(
+            &search_privacy,
+            library_generation,
+            note_generation,
+        ) else {
             source_candidates.set(Vec::new());
             candidates_publication_token.set(None);
             source_search_busy.set(false);
@@ -187,7 +189,7 @@ pub(super) fn SourcesPanel(
                 Ok(items) => {
                     candidates_publication_token.set(Some(publication_token.clone()));
                     source_candidates.set(items);
-                },
+                }
                 Err(error) => {
                     source_candidates.set(Vec::new());
                     onstatus.call(format!("Could not search sources: {error}"));
@@ -675,7 +677,12 @@ pub(super) fn SourcesPanel(
 }
 
 fn source_context(source: &Source) -> String {
-    match source.reference.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+    match source
+        .reference
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         Some(reference) => format!("{} · {reference}", source.kind.label()),
         None => source.kind.label().to_string(),
     }

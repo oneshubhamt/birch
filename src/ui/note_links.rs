@@ -8,9 +8,7 @@ use crate::application::{
 };
 use crate::domain::{BacklinkSummary, NoteCandidate, NoteId};
 
-use super::{
-    note_picker::{NotePicker, NotePickerActions, NotePickerView},
-};
+use super::note_picker::{NotePicker, NotePickerActions, NotePickerView};
 
 const BACKLINK_REFRESH_DELAY_MS: u64 = 2_500;
 
@@ -38,10 +36,7 @@ pub(super) struct NoteLinkPickerActions {
 }
 
 #[component]
-pub(super) fn NoteLinkPicker(
-    view: NoteLinkPickerView,
-    actions: NoteLinkPickerActions,
-) -> Element {
+pub(super) fn NoteLinkPicker(view: NoteLinkPickerView, actions: NoteLinkPickerActions) -> Element {
     let NoteLinkPickerView {
         library,
         request,
@@ -97,10 +92,7 @@ pub(super) struct BacklinksPanelActions {
 }
 
 #[component]
-pub(super) fn BacklinksPanel(
-    view: BacklinksPanelView,
-    actions: BacklinksPanelActions,
-) -> Element {
+pub(super) fn BacklinksPanel(view: BacklinksPanelView, actions: BacklinksPanelActions) -> Element {
     let BacklinksPanelView {
         notes,
         note_id,
@@ -145,8 +137,7 @@ pub(super) fn BacklinksPanel(
             if revision > 0 {
                 tokio::time::sleep(Duration::from_millis(BACKLINK_REFRESH_DELAY_MS)).await;
             }
-            if *request_generation.peek() != next_generation
-                || !publication_token.is_publishable()
+            if *request_generation.peek() != next_generation || !publication_token.is_publishable()
             {
                 return;
             }
@@ -169,7 +160,7 @@ pub(super) fn BacklinksPanel(
                 Ok(items) => {
                     backlinks_publication_token.set(Some(publication_token.clone()));
                     backlinks.set(items);
-                },
+                }
                 Err(error) => {
                     backlinks.set(Vec::new());
                     onstatus.call(format!("Could not load backlinks: {error}"));

@@ -24,9 +24,7 @@ pub fn normalize_safe_href(raw: &str) -> Result<String, LinkValidationError> {
     let parsed = Url::parse(value).map_err(|_| parse_error_for(value))?;
     match parsed.scheme() {
         "https" | "http" => match parsed.host_str() {
-            Some(host) if !host.is_empty() && !matches!(host, "." | "..") => {
-                Ok(value.to_string())
-            }
+            Some(host) if !host.is_empty() && !matches!(host, "." | "..") => Ok(value.to_string()),
             _ => Err(LinkValidationError::IncompleteWebAddress),
         },
         "mailto" => {
@@ -49,8 +47,7 @@ pub fn is_safe_href(value: &str) -> bool {
 
 pub fn is_safe_web_href(value: &str) -> bool {
     is_safe_href(value)
-        && Url::parse(value)
-            .is_ok_and(|parsed| matches!(parsed.scheme(), "https" | "http"))
+        && Url::parse(value).is_ok_and(|parsed| matches!(parsed.scheme(), "https" | "http"))
 }
 
 fn parse_error_for(value: &str) -> LinkValidationError {

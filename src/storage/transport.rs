@@ -37,7 +37,6 @@ pub struct AttachmentTransportResource {
     pub(crate) authorization: crate::security::PlaintextOperationPermit,
 }
 
-
 /// Opaque lifetime guard for note-scoped plaintext attachment ingress.
 ///
 /// The binary transport layer may hold this value but cannot inspect or
@@ -131,7 +130,9 @@ impl AttachmentTransportStore {
         let authorization = self.storage.acquire_plaintext_operation_for_note(note_id)?;
         self.storage
             .validate_note_accepts_attachment_with_authorization(note_id, &authorization)?;
-        Ok(AttachmentPlaintextIngressGuard { _authorization: authorization })
+        Ok(AttachmentPlaintextIngressGuard {
+            _authorization: authorization,
+        })
     }
 
     fn open_session(&self, read_only: bool) -> StorageResult<AttachmentTransportSession> {
@@ -165,7 +166,9 @@ impl AttachmentTransportSession {
         let Some(note_id) = note_id else {
             return Ok(None);
         };
-        let authorization = self.storage.acquire_plaintext_operation_for_note(&note_id)?;
+        let authorization = self
+            .storage
+            .acquire_plaintext_operation_for_note(&note_id)?;
         self.attachment_resource_with_authorization(attachment_id, authorization)
     }
 
@@ -238,9 +241,12 @@ impl AttachmentTransportSession {
             let resource = self
                 .storage
                 .protected_attachment_with_access(attachment_id, access)?
-                .ok_or_else(|| StorageError::Integrity(
-                    "protected attachment state changed during authorized transport read".to_string(),
-                ))?;
+                .ok_or_else(|| {
+                    StorageError::Integrity(
+                        "protected attachment state changed during authorized transport read"
+                            .to_string(),
+                    )
+                })?;
             return Ok(Some(AttachmentTransportResource {
                 path: resource.path,
                 content_hash: resource.attachment.sha256,
@@ -279,10 +285,10 @@ impl AttachmentTransportSession {
         attachment_id: &str,
         page_index: u32,
     ) -> StorageResult<Option<String>> {
-        if let Some(annotation) = self.storage.protected_pdf_annotation_if_unlocked(
-            attachment_id,
-            i64::from(page_index),
-        )? {
+        if let Some(annotation) = self
+            .storage
+            .protected_pdf_annotation_if_unlocked(attachment_id, i64::from(page_index))?
+        {
             return Ok(annotation.map(|(annotations_json, _)| annotations_json));
         }
         self.connection
@@ -348,7 +354,8 @@ impl AttachmentTransportSession {
         let mut statement = self.connection.prepare(
             "SELECT page_index FROM pdf_annotation_pages WHERE attachment_id = ?1 ORDER BY page_index LIMIT ?2",
         )?;
-        let rows = statement.query_map(params![attachment_id, limit], |row| row.get::<_, u32>(0))?;
+        let rows =
+            statement.query_map(params![attachment_id, limit], |row| row.get::<_, u32>(0))?;
         Ok(rows.filter_map(Result::ok).collect())
     }
 
@@ -483,7 +490,10 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(1));
         }
-        assert!(revocation_visible, "Lock should publish revocation promptly");
+        assert!(
+            revocation_visible,
+            "Lock should publish revocation promptly"
+        );
         assert!(
             done_rx.try_recv().is_err(),
             "Lock must not complete while a protected transport resource is alive"

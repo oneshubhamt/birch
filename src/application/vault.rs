@@ -87,7 +87,10 @@ impl VaultProtectionService {
 
     pub(crate) fn lock_note(&self, note_id: &NoteId) -> Result<Note, DataAccessError> {
         self.block_autosave(note_id)?;
-        let result = self.storage.lock_note(note_id).map_err(DataAccessError::from);
+        let result = self
+            .storage
+            .lock_note(note_id)
+            .map_err(DataAccessError::from);
         // The worker barrier is transition-scoped, not a permanent lock-state flag.
         // Once Lock finishes, authoritative storage/session state decides whether
         // autosave mutation is admissible; a locked note remains blocked because

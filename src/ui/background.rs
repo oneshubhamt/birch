@@ -1,13 +1,9 @@
 use dioxus::prelude::*;
 
-use crate::application::executor::{
-    ApplicationExecutionStatus, ApplicationOperation,
-};
+use crate::application::executor::{ApplicationExecutionStatus, ApplicationOperation};
 
 #[component]
-pub(super) fn BackgroundOperationViewport(
-    status: Signal<ApplicationExecutionStatus>,
-) -> Element {
+pub(super) fn BackgroundOperationViewport(status: Signal<ApplicationExecutionStatus>) -> Element {
     let state = status.read().clone();
     let quiet_background_operation = matches!(
         state.current,

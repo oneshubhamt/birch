@@ -7,10 +7,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use super::{
-    copy_file_atomically,
-    privacy::remove_file as privacy_remove_file,
-};
+use super::{copy_file_atomically, privacy::remove_file as privacy_remove_file};
 
 const PDF_EXPORT_TOKEN_BYTES: usize = 16;
 const IMAGE_STAGE_TOKEN_BYTES: usize = 16;
@@ -39,8 +36,8 @@ fn derivative_stage_registry() -> &'static Mutex<HashMap<String, PlaintextDeriva
     PLAINTEXT_DERIVATIVE_STAGES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn lock_derivative_stage_registry(
-) -> MutexGuard<'static, HashMap<String, PlaintextDerivativeStage>> {
+fn lock_derivative_stage_registry() -> MutexGuard<'static, HashMap<String, PlaintextDerivativeStage>>
+{
     derivative_stage_registry()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -87,11 +84,13 @@ fn ensure_derivative_stage_attachment_identity(
     attachment_id: &str,
 ) -> super::NativeResult<PathBuf> {
     let stages = lock_derivative_stage_registry();
-    let stage = stages
-        .get(key)
-        .ok_or_else(|| super::NativeError::operation("Sensitive staged derivative is no longer available"))?;
+    let stage = stages.get(key).ok_or_else(|| {
+        super::NativeError::operation("Sensitive staged derivative is no longer available")
+    })?;
     if stage.owner != PlaintextDerivativeOwner::Attachment(attachment_id.to_string()) {
-        return super::native_error("Sensitive staged derivative belongs to a different attachment");
+        return super::native_error(
+            "Sensitive staged derivative belongs to a different attachment",
+        );
     }
     Ok(stage.path.clone())
 }
@@ -230,7 +229,10 @@ impl std::fmt::Display for PdfExportStagingError {
                 write!(formatter, "Could not prepare PDF export staging: {error}")
             }
             Self::Create(error) => {
-                write!(formatter, "Could not create PDF export staging file: {error}")
+                write!(
+                    formatter,
+                    "Could not create PDF export staging file: {error}"
+                )
             }
             Self::Stage(error) => write!(formatter, "Could not stage annotated PDF: {error}"),
             Self::AllocationFailed => {
@@ -253,10 +255,9 @@ impl std::error::Error for PdfExportStagingError {
             | Self::Stage(error)
             | Self::Discard(error) => Some(error),
             Self::Save(error) => Some(error),
-            Self::InvalidToken
-            | Self::InvalidPdf
-            | Self::AllocationFailed
-            | Self::Unavailable => None,
+            Self::InvalidToken | Self::InvalidPdf | Self::AllocationFailed | Self::Unavailable => {
+                None
+            }
         }
     }
 }
@@ -290,8 +291,10 @@ fn archive_restore_root() -> super::NativeResult<PathBuf> {
 /// Fail-closed startup cleanup for browser-originated image staging left by crashed
 /// Rustnote processes. Callers must stop startup on error.
 pub fn cleanup_stale_image_stages() -> super::NativeResult<usize> {
-    Ok(cleanup_sensitive_stage_root(&image_edit_stage_root()?, "image edits")?
-        + cleanup_sensitive_stage_root(&image_import_stage_root()?, "image imports")?)
+    Ok(
+        cleanup_sensitive_stage_root(&image_edit_stage_root()?, "image edits")?
+            + cleanup_sensitive_stage_root(&image_import_stage_root()?, "image imports")?,
+    )
 }
 
 fn cleanup_sensitive_stage_root(root: &Path, label: &str) -> super::NativeResult<usize> {
@@ -337,13 +340,15 @@ fn cleanup_sensitive_stage_root(root: &Path, label: &str) -> super::NativeResult
 }
 
 fn image_edit_stage_root() -> super::NativeResult<PathBuf> {
-    super::private_temp::rustnote_temp_directory("image-edit")
-        .map_err(|error| super::NativeError::operation(format!("Could not prepare image edit staging: {error}")))
+    super::private_temp::rustnote_temp_directory("image-edit").map_err(|error| {
+        super::NativeError::operation(format!("Could not prepare image edit staging: {error}"))
+    })
 }
 
 fn image_import_stage_root() -> super::NativeResult<PathBuf> {
-    super::private_temp::rustnote_temp_directory("image-import")
-        .map_err(|error| super::NativeError::operation(format!("Could not prepare image import staging: {error}")))
+    super::private_temp::rustnote_temp_directory("image-import").map_err(|error| {
+        super::NativeError::operation(format!("Could not prepare image import staging: {error}"))
+    })
 }
 
 fn image_edit_stage_process_owner() -> super::NativeResult<super::temp_owner::ProcessPrivateOwner> {
@@ -355,7 +360,8 @@ fn image_edit_stage_process_root() -> super::NativeResult<PathBuf> {
     Ok(image_edit_stage_process_owner()?.root().to_path_buf())
 }
 
-fn image_import_stage_process_owner() -> super::NativeResult<super::temp_owner::ProcessPrivateOwner> {
+fn image_import_stage_process_owner() -> super::NativeResult<super::temp_owner::ProcessPrivateOwner>
+{
     let root = image_import_stage_root()?;
     super::temp_owner::process_session_owner(&root, "image import staging")
 }
@@ -372,8 +378,7 @@ fn image_stage_token() -> String {
 }
 
 fn valid_image_stage_token(token: &str) -> bool {
-    token.len() == IMAGE_STAGE_TOKEN_BYTES * 2
-        && token.bytes().all(|byte| byte.is_ascii_hexdigit())
+    token.len() == IMAGE_STAGE_TOKEN_BYTES * 2 && token.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn image_edit_stage_extension(mime_type: &str) -> super::NativeResult<&'static str> {
@@ -421,7 +426,9 @@ fn prune_abandoned_ready_image_stages(
     let entries = match fs::read_dir(root) {
         Ok(entries) => entries,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(0),
-        Err(error) => return super::native_error(format!("Could not inspect image staging: {error}")),
+        Err(error) => {
+            return super::native_error(format!("Could not inspect image staging: {error}"));
+        }
     };
     // Registered derivatives have an explicit owner and lifecycle. Never age
     // them out behind the registry's back; Vault transitions and consumers are
@@ -438,9 +445,7 @@ fn prune_abandoned_ready_image_stages(
     let mut removed = 0;
     for entry in entries {
         let entry = entry.map_err(|error| {
-            super::NativeError::operation(format!(
-                "Could not inspect image staging entry: {error}"
-            ))
+            super::NativeError::operation(format!("Could not inspect image staging entry: {error}"))
         })?;
         let path = entry.path();
         if registered_paths.contains(&path) {
@@ -467,7 +472,9 @@ fn prune_abandoned_ready_image_stages(
                     "Could not inspect image staging age: {error}"
                 ))
             })?;
-        let Ok(age) = now.duration_since(modified) else { continue };
+        let Ok(age) = now.duration_since(modified) else {
+            continue;
+        };
         if age < ABANDONED_IMAGE_STAGE_READY_AGE {
             continue;
         }
@@ -719,12 +726,7 @@ pub fn claim_staged_image_edit(
 
 pub fn discard_staged_image_edit(token: &str) -> super::NativeResult<()> {
     let process_owner = image_edit_stage_process_owner()?;
-    let result = discard_staged_image_file(
-        &process_owner,
-        token,
-        &["png", "jpg"],
-        "image edit",
-    );
+    let result = discard_staged_image_file(&process_owner, token, &["png", "jpg"], "image edit");
     if result.is_ok() {
         unregister_derivative_stage(&derivative_stage_key("image-edit", token));
     }
@@ -733,10 +735,7 @@ pub fn discard_staged_image_edit(token: &str) -> super::NativeResult<()> {
 
 /// Stage a pasted, dropped, or replacement image as raw binary. The file name
 /// and media type remain in the small control payload; only bytes use this path.
-pub fn stage_image_import(
-    note_id: &str,
-    bytes: &[u8],
-) -> super::NativeResult<String> {
+pub fn stage_image_import(note_id: &str, bytes: &[u8]) -> super::NativeResult<String> {
     stage_image_import_reader(note_id, io::Cursor::new(bytes), bytes.len())
 }
 
@@ -800,7 +799,9 @@ pub(crate) fn stage_image_import_reader(
             Ok(copied) => copied,
             Err(error) => {
                 cleanup_registered_stage_after_failure(&key, &path);
-                return super::native_error(format!("Could not stage image import staging: {error}"));
+                return super::native_error(format!(
+                    "Could not stage image import staging: {error}"
+                ));
             }
         };
         if copied != byte_len as u64 {
@@ -830,12 +831,7 @@ pub fn claim_staged_image_import(token: &str, note_id: &str) -> super::NativeRes
 
 pub fn discard_staged_image_import(token: &str) -> super::NativeResult<()> {
     let process_owner = image_import_stage_process_owner()?;
-    let result = discard_staged_image_file(
-        &process_owner,
-        token,
-        &["bin"],
-        "image import",
-    );
+    let result = discard_staged_image_file(&process_owner, token, &["bin"], "image import");
     if result.is_ok() {
         unregister_derivative_stage(&derivative_stage_key("image-import", token));
     }
@@ -843,12 +839,13 @@ pub fn discard_staged_image_import(token: &str) -> super::NativeResult<()> {
 }
 
 fn pdf_export_root() -> super::NativeResult<PathBuf> {
-    super::private_temp::rustnote_temp_directory("pdf-export")
-        .map_err(|error| super::NativeError::operation(format!("Could not prepare PDF export staging: {error}")))
+    super::private_temp::rustnote_temp_directory("pdf-export").map_err(|error| {
+        super::NativeError::operation(format!("Could not prepare PDF export staging: {error}"))
+    })
 }
 
-fn pdf_export_process_owner(
-) -> Result<super::temp_owner::ProcessPrivateOwner, PdfExportStagingError> {
+fn pdf_export_process_owner()
+-> Result<super::temp_owner::ProcessPrivateOwner, PdfExportStagingError> {
     let root = pdf_export_root()
         .map_err(|error| PdfExportStagingError::Prepare(io::Error::other(error.to_string())))?;
     super::temp_owner::process_session_owner(&root, "PDF export staging")
@@ -889,8 +886,7 @@ pub fn stage_pdf_export(
     }
     let process_owner = pdf_export_process_owner()?;
     let root = process_owner.root().to_path_buf();
-    super::private_temp::ensure_private_directory(&root)
-        .map_err(PdfExportStagingError::Prepare)?;
+    super::private_temp::ensure_private_directory(&root).map_err(PdfExportStagingError::Prepare)?;
     for _ in 0..8 {
         let token = pdf_export_token();
         let path = root.join(format!("{token}.pdf"));
@@ -1030,7 +1026,11 @@ mod tests {
             "image import staging",
         )
         .expect_err("short image body must fail");
-        assert!(error.to_string().contains("expected 6 bytes but received 5"));
+        assert!(
+            error
+                .to_string()
+                .contains("expected 6 bytes but received 5")
+        );
         let staged_files = fs::read_dir(&root)
             .map(|entries| entries.filter_map(Result::ok).count())
             .unwrap_or(0);
@@ -1057,14 +1057,15 @@ mod tests {
 
     #[test]
     fn derivative_stage_identity_is_enforced_and_targeted_cleanup_is_scoped() {
-        let first = stage_pdf_export("att_stage_first", b"%PDF-1.4\nfirst\n%%EOF\n")
-            .expect("first stage");
+        let first =
+            stage_pdf_export("att_stage_first", b"%PDF-1.4\nfirst\n%%EOF\n").expect("first stage");
         let second = stage_pdf_export("att_stage_second", b"%PDF-1.4\nsecond\n%%EOF\n")
             .expect("second stage");
         let mismatch = save_staged_pdf_export(
             &first,
             "att_stage_second",
-            &std::env::temp_dir().join(format!("rustnote-stage-mismatch-{}", rand::random::<u64>())),
+            &std::env::temp_dir()
+                .join(format!("rustnote-stage-mismatch-{}", rand::random::<u64>())),
         )
         .expect_err("cross-attachment stage claim must fail");
         assert!(mismatch.to_string().contains("different attachment"));

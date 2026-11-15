@@ -8,7 +8,10 @@ mod handoff;
 mod image;
 mod mobile;
 // Temporary staged secure-store boundary; consumed by the next backup-storage pass.
-#[expect(dead_code, reason = "staged secure-store boundary awaits encrypted backup repository integration")]
+#[expect(
+    dead_code,
+    reason = "staged secure-store boundary awaits encrypted backup repository integration"
+)]
 mod secure_key_store;
 
 use std::{fs, io, path::Path};
@@ -17,13 +20,13 @@ use std::{fs, io, path::Path};
 use std::path::PathBuf;
 
 pub use mobile::{MobilePlatformAdapter, register_mobile_platform_adapter};
-pub use secure_key_store::{
-    DeviceBackupRootCreation, DeviceBackupRootStatus, SecureKeyMaterial, SecureKeyStoreError,
-    SecureKeyStoreResult,
-};
 pub(crate) use secure_key_store::{
     BackupProtectorKind, BackupWrapAlgorithm, DeviceBackupKeyProtector,
     system_device_backup_key_protector,
+};
+pub use secure_key_store::{
+    DeviceBackupRootCreation, DeviceBackupRootStatus, SecureKeyMaterial, SecureKeyStoreError,
+    SecureKeyStoreResult,
 };
 
 #[derive(Debug)]
@@ -71,7 +74,9 @@ pub(crate) fn ensure_mobile_platform_ready() -> PlatformResult<()> {
     if let Some(documents) = adapter.documents_directory()
         && (documents.as_os_str().is_empty() || !documents.is_absolute())
     {
-        return Err(PlatformError::operation("Rustnote's mobile documents directory must be an absolute path"));
+        return Err(PlatformError::operation(
+            "Rustnote's mobile documents directory must be an absolute path",
+        ));
     }
     Ok(())
 }

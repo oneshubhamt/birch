@@ -17,7 +17,6 @@ use super::synchronization::{
     synchronize_then_begin_whole_library_operation,
 };
 
-
 #[derive(Debug)]
 enum LibraryPortabilityExportError {
     Synchronization(SynchronizationError),
@@ -90,16 +89,24 @@ pub(super) fn PortabilitySettings(props: PortabilitySettingsProps) -> Element {
     let inspect_file = {
         let services = services.clone();
         move |_| {
-            if controls_disabled { return; }
+            if controls_disabled {
+                return;
+            }
             let service = services.portability();
             busy.set(true);
             spawn(async move {
                 let selected = AsyncFileDialog::new()
                     .set_title("Import into Rustnote")
-                    .add_filter("Rustnote-supported files", &["txt", "md", "markdown", "html", "htm", "rustnote"])
+                    .add_filter(
+                        "Rustnote-supported files",
+                        &["txt", "md", "markdown", "html", "htm", "rustnote"],
+                    )
                     .pick_file()
                     .await;
-                let Some(handle) = selected else { busy.set(false); return; };
+                let Some(handle) = selected else {
+                    busy.set(false);
+                    return;
+                };
                 let source = handle.path().to_path_buf();
                 match service.inspect_source(source).await {
                     Ok(plan) => pending.set(Some(PendingImport { plan })),
@@ -113,12 +120,20 @@ pub(super) fn PortabilitySettings(props: PortabilitySettingsProps) -> Element {
     let inspect_folder = {
         let services = services.clone();
         move |_| {
-            if controls_disabled { return; }
+            if controls_disabled {
+                return;
+            }
             let service = services.portability();
             busy.set(true);
             spawn(async move {
-                let selected = AsyncFileDialog::new().set_title("Import a folder into Rustnote").pick_folder().await;
-                let Some(handle) = selected else { busy.set(false); return; };
+                let selected = AsyncFileDialog::new()
+                    .set_title("Import a folder into Rustnote")
+                    .pick_folder()
+                    .await;
+                let Some(handle) = selected else {
+                    busy.set(false);
+                    return;
+                };
                 let source = handle.path().to_path_buf();
                 match service.inspect_source(source).await {
                     Ok(plan) => pending.set(Some(PendingImport { plan })),

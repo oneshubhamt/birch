@@ -1,10 +1,8 @@
 use std::fmt;
 
-use rustnote_vault::{
-    BACKUP_APPLE_KEYSET_ENVELOPE_V1_BYTES, BACKUP_REPOSITORY_KEYSET_V1_BYTES,
-};
 #[cfg(target_os = "android")]
 use rustnote_vault::BACKUP_ANDROID_KEYSET_ENVELOPE_V1_BYTES;
+use rustnote_vault::{BACKUP_APPLE_KEYSET_ENVELOPE_V1_BYTES, BACKUP_REPOSITORY_KEYSET_V1_BYTES};
 use zeroize::Zeroizing;
 
 pub(super) const BACKUP_REPOSITORY_KEYSET_BYTES: usize = BACKUP_REPOSITORY_KEYSET_V1_BYTES;
@@ -69,9 +67,8 @@ pub enum SecureKeyStoreError {
 impl fmt::Display for SecureKeyStoreError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnsupportedPlatform => formatter.write_str(
-                "Rustnote managed encrypted backups are unavailable on this platform",
-            ),
+            Self::UnsupportedPlatform => formatter
+                .write_str("Rustnote managed encrypted backups are unavailable on this platform"),
             Self::Unavailable(message) => {
                 write!(formatter, "OS secure key store is unavailable: {message}")
             }
@@ -120,10 +117,7 @@ pub(crate) trait DeviceBackupKeyProtector: Send + Sync {
 mod macos {
     use super::*;
     use core_foundation::{
-        base::TCFType,
-        data::CFData,
-        dictionary::CFDictionary,
-        string::CFString,
+        base::TCFType, data::CFData, dictionary::CFDictionary, string::CFString,
     };
     use rustnote_vault::{
         BACKUP_DEVICE_ROOT_KEY_BYTES, BackupDeviceRootKey, BackupKeyEnvelopeService,
@@ -249,9 +243,7 @@ mod macos {
             match add_result? {
                 DeviceBackupRootCreation::Created => Ok(DeviceBackupRootCreation::Created),
                 DeviceBackupRootCreation::AlreadyPresent => match self.root_status()? {
-                    DeviceBackupRootStatus::Present => {
-                        Ok(DeviceBackupRootCreation::AlreadyPresent)
-                    }
+                    DeviceBackupRootStatus::Present => Ok(DeviceBackupRootCreation::AlreadyPresent),
                     DeviceBackupRootStatus::Missing => Err(SecureKeyStoreError::Unavailable(
                         "device backup root creation raced but no root key is readable".to_string(),
                     )),

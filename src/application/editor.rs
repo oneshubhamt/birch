@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::autosave::{AutosaveController, AutosaveEvent, TargetFlushTicket};
-use crate::editor_projection::derive_editor_projections;
 use crate::application::errors::EditorError;
+use crate::autosave::{AutosaveController, AutosaveEvent, TargetFlushTicket};
 use crate::domain::{Attachment, Note, NoteId, NoteLinkTarget};
+use crate::editor_projection::derive_editor_projections;
 use crate::storage::{
     EditorStore, NoteSaveScope, RevisionMode,
     RevisionRestoreAuthorization as StorageRevisionRestoreAuthorization,
@@ -30,11 +30,7 @@ pub(crate) struct EditorFlushResult {
 
 impl EditorFlushTicket {
     pub(crate) fn wait(self) -> Result<EditorFlushResult, EditorError> {
-        let (_, pending_warning) = self
-            .0
-            .wait()
-            .map_err(EditorError::Autosave)?
-            .into_parts();
+        let (_, pending_warning) = self.0.wait().map_err(EditorError::Autosave)?.into_parts();
         Ok(EditorFlushResult { pending_warning })
     }
 }
@@ -67,8 +63,6 @@ pub(crate) struct RevisionRestorePersistence {
     pub(crate) authorization: Option<RevisionRestoreAuthorization>,
 }
 
-
-
 impl EditorService {
     pub(crate) fn new(storage: EditorStore, autosave: AutosaveController) -> Self {
         Self { storage, autosave }
@@ -78,7 +72,10 @@ impl EditorService {
         self.storage.get_note(note_id).map_err(EditorError::from)
     }
 
-    pub(crate) fn note_link_targets(&self, note_id: &NoteId) -> Result<Vec<NoteLinkTarget>, EditorError> {
+    pub(crate) fn note_link_targets(
+        &self,
+        note_id: &NoteId,
+    ) -> Result<Vec<NoteLinkTarget>, EditorError> {
         self.storage
             .list_note_link_targets(note_id)
             .map_err(EditorError::from)
@@ -98,12 +95,11 @@ impl EditorService {
             // A locked note has no live plaintext editor to checkpoint. Treat the
             // durability boundary as already satisfied and return canonical public
             // state instead of asking the autosave worker to persist a locked stub.
-            return Ok(Arc::new(self.storage.get_note(&note_id)?.unwrap_or(selected)));
+            return Ok(Arc::new(
+                self.storage.get_note(&note_id)?.unwrap_or(selected),
+            ));
         }
-        let mut current = self
-            .storage
-            .get_note(&note_id)?
-            .unwrap_or(selected);
+        let mut current = self.storage.get_note(&note_id)?.unwrap_or(selected);
         let document_changed = match editor_state {
             Some(editor_state) if current.editor_state() == editor_state => false,
             Some(editor_state) => {
@@ -153,7 +149,9 @@ impl EditorService {
     }
 
     pub(crate) fn checkpoint_all(&self) -> Result<(), EditorError> {
-        self.autosave.checkpoint_all().map_err(EditorError::Autosave)
+        self.autosave
+            .checkpoint_all()
+            .map_err(EditorError::Autosave)
     }
 
     pub(crate) fn schedule_note(
@@ -252,7 +250,7 @@ impl EditorService {
                 .flush_note_silent_scoped(current, NoteSaveScope::DOCUMENT)
                 .map_err(|error| {
                     EditorError::Autosave(
-                        error.context("could not save the current note before restoring")
+                        error.context("could not save the current note before restoring"),
                     )
                 })?;
             self.autosave
@@ -266,9 +264,7 @@ impl EditorService {
             )
         };
 
-        if !protected_restore
-            && let Err(error) = self.autosave.discard_note(&note_id)
-        {
+        if !protected_restore && let Err(error) = self.autosave.discard_note(&note_id) {
             restored.warnings.push(format!(
                 "The restored version was committed, but stale autosave cleanup will be retried: {error}"
             ));
@@ -326,9 +322,7 @@ impl EditorService {
                 "The restored version was committed, but the runtime-normalized state could not be persisted: {error}"
             ));
         }
-        if !protected_normalization
-            && let Err(error) = self.autosave.discard_note(&note_id)
-        {
+        if !protected_normalization && let Err(error) = self.autosave.discard_note(&note_id) {
             warnings.push(format!(
                 "The restored version was committed, but normalized autosave cleanup will be retried: {error}"
             ));
@@ -360,8 +354,8 @@ impl EditorService {
 pub(crate) fn project_editor_document(
     editor_state: String,
 ) -> Result<ProjectedEditorDocument, EditorError> {
-    let projections = derive_editor_projections(&editor_state)
-        .map_err(EditorError::InvalidDocument)?;
+    let projections =
+        derive_editor_projections(&editor_state).map_err(EditorError::InvalidDocument)?;
     Ok(ProjectedEditorDocument {
         editor_state,
         markdown: projections.markdown,
@@ -369,10 +363,7 @@ pub(crate) fn project_editor_document(
     })
 }
 
-pub(crate) fn apply_projected_document(
-    note: &mut Note,
-    change: ProjectedEditorDocument,
-) -> bool {
+pub(crate) fn apply_projected_document(note: &mut Note, change: ProjectedEditorDocument) -> bool {
     if note.editor_state() == change.editor_state
         && note.body() == change.markdown
         && note.plain_text() == change.plain_text
@@ -389,7 +380,9 @@ mod tests {
 
     #[test]
     fn projected_document_round_trip_preserves_canonical_state() {
-        let state = include_str!("../../assets/blank-editor-state.json").trim().to_string();
+        let state = include_str!("../../assets/blank-editor-state.json")
+            .trim()
+            .to_string();
         let projected = project_editor_document(state.clone()).expect("project blank document");
         assert_eq!(projected.editor_state, state);
         assert!(!projected.markdown.contains("undefined"));
@@ -402,24 +395,20 @@ mod tests {
             std::process::id(),
             crate::storage::new_id("switch")
         ));
-        let storage = crate::storage::Storage::at_with_backup(
-            root.join("data"),
-            root.join("backups"),
-        )
-        .expect("test storage should initialize");
+        let storage =
+            crate::storage::Storage::at_with_backup(root.join("data"), root.join("backups"))
+                .expect("test storage should initialize");
         let mut current = storage.create_note(None).expect("create current note");
         let target = storage.create_note(None).expect("create target note");
         current.title = "Checkpointed before switch".to_string();
 
         let autosave = AutosaveController::try_new(storage.clone()).expect("start autosave");
-        autosave.schedule(current.clone()).expect("schedule current note");
+        autosave
+            .schedule(current.clone())
+            .expect("schedule current note");
         let service = EditorService::new(storage.editor_store(), autosave.clone());
         let checkpointed = service
-            .synchronize_document(
-                current.clone(),
-                None,
-                EditorPersistenceMode::Checkpoint,
-            )
+            .synchronize_document(current.clone(), None, EditorPersistenceMode::Checkpoint)
             .expect("checkpoint current note");
         let loaded = service
             .load_note(&target.id)
@@ -450,11 +439,9 @@ mod tests {
             std::process::id(),
             crate::storage::new_id("vault-switch")
         ));
-        let storage = crate::storage::Storage::at_with_backup(
-            root.join("data"),
-            root.join("backups"),
-        )
-        .expect("test storage should initialize");
+        let storage =
+            crate::storage::Storage::at_with_backup(root.join("data"), root.join("backups"))
+                .expect("test storage should initialize");
         let mut current = storage.create_note(None).expect("create protected note");
         let target = storage.create_note(None).expect("create target note");
         current.title = "Private finance title".to_string();
@@ -515,5 +502,4 @@ mod tests {
         drop(storage);
         let _ = std::fs::remove_dir_all(root);
     }
-
 }

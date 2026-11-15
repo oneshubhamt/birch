@@ -187,8 +187,8 @@ impl BackupKeyEnvelopeService {
         plaintext: &[u8; BACKUP_REPOSITORY_KEYSET_V1_BYTES],
         nonce: [u8; NONCE_BYTES],
     ) -> Result<[u8; BACKUP_APPLE_KEYSET_ENVELOPE_V1_BYTES], VaultError> {
-        let (ciphertext, tag) = Aegis256::<TAG_BYTES>::new(root_key.bytes(), &nonce)
-            .encrypt(plaintext, aad);
+        let (ciphertext, tag) =
+            Aegis256::<TAG_BYTES>::new(root_key.bytes(), &nonce).encrypt(plaintext, aad);
         if ciphertext.len() != BACKUP_REPOSITORY_KEYSET_V1_BYTES {
             return Err(VaultError::LengthMismatch);
         }
@@ -213,8 +213,7 @@ impl BackupKeyEnvelopeService {
 
         let mut nonce = [0u8; NONCE_BYTES];
         nonce.copy_from_slice(&encoded[..NONCE_BYTES]);
-        let ciphertext =
-            &encoded[NONCE_BYTES..NONCE_BYTES + BACKUP_REPOSITORY_KEYSET_V1_BYTES];
+        let ciphertext = &encoded[NONCE_BYTES..NONCE_BYTES + BACKUP_REPOSITORY_KEYSET_V1_BYTES];
         let mut tag = [0u8; TAG_BYTES];
         tag.copy_from_slice(&encoded[NONCE_BYTES + BACKUP_REPOSITORY_KEYSET_V1_BYTES..]);
         let plaintext = Zeroizing::new(
@@ -338,12 +337,13 @@ impl VaultService {
         context: VaultContext<'_>,
         plaintext: &[u8],
     ) -> Result<Vec<u8>, VaultError> {
-        let plaintext_len = u64::try_from(plaintext.len()).map_err(|_| VaultError::LengthOverflow)?;
+        let plaintext_len =
+            u64::try_from(plaintext.len()).map_err(|_| VaultError::LengthOverflow)?;
         let nonce = random_nonce()?;
         let header = object_header(plaintext_len, &nonce);
         let aad = authenticated_context(b"object", &header, context)?;
-        let (ciphertext, tag) = Aegis256::<TAG_BYTES>::new(key.bytes(), &nonce)
-            .encrypt(plaintext, &aad);
+        let (ciphertext, tag) =
+            Aegis256::<TAG_BYTES>::new(key.bytes(), &nonce).encrypt(plaintext, &aad);
 
         let mut output = Vec::with_capacity(OBJECT_HEADER_BYTES + ciphertext.len() + TAG_BYTES);
         output.extend_from_slice(&header);
@@ -385,8 +385,8 @@ impl VaultService {
         let nonce = random_nonce()?;
         let header = key_header(params, &salt, &nonce);
         let aad = authenticated_context(b"key-envelope", &header, context)?;
-        let (ciphertext, tag) = Aegis256::<TAG_BYTES>::new(&wrapping_key, &nonce)
-            .encrypt(key.bytes(), &aad);
+        let (ciphertext, tag) =
+            Aegis256::<TAG_BYTES>::new(&wrapping_key, &nonce).encrypt(key.bytes(), &aad);
 
         let mut output = Vec::with_capacity(KEY_HEADER_BYTES + KEY_BYTES + TAG_BYTES);
         output.extend_from_slice(&header);
@@ -440,8 +440,8 @@ impl VaultService {
         let header = blob_header(chunk_bytes_u32, plaintext_len, &nonce_prefix);
         let header_aad = authenticated_context(b"blob-header", &header, context)?;
         let header_nonce = blob_nonce(&nonce_prefix, u64::MAX);
-        let (_, header_tag) = Aegis256::<TAG_BYTES>::new(key.bytes(), &header_nonce)
-            .encrypt(&[], &header_aad);
+        let (_, header_tag) =
+            Aegis256::<TAG_BYTES>::new(key.bytes(), &header_nonce).encrypt(&[], &header_aad);
 
         writer.write_all(&header)?;
         writer.write_all(&header_tag)?;
@@ -453,8 +453,8 @@ impl VaultService {
             read_exact_payload(&mut reader, &mut buffer[..expected])?;
             let nonce = blob_nonce(&nonce_prefix, index);
             let aad = blob_chunk_aad(&header, context, index, expected)?;
-            let (ciphertext, tag) = Aegis256::<TAG_BYTES>::new(key.bytes(), &nonce)
-                .encrypt(&buffer[..expected], &aad);
+            let (ciphertext, tag) =
+                Aegis256::<TAG_BYTES>::new(key.bytes(), &nonce).encrypt(&buffer[..expected], &aad);
             writer.write_all(&ciphertext)?;
             writer.write_all(&tag)?;
         }
@@ -513,7 +513,9 @@ impl VaultService {
 
         let mut trailing = [0u8; 1];
         if reader.read(&mut trailing)? != 0 {
-            return Err(VaultError::InvalidFormat("protected blob has trailing data"));
+            return Err(VaultError::InvalidFormat(
+                "protected blob has trailing data",
+            ));
         }
         writer.flush()?;
         Ok(ProtectedBlobInfo {
@@ -668,7 +670,9 @@ fn parse_object(encoded: &[u8]) -> Result<ParsedObject<'_>, VaultError> {
     let version = u16::from_be_bytes(encoded[8..10].try_into().expect("two-byte version"));
     validate_version_and_algorithm(version, encoded[10])?;
     if encoded[11] != 0 {
-        return Err(VaultError::InvalidFormat("reserved object flags are non-zero"));
+        return Err(VaultError::InvalidFormat(
+            "reserved object flags are non-zero",
+        ));
     }
     let mut nonce = [0u8; NONCE_BYTES];
     nonce.copy_from_slice(&encoded[12..44]);
@@ -679,7 +683,9 @@ fn parse_object(encoded: &[u8]) -> Result<ParsedObject<'_>, VaultError> {
         .and_then(|length| length.checked_add(TAG_BYTES))
         .ok_or(VaultError::LengthOverflow)?;
     if encoded.len() != expected_len {
-        return Err(VaultError::InvalidFormat("encrypted object length does not match header"));
+        return Err(VaultError::InvalidFormat(
+            "encrypted object length does not match header",
+        ));
     }
     let ciphertext_end = OBJECT_HEADER_BYTES + ciphertext_len;
     let mut tag = [0u8; TAG_BYTES];
@@ -746,7 +752,9 @@ fn parse_blob_header(header: &[u8; BLOB_HEADER_BYTES]) -> Result<ParsedBlobHeade
     let version = u16::from_be_bytes(header[8..10].try_into().expect("two-byte version"));
     validate_version_and_algorithm(version, header[10])?;
     if header[11] != 0 {
-        return Err(VaultError::InvalidFormat("reserved blob flags are non-zero"));
+        return Err(VaultError::InvalidFormat(
+            "reserved blob flags are non-zero",
+        ));
     }
     let chunk_bytes = u32::from_be_bytes(header[12..16].try_into().expect("four-byte chunk size"));
     validate_chunk_bytes(usize::try_from(chunk_bytes).map_err(|_| VaultError::LengthOverflow)?)?;
@@ -783,7 +791,9 @@ fn chunk_plaintext_len(
     index: u64,
 ) -> Result<usize, VaultError> {
     let chunk_bytes_u64 = u64::try_from(chunk_bytes).map_err(|_| VaultError::LengthOverflow)?;
-    let offset = index.checked_mul(chunk_bytes_u64).ok_or(VaultError::LengthOverflow)?;
+    let offset = index
+        .checked_mul(chunk_bytes_u64)
+        .ok_or(VaultError::LengthOverflow)?;
     if offset >= plaintext_len {
         return Err(VaultError::LengthMismatch);
     }
@@ -835,14 +845,22 @@ mod tests {
         let service = VaultService::new();
         let key = service.generate_key().unwrap();
         let plaintext = b"tag-size-check";
-        let encoded = service.seal_object(&key, note_context(), plaintext).unwrap();
+        let encoded = service
+            .seal_object(&key, note_context(), plaintext)
+            .unwrap();
         assert_eq!(encoded.len(), OBJECT_HEADER_BYTES + plaintext.len() + 32);
     }
 
     #[test]
     fn v1_argon2_profile_is_the_untrusted_envelope_resource_ceiling() {
-        assert_eq!(Argon2idParams::V1_INTERACTIVE.memory_kib, MAX_ARGON2_MEMORY_KIB);
-        assert_eq!(Argon2idParams::V1_INTERACTIVE.time_cost, MAX_ARGON2_TIME_COST);
+        assert_eq!(
+            Argon2idParams::V1_INTERACTIVE.memory_kib,
+            MAX_ARGON2_MEMORY_KIB
+        );
+        assert_eq!(
+            Argon2idParams::V1_INTERACTIVE.time_cost,
+            MAX_ARGON2_TIME_COST
+        );
         assert_eq!(Argon2idParams::V1_INTERACTIVE.lanes, MAX_ARGON2_LANES);
         assert_eq!(SALT_BYTES, 16);
         assert_eq!(KEY_BYTES, 32);
@@ -860,9 +878,9 @@ mod tests {
     #[test]
     fn backup_apple_keyset_envelope_round_trips_with_exact_v1_size() {
         let service = BackupKeyEnvelopeService::new();
-        let root = BackupDeviceRootKey::from_zeroizing(Zeroizing::new([
-            0xA5; BACKUP_DEVICE_ROOT_KEY_BYTES
-        ]));
+        let root = BackupDeviceRootKey::from_zeroizing(Zeroizing::new(
+            [0xA5; BACKUP_DEVICE_ROOT_KEY_BYTES],
+        ));
         let aad = b"rustnote-backup-key-envelope-aad-v1-test";
         let mut plaintext = [0u8; BACKUP_REPOSITORY_KEYSET_V1_BYTES];
         for (index, byte) in plaintext.iter_mut().enumerate() {
@@ -887,9 +905,9 @@ mod tests {
     #[test]
     fn backup_apple_keyset_test_fixture_uses_deterministic_nonce_without_production_api() {
         let service = BackupKeyEnvelopeService::new();
-        let root = BackupDeviceRootKey::from_zeroizing(Zeroizing::new([
-            0x17; BACKUP_DEVICE_ROOT_KEY_BYTES
-        ]));
+        let root = BackupDeviceRootKey::from_zeroizing(Zeroizing::new(
+            [0x17; BACKUP_DEVICE_ROOT_KEY_BYTES],
+        ));
         let aad = b"fixture-aad";
         let plaintext = [0x29; BACKUP_REPOSITORY_KEYSET_V1_BYTES];
         let nonce = [0x3B; NONCE_BYTES];
@@ -911,12 +929,12 @@ mod tests {
     #[test]
     fn backup_apple_keyset_envelope_authenticates_aad_key_and_ciphertext() {
         let service = BackupKeyEnvelopeService::new();
-        let root = BackupDeviceRootKey::from_zeroizing(Zeroizing::new([
-            0x31; BACKUP_DEVICE_ROOT_KEY_BYTES
-        ]));
-        let wrong_root = BackupDeviceRootKey::from_zeroizing(Zeroizing::new([
-            0x32; BACKUP_DEVICE_ROOT_KEY_BYTES
-        ]));
+        let root = BackupDeviceRootKey::from_zeroizing(Zeroizing::new(
+            [0x31; BACKUP_DEVICE_ROOT_KEY_BYTES],
+        ));
+        let wrong_root = BackupDeviceRootKey::from_zeroizing(Zeroizing::new(
+            [0x32; BACKUP_DEVICE_ROOT_KEY_BYTES],
+        ));
         let aad = b"repository-header-aad";
         let plaintext = [0x4D; BACKUP_REPOSITORY_KEYSET_V1_BYTES];
         let encoded = service
@@ -949,10 +967,17 @@ mod tests {
         let service = VaultService::new();
         let key = service.generate_key().unwrap();
         let plaintext = b"private Rustnote text";
-        let first = service.seal_object(&key, note_context(), plaintext).unwrap();
-        let second = service.seal_object(&key, note_context(), plaintext).unwrap();
+        let first = service
+            .seal_object(&key, note_context(), plaintext)
+            .unwrap();
+        let second = service
+            .seal_object(&key, note_context(), plaintext)
+            .unwrap();
         assert_ne!(first, second);
-        assert_eq!(&*service.open_object(&key, note_context(), &first).unwrap(), plaintext);
+        assert_eq!(
+            &*service.open_object(&key, note_context(), &first).unwrap(),
+            plaintext
+        );
     }
 
     #[test]
@@ -960,7 +985,9 @@ mod tests {
         let service = VaultService::new();
         let key = service.generate_key().unwrap();
         let wrong_key = service.generate_key().unwrap();
-        let mut encoded = service.seal_object(&key, note_context(), b"secret").unwrap();
+        let mut encoded = service
+            .seal_object(&key, note_context(), b"secret")
+            .unwrap();
 
         assert!(matches!(
             service.open_object(&wrong_key, note_context(), &encoded),
@@ -987,7 +1014,9 @@ mod tests {
     fn object_rejects_header_version_and_algorithm_changes() {
         let service = VaultService::new();
         let key = service.generate_key().unwrap();
-        let encoded = service.seal_object(&key, note_context(), b"secret").unwrap();
+        let encoded = service
+            .seal_object(&key, note_context(), b"secret")
+            .unwrap();
 
         let mut wrong_version = encoded.clone();
         wrong_version[9] = 2;

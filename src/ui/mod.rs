@@ -16,9 +16,9 @@ mod background;
 mod context_menu;
 mod editor;
 mod editor_preferences;
-mod editor_workflows;
 mod editor_toolbar;
 mod editor_toolbar_support;
+mod editor_workflows;
 mod entity_actions;
 mod entity_commands;
 mod eval_bridge;
@@ -31,9 +31,9 @@ mod note_list_data;
 mod note_metadata;
 mod note_picker;
 mod note_properties;
+mod notes_header;
 mod portability;
 mod privacy;
-mod notes_header;
 mod responsive;
 mod right_panel;
 mod search_help;
@@ -42,8 +42,8 @@ mod settings_support;
 mod shortcuts_help;
 mod shutdown;
 mod sidebar;
-mod startup;
 mod sources;
+mod startup;
 mod synchronization;
 mod task_error;
 mod toast;
@@ -183,13 +183,29 @@ enum TagCatalogMutation {
 }
 
 enum NoteCardAction {
-    Rename { note_id: NoteId, title: String },
-    Encrypt { note_id: NoteId, password: SecretString, public_label: String },
-    UnlockEncrypted { note_id: NoteId, password: SecretString },
+    Rename {
+        note_id: NoteId,
+        title: String,
+    },
+    Encrypt {
+        note_id: NoteId,
+        password: SecretString,
+        public_label: String,
+    },
+    UnlockEncrypted {
+        note_id: NoteId,
+        password: SecretString,
+    },
     LockEncrypted(NoteId),
-    RemoveEncryption { note_id: NoteId, password: SecretString },
+    RemoveEncryption {
+        note_id: NoteId,
+        password: SecretString,
+    },
     TogglePin(NoteId),
-    Move { note_id: NoteId, notebook_id: String },
+    Move {
+        note_id: NoteId,
+        notebook_id: String,
+    },
     ToggleArchive(NoteId),
     ToggleTrash(NoteId),
     Duplicate(NoteId),
@@ -206,9 +222,19 @@ struct VaultTransitionUiState {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum NoteCardTagAction {
-    Rename { note_id: NoteId, from: String, to: String },
-    Remove { note_id: NoteId, name: String },
-    Delete { note_id: NoteId, name: String },
+    Rename {
+        note_id: NoteId,
+        from: String,
+        to: String,
+    },
+    Remove {
+        note_id: NoteId,
+        name: String,
+    },
+    Delete {
+        note_id: NoteId,
+        name: String,
+    },
 }
 
 /// Signals owned by the note-list workflow. This is deliberately scoped to
@@ -279,16 +305,14 @@ impl NotesListState {
         let transition = self.vault_transition.peek();
         let busy = self.vault_action_busy.peek();
         self.selected_note.peek().is_none()
-            && transition.as_ref().is_some_and(|transition| {
-                busy.as_ref() == Some(&transition.note_id)
-            })
+            && transition
+                .as_ref()
+                .is_some_and(|transition| busy.as_ref() == Some(&transition.note_id))
     }
 
     fn capture_multi_note_publication_token(self) -> Option<privacy::PrivacyPublicationToken> {
-        self.privacy_epoch.capture_multi_note_publication(
-            &self.services.peek().privacy(),
-            self.list_generation,
-        )
+        self.privacy_epoch
+            .capture_multi_note_publication(&self.services.peek().privacy(), self.list_generation)
     }
 
     fn capture_note_publication_token(
@@ -307,10 +331,8 @@ impl NotesListState {
         self,
         note_id: &NoteId,
     ) -> Option<privacy::PrivacyPublicationToken> {
-        self.privacy_epoch.capture_note_publication_without_lifecycle(
-            &self.services.peek().privacy(),
-            note_id,
-        )
+        self.privacy_epoch
+            .capture_note_publication_without_lifecycle(&self.services.peek().privacy(), note_id)
     }
 
     async fn wait_for_note_action_publication_token(
@@ -349,7 +371,8 @@ impl NotesListState {
         editor: crate::application::editor::EditorService,
         mode: synchronization::SynchronizationMode,
         selection_generation: u64,
-    ) -> Result<Option<privacy::PrivacyPublicationToken>, synchronization::SynchronizationError> {
+    ) -> Result<Option<privacy::PrivacyPublicationToken>, synchronization::SynchronizationError>
+    {
         loop {
             if !self.note_selection_is_current(selection_generation) {
                 return Ok(None);
@@ -360,15 +383,16 @@ impl NotesListState {
                 .as_ref()
                 .map(|note| note.id.clone());
             let publication_token = match source_note_id.as_ref() {
-                Some(note_id) => self.capture_note_publication_token(
-                    note_id,
-                    self.note_selection_generation,
-                ),
-                None => self.privacy_epoch.capture_multi_note_publication_with_lifecycle(
-                    &self.services.peek().privacy(),
-                    self.list_generation,
-                    self.note_selection_generation,
-                ),
+                Some(note_id) => {
+                    self.capture_note_publication_token(note_id, self.note_selection_generation)
+                }
+                None => self
+                    .privacy_epoch
+                    .capture_multi_note_publication_with_lifecycle(
+                        &self.services.peek().privacy(),
+                        self.list_generation,
+                        self.note_selection_generation,
+                    ),
             };
             let Some(publication_token) = publication_token else {
                 tokio::time::sleep(Duration::from_millis(25)).await;
@@ -393,19 +417,15 @@ impl NotesListState {
         }
     }
 
-
     async fn synchronize_then_begin_multi_note_publication_when_privacy_ready(
         self,
         editor: crate::application::editor::EditorService,
         mode: synchronization::SynchronizationMode,
         selection_generation: u64,
-    ) -> Result<Option<privacy::PrivacyPublicationLease>, synchronization::SynchronizationError> {
+    ) -> Result<Option<privacy::PrivacyPublicationLease>, synchronization::SynchronizationError>
+    {
         let Some(_source_token) = self
-            .synchronize_current_editor_when_privacy_ready(
-                editor,
-                mode,
-                selection_generation,
-            )
+            .synchronize_current_editor_when_privacy_ready(editor, mode, selection_generation)
             .await?
         else {
             return Ok(None);
@@ -490,7 +510,6 @@ impl FormatAction {
         }
     }
 }
-
 
 fn request_note_list_preferences_save(state: NotesListState) {
     let mut generation = state.preference_save_generation;

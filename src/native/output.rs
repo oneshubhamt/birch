@@ -95,7 +95,10 @@ impl ExternalFileOutputTransaction {
     pub(crate) fn begin(destination: &Path) -> io::Result<Self> {
         let destination = absolute_path(destination)?;
         let parent = destination.parent().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "output destination has no parent")
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "output destination has no parent",
+            )
         })?;
         validate_output_parent(parent)?;
         let had_previous = validate_existing_file_destination(&destination)?;
@@ -114,13 +117,10 @@ impl ExternalFileOutputTransaction {
             had_previous,
         )?;
         let (journal_path, journal_lock) = persist_record(&record)?;
-        let temporary = OwnedPlaintext::durable_external_output_reserved(
-            temporary,
-            operation_id.clone(),
-        );
-        let predecessor = had_previous.then(|| {
-            OwnedPlaintext::durable_external_output_reserved(previous, operation_id)
-        });
+        let temporary =
+            OwnedPlaintext::durable_external_output_reserved(temporary, operation_id.clone());
+        let predecessor = had_previous
+            .then(|| OwnedPlaintext::durable_external_output_reserved(previous, operation_id));
         Ok(Self {
             record,
             journal_path,
@@ -175,7 +175,8 @@ impl ExternalFileOutputTransaction {
             }
         }
 
-        self.temporary.publish_external_output(&self.record.destination)?;
+        self.temporary
+            .publish_external_output(&self.record.destination)?;
         if let Err(error) = sync_directory(parent_of(&self.record.destination)?) {
             self.preserve_for_recovery = true;
             return Err(error);
@@ -249,9 +250,7 @@ impl ExternalDirectoryOutputTransaction {
             ));
         }
         let operation_id = output_token();
-        let temporary = parent.join(format!(
-            ".rustnote-output-{operation_id}.dir.tmp"
-        ));
+        let temporary = parent.join(format!(".rustnote-output-{operation_id}.dir.tmp"));
         require_path_absent(&temporary)?;
         let record = OutputRecord::new(
             operation_id.clone(),
@@ -379,13 +378,17 @@ pub fn recover_stale_output_transactions() -> super::NativeResult<usize> {
     })?;
     for entry in entries {
         let entry = entry.map_err(|error| {
-            super::NativeError::operation(format!("Could not inspect output recovery ledger: {error}"))
+            super::NativeError::operation(format!(
+                "Could not inspect output recovery ledger: {error}"
+            ))
         })?;
         if entry.file_name().to_str() == Some(OUTPUT_LEDGER_LOCK_FILE) {
             continue;
         }
         let metadata = fs::symlink_metadata(entry.path()).map_err(|error| {
-            super::NativeError::operation(format!("Could not inspect output recovery record: {error}"))
+            super::NativeError::operation(format!(
+                "Could not inspect output recovery record: {error}"
+            ))
         })?;
         if metadata.file_type().is_symlink() || !metadata.is_file() {
             return super::native_error(
@@ -653,7 +656,10 @@ fn validate_record_shape(record: &OutputRecord) -> io::Result<()> {
     }
     if !record.destination.is_absolute()
         || !record.temporary.is_absolute()
-        || record.previous.as_ref().is_some_and(|path| !path.is_absolute())
+        || record
+            .previous
+            .as_ref()
+            .is_some_and(|path| !path.is_absolute())
     {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -909,7 +915,10 @@ fn absolute_path(path: &Path) -> io::Result<PathBuf> {
     };
     let parent = parent_of(&absolute)?;
     let file_name = absolute.file_name().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "output destination has no file name")
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "output destination has no file name",
+        )
     })?;
     // The parent must exist for output preparation anyway. Canonicalizing it
     // collapses `..` and symlink aliases so concurrent reservations cannot
@@ -918,9 +927,8 @@ fn absolute_path(path: &Path) -> io::Result<PathBuf> {
 }
 
 fn parent_of(path: &Path) -> io::Result<&Path> {
-    path.parent().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "path has no parent directory")
-    })
+    path.parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no parent directory"))
 }
 
 fn path_exists(path: &Path) -> io::Result<bool> {
@@ -1132,8 +1140,14 @@ mod tests {
         ));
         fs::rename(&root, &detached).expect("simulate offline parent");
         drop(transaction);
-        assert!(journal_path.is_file(), "offline parent must retain recovery ownership");
-        assert!(detached.join(&temporary_name).is_file(), "hidden plaintext still exists offline");
+        assert!(
+            journal_path.is_file(),
+            "offline parent must retain recovery ownership"
+        );
+        assert!(
+            detached.join(&temporary_name).is_file(),
+            "hidden plaintext still exists offline"
+        );
 
         fs::rename(&detached, &root).expect("reconnect parent");
         let retry = ExternalFileOutputTransaction::begin(&destination)

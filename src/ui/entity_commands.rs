@@ -3,12 +3,12 @@
 //! Context menus decide which actions are visible. Application-level attachment file
 //! commands live in `application::attachments`; this module retains UI-owned tag commands.
 
-use crate::domain::NoteId;
+use crate::application::errors::DataAccessError;
 use crate::application::{
     executor::{ApplicationExecutionError, ExecutionFailure},
     notes::NoteService,
 };
-use crate::application::errors::DataAccessError;
+use crate::domain::NoteId;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum TagCommand {
@@ -51,11 +51,15 @@ impl std::error::Error for TagCommandError {
 }
 
 impl From<DataAccessError> for TagCommandError {
-    fn from(error: DataAccessError) -> Self { Self::Data(error) }
+    fn from(error: DataAccessError) -> Self {
+        Self::Data(error)
+    }
 }
 
 impl ExecutionFailure for TagCommandError {
-    fn from_execution_error(error: ApplicationExecutionError) -> Self { Self::Execution(error) }
+    fn from_execution_error(error: ApplicationExecutionError) -> Self {
+        Self::Execution(error)
+    }
 }
 
 pub(super) fn execute_tag_command_blocking(
@@ -64,21 +68,14 @@ pub(super) fn execute_tag_command_blocking(
     command: &TagCommand,
 ) -> Result<TagCommandResult, TagCommandError> {
     let affected_notes = match command {
-        TagCommand::Rename { from, to } => notes
-            .rename_tag(from, to)
-            ?,
-        TagCommand::RemoveFromNote { name } => usize::from(
-            notes
-                .remove_tag_from_note(note_id, name)
-                ?,
-        ),
-        TagCommand::Delete { name } => notes
-            .delete_tag(name)
-            ?,
+        TagCommand::Rename { from, to } => notes.rename_tag(from, to)?,
+        TagCommand::RemoveFromNote { name } => {
+            usize::from(notes.remove_tag_from_note(note_id, name)?)
+        }
+        TagCommand::Delete { name } => notes.delete_tag(name)?,
     };
     let current_tags = notes
-        .get(note_id)
-        ?
+        .get(note_id)?
         .ok_or(TagCommandError::NoteMissing)?
         .tags;
     Ok(TagCommandResult {

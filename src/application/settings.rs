@@ -7,15 +7,16 @@ use crate::storage::SettingsStore;
 
 use super::errors::{DataAccessError, DataResult};
 
-pub(crate) const DEFAULT_TRASH_RETENTION_DAYS: u32 =
-    crate::storage::DEFAULT_TRASH_RETENTION_DAYS;
+pub(crate) const DEFAULT_TRASH_RETENTION_DAYS: u32 = crate::storage::DEFAULT_TRASH_RETENTION_DAYS;
 pub(crate) const DEFAULT_AUTO_FIRST_LINE_INDENT_POINTS: u32 = 18;
 pub(crate) const MIN_AUTO_FIRST_LINE_INDENT_POINTS: u32 = 6;
 pub(crate) const AUTO_FIRST_LINE_INDENT_STEP_POINTS: u32 = 6;
 
 pub(crate) fn max_auto_first_line_indent_points() -> u32 {
-    u32::try_from(crate::editor_document_spec::limit("paragraph_first_line_indent_max"))
-        .unwrap_or(u32::MAX)
+    u32::try_from(crate::editor_document_spec::limit(
+        "paragraph_first_line_indent_max",
+    ))
+    .unwrap_or(u32::MAX)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -174,18 +175,20 @@ impl SettingsService {
     pub(crate) fn editor_preferences(&self) -> DataResult<EditorPreferences> {
         self.storage
             .editor_preferences()
-            .map(|(auto_indent, auto_first_line_indent, default_line_spacing, spellcheck)| {
-                EditorPreferences {
-                    auto_indent,
-                    auto_first_line_indent: auto_first_line_indent
-                        .unwrap_or(DEFAULT_AUTO_FIRST_LINE_INDENT_POINTS),
-                    default_line_spacing: default_line_spacing
-                        .as_deref()
-                        .and_then(EditorLineSpacing::parse),
-                    spellcheck,
-                }
-                .normalized()
-            })
+            .map(
+                |(auto_indent, auto_first_line_indent, default_line_spacing, spellcheck)| {
+                    EditorPreferences {
+                        auto_indent,
+                        auto_first_line_indent: auto_first_line_indent
+                            .unwrap_or(DEFAULT_AUTO_FIRST_LINE_INDENT_POINTS),
+                        default_line_spacing: default_line_spacing
+                            .as_deref()
+                            .and_then(EditorLineSpacing::parse),
+                        spellcheck,
+                    }
+                    .normalized()
+                },
+            )
             .map_err(DataAccessError::from)
     }
 
@@ -195,7 +198,9 @@ impl SettingsService {
             .set_editor_preferences(
                 preferences.auto_indent,
                 preferences.auto_first_line_indent,
-                preferences.default_line_spacing.map(EditorLineSpacing::as_str),
+                preferences
+                    .default_line_spacing
+                    .map(EditorLineSpacing::as_str),
                 preferences.spellcheck,
             )
             .map_err(DataAccessError::from)
@@ -206,7 +211,9 @@ impl SettingsService {
     }
 
     pub(crate) fn set_dark_mode(&self, enabled: bool) -> DataResult<()> {
-        self.storage.set_dark_mode(enabled).map_err(DataAccessError::from)
+        self.storage
+            .set_dark_mode(enabled)
+            .map_err(DataAccessError::from)
     }
 
     pub(crate) fn layout_widths(&self) -> DataResult<(i32, i32)> {
@@ -220,7 +227,9 @@ impl SettingsService {
     }
 
     pub(crate) fn right_panel_width(&self) -> DataResult<i32> {
-        self.storage.right_panel_width().map_err(DataAccessError::from)
+        self.storage
+            .right_panel_width()
+            .map_err(DataAccessError::from)
     }
 
     pub(crate) fn set_right_panel_width(&self, width: i32) -> DataResult<()> {
@@ -234,11 +243,15 @@ impl SettingsService {
     }
 
     pub(crate) fn build_diagnostics(&self) -> DataResult<(Option<String>, Option<String>)> {
-        self.storage.build_diagnostics().map_err(DataAccessError::from)
+        self.storage
+            .build_diagnostics()
+            .map_err(DataAccessError::from)
     }
 
     pub(crate) fn revision_retention(&self) -> DataResult<RevisionRetention> {
-        self.storage.revision_retention().map_err(DataAccessError::from)
+        self.storage
+            .revision_retention()
+            .map_err(DataAccessError::from)
     }
 
     pub(crate) fn revision_storage_usage(&self) -> DataResult<RevisionStorageUsage> {
@@ -332,7 +345,6 @@ impl SettingsService {
             .map_err(DataAccessError::from)
     }
 }
-
 
 #[cfg(test)]
 mod tests {

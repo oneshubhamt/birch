@@ -130,7 +130,8 @@ fn serve(listener: TcpListener, token: String, libraries: LibraryRuntime) {
         };
         if ACTIVE_CONNECTIONS.fetch_add(1, Ordering::AcqRel) >= MAX_ACTIVE_CONNECTIONS {
             ACTIVE_CONNECTIONS.fetch_sub(1, Ordering::AcqRel);
-            let _ = write_error_response(&mut stream, 503, "Service Unavailable", "Media server busy");
+            let _ =
+                write_error_response(&mut stream, 503, "Service Unavailable", "Media server busy");
             continue;
         }
 
@@ -178,7 +179,10 @@ fn open_leased_media_file(
     let file = File::open(media_path)?;
     let metadata = file.metadata()?;
     if !metadata.is_file() {
-        return Err(io::Error::new(io::ErrorKind::NotFound, "Media file missing"));
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Media file missing",
+        ));
     }
     Ok(LeasedMediaFile {
         file,
@@ -239,7 +243,12 @@ fn handle_connection(
         attachment_media::kind(&resource.file_name, resource.mime_type.as_deref()),
         AttachmentMediaKind::Audio | AttachmentMediaKind::Video
     ) {
-        return write_error_response(stream, 415, "Unsupported Media Type", "Not a media attachment");
+        return write_error_response(
+            stream,
+            415,
+            "Unsupported Media Type",
+            "Not a media attachment",
+        );
     }
 
     let (media_path, content_type, cache_use_guard) = match route {
@@ -253,9 +262,11 @@ fn handle_connection(
             &resource,
             profile,
         ) {
-            Ok(Some((prepared, guard))) => {
-                (prepared.path, prepared.content_type.to_string(), Some(guard))
-            }
+            Ok(Some((prepared, guard))) => (
+                prepared.path,
+                prepared.content_type.to_string(),
+                Some(guard),
+            ),
             Ok(None) => {
                 return write_error_response(
                     stream,
@@ -308,7 +319,8 @@ fn serve_media_path(
         None => None,
     };
 
-    let (status, reason, start, length, content_range) = if let Some((start, end)) = requested_range {
+    let (status, reason, start, length, content_range) = if let Some((start, end)) = requested_range
+    {
         let length = end.saturating_sub(start).saturating_add(1);
         (
             206,
@@ -606,7 +618,13 @@ fn write_stage_error(
     message: &str,
 ) -> io::Result<()> {
     let body = serde_json::json!({"error": message}).to_string();
-    write_stage_response(stream, status, reason, "application/json; charset=utf-8", &body)
+    write_stage_response(
+        stream,
+        status,
+        reason,
+        "application/json; charset=utf-8",
+        &body,
+    )
 }
 
 fn media_route<'a>(target: &'a str, expected_token: &str) -> Option<(&'a str, MediaRoute)> {
@@ -726,7 +744,11 @@ fn write_error_response(
     stream.flush()
 }
 
-fn stream_file_range(file: &mut File, stream: &mut TcpStream, mut remaining: u64) -> io::Result<()> {
+fn stream_file_range(
+    file: &mut File,
+    stream: &mut TcpStream,
+    mut remaining: u64,
+) -> io::Result<()> {
     let mut buffer = vec![0_u8; STREAM_BUFFER_BYTES];
     while remaining > 0 {
         let limit = remaining.min(buffer.len() as u64) as usize;
@@ -752,7 +774,6 @@ fn token_hex(bytes: [u8; TOKEN_BYTES]) -> String {
     }
     output
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -795,7 +816,10 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(1));
         }
-        assert!(revocation_visible, "Lock should publish revocation promptly");
+        assert!(
+            revocation_visible,
+            "Lock should publish revocation promptly"
+        );
         assert!(
             done_rx.try_recv().is_err(),
             "Lock must wait while the media OS handle retains its vault lease"
@@ -823,7 +847,13 @@ mod tests {
             image_import_stage_route("/stage/server-secret/image-import/abc123", token),
             Some(ImageImportStageRoute::Token("abc123"))
         );
-        assert_eq!(image_import_stage_route("/stage/wrong/image-import", token), None);
-        assert_eq!(image_import_stage_route("/stage/server-secret/image-import/a/b", token), None);
+        assert_eq!(
+            image_import_stage_route("/stage/wrong/image-import", token),
+            None
+        );
+        assert_eq!(
+            image_import_stage_route("/stage/server-secret/image-import/a/b", token),
+            None
+        );
     }
 }

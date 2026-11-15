@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use crate::domain::NoteFilters;
 use crate::application::editor::EditorService;
+use crate::domain::NoteFilters;
 
 use super::note_list_data::reload_note_list;
 use super::synchronization::SynchronizationMode;
@@ -271,11 +271,7 @@ pub(super) fn FilterChip(
     }
 }
 
-pub(super) fn apply_note_filters(
-    editor: EditorService,
-    next: NoteFilters,
-    state: NotesListState,
-) {
+pub(super) fn apply_note_filters(editor: EditorService, next: NoteFilters, state: NotesListState) {
     let NotesListState {
         mut filters,
         mut status,

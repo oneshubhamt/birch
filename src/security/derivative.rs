@@ -122,7 +122,9 @@ impl PlaintextDerivativeGate {
 
         let mut state = self.state()?;
         while state.library_transitioning
-            || ids.iter().any(|note_id| state.transitioning.contains(note_id))
+            || ids
+                .iter()
+                .any(|note_id| state.transitioning.contains(note_id))
         {
             state = self
                 .inner
@@ -130,9 +132,10 @@ impl PlaintextDerivativeGate {
                 .wait(state)
                 .map_err(|_| "plaintext derivative gate is poisoned")?;
         }
-        if ids.iter().any(|note_id| {
-            state.active.get(note_id).copied().unwrap_or(0) == usize::MAX
-        }) {
+        if ids
+            .iter()
+            .any(|note_id| state.active.get(note_id).copied().unwrap_or(0) == usize::MAX)
+        {
             return Err("plaintext derivative permit count overflowed");
         }
         for note_id in &ids {
@@ -202,9 +205,10 @@ impl PlaintextDerivativeGate {
         state.transitioning.extend(ids.iter().cloned());
 
         loop {
-            if ids.iter().all(|note_id| {
-                state.active.get(note_id).copied().unwrap_or_default() == 0
-            }) {
+            if ids
+                .iter()
+                .all(|note_id| state.active.get(note_id).copied().unwrap_or_default() == 0)
+            {
                 break;
             }
             state = match self.inner.changed.wait(state) {
@@ -351,8 +355,14 @@ mod tests {
             drop(transition);
         });
 
-        transition_started_rx.recv().expect("transition start signal");
-        assert!(transition_ready_rx.recv_timeout(Duration::from_millis(30)).is_err());
+        transition_started_rx
+            .recv()
+            .expect("transition start signal");
+        assert!(
+            transition_ready_rx
+                .recv_timeout(Duration::from_millis(30))
+                .is_err()
+        );
         drop(first);
         transition_ready_rx
             .recv_timeout(Duration::from_secs(1))
@@ -362,11 +372,17 @@ mod tests {
         let note_for_second = note_id.clone();
         let (second_ready_tx, second_ready_rx) = mpsc::channel();
         let second_thread = thread::spawn(move || {
-            let permit = gate_for_second.acquire(&note_for_second).expect("second permit");
+            let permit = gate_for_second
+                .acquire(&note_for_second)
+                .expect("second permit");
             second_ready_tx.send(()).expect("second permit ready");
             drop(permit);
         });
-        assert!(second_ready_rx.recv_timeout(Duration::from_millis(30)).is_err());
+        assert!(
+            second_ready_rx
+                .recv_timeout(Duration::from_millis(30))
+                .is_err()
+        );
 
         release_transition_tx.send(()).expect("release transition");
         second_ready_rx
@@ -375,7 +391,6 @@ mod tests {
         transition_thread.join().expect("transition thread");
         second_thread.join().expect("second thread");
     }
-
 
     #[test]
     fn multi_note_transition_freezes_all_targets_before_waiting_for_first_drain() {
@@ -402,7 +417,10 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(1));
         }
-        assert!(gate.is_transitioning(&first_note), "first target should be frozen");
+        assert!(
+            gate.is_transitioning(&first_note),
+            "first target should be frozen"
+        );
         assert!(
             gate.is_transitioning(&second_note),
             "all multi-note targets must freeze atomically before any producer drain"
@@ -474,7 +492,11 @@ mod tests {
             new_ready_tx.send(()).expect("new permit ready");
             drop(permit);
         });
-        assert!(new_ready_rx.recv_timeout(Duration::from_millis(30)).is_err());
+        assert!(
+            new_ready_rx
+                .recv_timeout(Duration::from_millis(30))
+                .is_err()
+        );
 
         release_tx.send(()).expect("release transition");
         new_ready_rx

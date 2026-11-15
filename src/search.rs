@@ -83,12 +83,9 @@ impl ParsedSearch {
 }
 
 pub fn contextual_summary_preview(note: &NoteSummary, search: &ParsedSearch) -> String {
-    contextual_preview_fields(
-        &note.preview_text,
-        &note.attachment_names,
-        search,
-        || note.preview(),
-    )
+    contextual_preview_fields(&note.preview_text, &note.attachment_names, search, || {
+        note.preview()
+    })
 }
 
 fn contextual_preview_fields(

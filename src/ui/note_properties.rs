@@ -1,5 +1,7 @@
+use crate::application::{
+    executor::ApplicationExecutor, notes::NoteService, privacy::PrivacyPublicationService,
+};
 use dioxus::prelude::*;
-use crate::application::{executor::ApplicationExecutor, notes::NoteService, privacy::PrivacyPublicationService};
 
 use crate::domain::{Note, NoteId, NotePropertiesContext, Notebook};
 
@@ -38,8 +40,7 @@ pub(super) fn NotePropertiesPanel(
     let mut context = use_signal(NotePropertiesContext::default);
     let mut loading = use_signal(|| true);
     let mut request_generation = use_signal(|| 0_u64);
-    let mut published_token =
-        use_signal(|| None::<super::privacy::PrivacyPublicationToken>);
+    let mut published_token = use_signal(|| None::<super::privacy::PrivacyPublicationToken>);
     let privacy = use_context::<PrivacyPublicationService>();
     let note_privacy = super::privacy::use_note_privacy(privacy_epoch, note.id.clone());
     let context_is_current = published_token
@@ -53,11 +54,9 @@ pub(super) fn NotePropertiesPanel(
     let _context_effect = use_effect(move || {
         let _note_privacy = *context_privacy.read();
         let _persistence_generation = *persistence_generation.read();
-        let Some(publication_token) = privacy_epoch.capture_note_publication(
-            &privacy,
-            &context_note_id,
-            note_generation,
-        ) else {
+        let Some(publication_token) =
+            privacy_epoch.capture_note_publication(&privacy, &context_note_id, note_generation)
+        else {
             context.set(NotePropertiesContext::default());
             published_token.set(None);
             loading.set(false);
@@ -88,7 +87,7 @@ pub(super) fn NotePropertiesPanel(
                 Ok(next) => {
                     published_token.set(Some(publication_token.clone()));
                     context.set(next);
-                },
+                }
                 Err(error) => {
                     context.set(NotePropertiesContext::default());
                     onstatus.call(format!("Could not load note properties: {error}"));
@@ -192,7 +191,10 @@ fn format_timestamp_utc(timestamp: i64) -> String {
     let (year, month, day) = civil_date_from_days(days);
     let hour = seconds / 3_600;
     let minute = (seconds % 3_600) / 60;
-    format!("{day} {} {year}, {hour:02}:{minute:02} UTC", month_name(month))
+    format!(
+        "{day} {} {year}, {hour:02}:{minute:02} UTC",
+        month_name(month)
+    )
 }
 
 fn month_name(month: u32) -> &'static str {
@@ -217,9 +219,8 @@ fn civil_date_from_days(days_since_unix_epoch: i64) -> (i64, u32, u32) {
     let z = days_since_unix_epoch + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
     let day_of_era = z - era * 146_097;
-    let year_of_era = (day_of_era - day_of_era / 1_460 + day_of_era / 36_524
-        - day_of_era / 146_096)
-        / 365;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
     let mut year = year_of_era + era * 400;
     let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
     let month_prime = (5 * day_of_year + 2) / 153;

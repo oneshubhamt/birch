@@ -3,11 +3,9 @@
 //! Application data services cannot depend on the UI executor, so this small boundary type
 //! preserves `DataAccessError` while still representing executor/runtime failures.
 
-use crate::{
-    application::{
-        errors::DataAccessError,
-        executor::{ApplicationExecutionError, ExecutionFailure},
-    },
+use crate::application::{
+    errors::DataAccessError,
+    executor::{ApplicationExecutionError, ExecutionFailure},
 };
 
 #[derive(Debug)]

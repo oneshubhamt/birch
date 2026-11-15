@@ -1,7 +1,7 @@
 use crate::domain::{
     BacklinkSummary, Citation, Note, NoteHierarchy, NoteId, NotePropertiesContext,
-    NoteRevisionSummary, NoteSourceSummary, RevisionRetention,
-    RevisionSnapshot, RevisionStorageUsage, Source, SourceId, SourceKind,
+    NoteRevisionSummary, NoteSourceSummary, RevisionRetention, RevisionSnapshot,
+    RevisionStorageUsage, Source, SourceId, SourceKind,
 };
 use crate::storage::{
     NoteStore, RevisionMode, RevisionSnapshotResource as StorageRevisionSnapshotResource,
@@ -11,7 +11,6 @@ use super::{
     errors::{DataAccessError, DataResult},
     persistence::NoteChangeScope,
 };
-
 
 /// Application-owned handle for a revision snapshot whose protected plaintext
 /// authorization must survive through all UI-side derivation and publication.
@@ -49,7 +48,9 @@ impl NoteService {
     }
 
     pub(crate) fn get(&self, note_id: &NoteId) -> DataResult<Option<Note>> {
-        self.storage.get_note(note_id).map_err(DataAccessError::from)
+        self.storage
+            .get_note(note_id)
+            .map_err(DataAccessError::from)
     }
 
     pub(crate) fn checkpoint(
@@ -210,21 +211,13 @@ impl NoteService {
             .map_err(DataAccessError::from)
     }
 
-    pub(crate) fn attach_source(
-        &self,
-        note_id: &NoteId,
-        source_id: &SourceId,
-    ) -> DataResult<()> {
+    pub(crate) fn attach_source(&self, note_id: &NoteId, source_id: &SourceId) -> DataResult<()> {
         self.storage
             .attach_source(note_id, source_id)
             .map_err(DataAccessError::from)
     }
 
-    pub(crate) fn detach_source(
-        &self,
-        note_id: &NoteId,
-        source_id: &SourceId,
-    ) -> DataResult<()> {
+    pub(crate) fn detach_source(&self, note_id: &NoteId, source_id: &SourceId) -> DataResult<()> {
         self.storage
             .detach_source(note_id, source_id)
             .map_err(DataAccessError::from)

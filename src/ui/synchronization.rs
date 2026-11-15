@@ -1,27 +1,32 @@
-use std::{fmt::{self, Display, Formatter}, sync::Arc, time::Duration};
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::Arc,
+    time::Duration,
+};
 
 use dioxus::prelude::*;
 
-use crate::application::executor::{
-    ApplicationExecutionError, ApplicationExecutionTurn, ApplicationExecutor, ExecutionFailure,
-};
-use crate::application::errors::{DataAccessError, EditorError};
-use crate::application::privacy::{
-    PrivacyOperationService, PrivacyPublicationService, WholeLibraryOperationLease,
-};
 use crate::application::editor::{
     EditorFlushTicket, EditorPersistenceMode, EditorService, ProjectedEditorDocument,
     apply_projected_document, project_editor_document,
 };
-use crate::editor_bridge::{EditorBridgeDecodeError, EditorDocumentUpdate, decode_editor_document_update};
-use crate::editor_document::DocumentValidationError;
-use crate::domain::{Note, NoteId};
+use crate::application::errors::{DataAccessError, EditorError};
+use crate::application::executor::{
+    ApplicationExecutionError, ApplicationExecutionTurn, ApplicationExecutor, ExecutionFailure,
+};
 use crate::application::persistence::NoteChangeScope;
+use crate::application::privacy::{
+    PrivacyOperationService, PrivacyPublicationService, WholeLibraryOperationLease,
+};
+use crate::domain::{Note, NoteId};
+use crate::editor_bridge::{
+    EditorBridgeDecodeError, EditorDocumentUpdate, decode_editor_document_update,
+};
+use crate::editor_document::DocumentValidationError;
 
 use super::eval_bridge;
 use super::live_editor::live_editor_sync_script_for_generation;
 use super::privacy::{PrivacyPublicationLease, PrivacyPublicationToken, UiPrivacyEpoch};
-
 
 #[derive(Clone)]
 pub(super) struct EditorSynchronizationContext {
@@ -56,18 +61,24 @@ impl EditorSynchronizationContext {
     }
 
     fn capture_publication(&self) -> Option<PrivacyPublicationToken> {
-        if let Some(note_id) = self.selected_note.peek().as_ref().map(|note| note.id.clone()) {
+        if let Some(note_id) = self
+            .selected_note
+            .peek()
+            .as_ref()
+            .map(|note| note.id.clone())
+        {
             self.privacy_epoch.capture_note_publication(
                 &self.publication_privacy,
                 &note_id,
                 self.note_selection_generation,
             )
         } else {
-            self.privacy_epoch.capture_multi_note_publication_with_lifecycle(
-                &self.publication_privacy,
-                self.list_generation,
-                self.note_selection_generation,
-            )
+            self.privacy_epoch
+                .capture_multi_note_publication_with_lifecycle(
+                    &self.publication_privacy,
+                    self.list_generation,
+                    self.note_selection_generation,
+                )
         }
     }
 }
@@ -215,25 +226,24 @@ impl Display for SynchronizationError {
             Self::Bridge(error) => Display::fmt(error, formatter),
             Self::Execution(error) => Display::fmt(error, formatter),
             Self::DataAccess(error) => Display::fmt(error, formatter),
-            Self::LiveEditorUnavailable => formatter.write_str("could not synchronize the live editor"),
+            Self::LiveEditorUnavailable => {
+                formatter.write_str("could not synchronize the live editor")
+            }
             Self::LiveEditorNotReady => formatter.write_str(
                 "the live editor did not become ready while saving; reopen the note and retry",
             ),
-            Self::EditorChanged => formatter.write_str(
-                "the editor changed while synchronization was in progress",
-            ),
-            Self::SelectionChangedBeforeSynchronization => formatter.write_str(
-                "the selected note changed before synchronization began",
-            ),
-            Self::SelectionChangedDuringSynchronization => formatter.write_str(
-                "the selected note changed while synchronization was in progress",
-            ),
-            Self::SessionChangedDuringSynchronization => formatter.write_str(
-                "the editor session changed while synchronization was in progress",
-            ),
-            Self::PrivacyAuthorizationChanged => formatter.write_str(
-                "privacy authorization changed while synchronization was in progress",
-            ),
+            Self::EditorChanged => {
+                formatter.write_str("the editor changed while synchronization was in progress")
+            }
+            Self::SelectionChangedBeforeSynchronization => {
+                formatter.write_str("the selected note changed before synchronization began")
+            }
+            Self::SelectionChangedDuringSynchronization => formatter
+                .write_str("the selected note changed while synchronization was in progress"),
+            Self::SessionChangedDuringSynchronization => formatter
+                .write_str("the editor session changed while synchronization was in progress"),
+            Self::PrivacyAuthorizationChanged => formatter
+                .write_str("privacy authorization changed while synchronization was in progress"),
         }
     }
 }
@@ -258,23 +268,33 @@ impl std::error::Error for SynchronizationError {
 }
 
 impl From<EditorError> for SynchronizationError {
-    fn from(error: EditorError) -> Self { Self::Editor(error) }
+    fn from(error: EditorError) -> Self {
+        Self::Editor(error)
+    }
 }
 
 impl From<DataAccessError> for SynchronizationError {
-    fn from(error: DataAccessError) -> Self { Self::DataAccess(error) }
+    fn from(error: DataAccessError) -> Self {
+        Self::DataAccess(error)
+    }
 }
 
 impl From<DocumentValidationError> for SynchronizationError {
-    fn from(error: DocumentValidationError) -> Self { Self::Projection(error) }
+    fn from(error: DocumentValidationError) -> Self {
+        Self::Projection(error)
+    }
 }
 
 impl From<EditorBridgeDecodeError> for SynchronizationError {
-    fn from(error: EditorBridgeDecodeError) -> Self { Self::Bridge(error) }
+    fn from(error: EditorBridgeDecodeError) -> Self {
+        Self::Bridge(error)
+    }
 }
 
 impl ExecutionFailure for SynchronizationError {
-    fn from_execution_error(error: ApplicationExecutionError) -> Self { Self::Execution(error) }
+    fn from_execution_error(error: ApplicationExecutionError) -> Self {
+        Self::Execution(error)
+    }
 }
 
 type SynchronizationResult<T> = Result<T, SynchronizationError>;
@@ -340,10 +360,7 @@ pub(super) async fn project_editor_update_async(
     ApplicationExecutor::read("editor projection", move || project_editor_update(change)).await
 }
 
-pub(super) fn apply_editor_update(
-    note: &mut Note,
-    change: ProjectedEditorDocumentUpdate,
-) -> bool {
+pub(super) fn apply_editor_update(note: &mut Note, change: ProjectedEditorDocumentUpdate) -> bool {
     apply_projected_document(note, change)
 }
 
@@ -359,12 +376,8 @@ pub(super) async fn synchronize_current_editor(
     publication_token: PrivacyPublicationToken,
 ) -> SynchronizationResult<Option<Arc<Note>>> {
     ensure_publication_current(&publication_token)?;
-    let captured = capture_live_editor_document(
-        selected_note,
-        editor_session,
-        &publication_token,
-    )
-    .await?;
+    let captured =
+        capture_live_editor_document(selected_note, editor_session, &publication_token).await?;
     let Some(selected) = captured.selected else {
         let flushed = flush_without_selected_note(service, mode).await?;
         ensure_publication_current(&publication_token)?;
@@ -406,12 +419,8 @@ async fn capture_live_editor_document(
 ) -> SynchronizationResult<CapturedEditorDocument> {
     let mut last_transient = None;
     for attempt in 0..EDITOR_CAPTURE_RETRIES {
-        match capture_live_editor_document_once(
-            selected_note,
-            editor_session,
-            publication_token,
-        )
-        .await
+        match capture_live_editor_document_once(selected_note, editor_session, publication_token)
+            .await
         {
             Ok(captured) => return Ok(captured),
             Err(error @ SynchronizationError::SessionChangedDuringSynchronization)

@@ -184,4 +184,3 @@ pub struct RevisionStorageUsage {
     pub revision_count: i64,
     pub total_bytes: i64,
 }
-

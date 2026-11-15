@@ -200,17 +200,17 @@ impl AttachmentService {
         let available = file_resource
             .as_ref()
             .is_some_and(|resource| resource.path().is_file());
-        let media_kind = attachment_media::kind(
-            &attachment.file_name,
-            attachment.mime_type.as_deref(),
-        );
+        let media_kind =
+            attachment_media::kind(&attachment.file_name, attachment.mime_type.as_deref());
         let compatible_playback_candidates = if available
-            && matches!(media_kind, AttachmentMediaKind::Audio | AttachmentMediaKind::Video)
+            && matches!(
+                media_kind,
+                AttachmentMediaKind::Audio | AttachmentMediaKind::Video
+            )
             && crate::media_compat::is_compatibility_candidate(
                 &attachment.file_name,
                 attachment.mime_type.as_deref(),
-            )
-        {
+            ) {
             file_resource
                 .as_ref()
                 .and_then(|resource| crate::media_compat::probe_path(resource.path()).ok())
@@ -223,10 +223,12 @@ impl AttachmentService {
                                 &attachment.id,
                                 candidate.profile,
                             )
-                            .map(|preview_url| AttachmentRuntimeMediaCandidate {
-                                profile: candidate.profile.as_str().to_string(),
-                                mime_type: candidate.mime_type,
-                                preview_url,
+                            .map(|preview_url| {
+                                AttachmentRuntimeMediaCandidate {
+                                    profile: candidate.profile.as_str().to_string(),
+                                    mime_type: candidate.mime_type,
+                                    preview_url,
+                                }
                             })
                         })
                         .collect()
@@ -237,13 +239,14 @@ impl AttachmentService {
         };
 
         let preview_url = available.then(|| {
-            if matches!(media_kind, AttachmentMediaKind::Audio | AttachmentMediaKind::Video)
-                && let Some(url) = crate::media_server::preview_url(
-                    &attachment.id,
-                    &attachment.file_name,
-                    attachment.mime_type.as_deref(),
-                )
-            {
+            if matches!(
+                media_kind,
+                AttachmentMediaKind::Audio | AttachmentMediaKind::Video
+            ) && let Some(url) = crate::media_server::preview_url(
+                &attachment.id,
+                &attachment.file_name,
+                attachment.mime_type.as_deref(),
+            ) {
                 return url;
             }
             let suffix = attachment_media::preview_extension(
@@ -254,13 +257,12 @@ impl AttachmentService {
             .unwrap_or_default();
             format!(
                 "/rustnoteattachment/{}/preview{}",
-                attachment.id.as_str(), suffix
+                attachment.id.as_str(),
+                suffix
             )
         });
-        let compatible_preview_url =
-            (available && media_kind == AttachmentMediaKind::Image).then(|| {
-                format!("/rustnoteattachment/{}/compatible", attachment.id.as_str())
-            });
+        let compatible_preview_url = (available && media_kind == AttachmentMediaKind::Image)
+            .then(|| format!("/rustnoteattachment/{}/compatible", attachment.id.as_str()));
         let screen_preview_url = (available
             && media_kind == AttachmentMediaKind::Image
             && crate::image_rendition::needs_screen_rendition(
@@ -290,7 +292,9 @@ impl AttachmentService {
     }
 
     pub(crate) fn runtime_kind(file_name: &str, mime_type: Option<&str>) -> String {
-        attachment_media::kind(file_name, mime_type).as_str().to_string()
+        attachment_media::kind(file_name, mime_type)
+            .as_str()
+            .to_string()
     }
 
     pub(crate) fn display_kind(attachment: &Attachment) -> &'static str {
@@ -333,14 +337,15 @@ impl AttachmentService {
         Ok(groups)
     }
 
-    pub(crate) fn save_insertion_anchor(
-        &self,
-        note: Note,
-    ) -> Result<(), AttachmentError> {
+    pub(crate) fn save_insertion_anchor(&self, note: Note) -> Result<(), AttachmentError> {
         self.autosave
             .flush_live_note_scoped(note, NoteSaveScope::DOCUMENT)
             .map(|_| ())
-            .map_err(|error| AttachmentError::Autosave(error.context("could not save the attachment insertion point")))
+            .map_err(|error| {
+                AttachmentError::Autosave(
+                    error.context("could not save the attachment insertion point"),
+                )
+            })
     }
 
     pub(crate) fn prepare_import_batch(
@@ -379,9 +384,7 @@ impl AttachmentService {
         &self,
         prepared: Vec<PreparedAttachmentImport>,
     ) -> Result<AttachmentBatchResult, AttachmentError> {
-        let note_id = prepared
-            .first()
-            .map(|item| item.storage.note_id.clone());
+        let note_id = prepared.first().map(|item| item.storage.note_id.clone());
         let request_attachment_ids = prepared
             .iter()
             .map(|item| item.attachment_id.clone())
@@ -403,9 +406,11 @@ impl AttachmentService {
             }
         }
         let attachments = match note_id {
-            Some(note_id) => self.storage.list_attachments(&note_id).map_err(|error| AttachmentError::Unavailable(format!(
-                "Attachment finalization completed, but the list could not refresh: {error}"
-            )))?,
+            Some(note_id) => self.storage.list_attachments(&note_id).map_err(|error| {
+                AttachmentError::Unavailable(format!(
+                    "Attachment finalization completed, but the list could not refresh: {error}"
+                ))
+            })?,
             None => Vec::new(),
         };
         Ok(AttachmentBatchResult {
@@ -415,17 +420,23 @@ impl AttachmentService {
         })
     }
 
-
-    pub(crate) fn recover_pending(&self, note_id: &NoteId) -> Result<AttachmentRecoveryResult, AttachmentError> {
+    pub(crate) fn recover_pending(
+        &self,
+        note_id: &NoteId,
+    ) -> Result<AttachmentRecoveryResult, AttachmentError> {
         let (_replayed, unresolved) = self
             .storage
             .reconcile_pending_attachment_ingests_for_note(note_id)
             .map_err(AttachmentError::from)?;
-        let attachments = self
-            .storage
-            .list_attachments(note_id)
-            .map_err(|error| AttachmentError::Unavailable(format!("attachment recovery completed, but the list could not refresh: {error}")))?;
-        Ok(AttachmentRecoveryResult { attachments, unresolved })
+        let attachments = self.storage.list_attachments(note_id).map_err(|error| {
+            AttachmentError::Unavailable(format!(
+                "attachment recovery completed, but the list could not refresh: {error}"
+            ))
+        })?;
+        Ok(AttachmentRecoveryResult {
+            attachments,
+            unresolved,
+        })
     }
 
     pub(crate) fn open_pending(&self, ingest_id: &str) -> Result<(), AttachmentError> {
@@ -433,7 +444,11 @@ impl AttachmentService {
             .storage
             .pending_attachment_ingest_resource(ingest_id)
             .map_err(AttachmentError::from)?
-            .ok_or_else(|| AttachmentError::Unavailable("pending attachment is no longer available".to_string()))?;
+            .ok_or_else(|| {
+                AttachmentError::Unavailable(
+                    "pending attachment is no longer available".to_string(),
+                )
+            })?;
         // A pending ingest row blocks Encrypt, but finalization may remove that
         // row while this desktop handoff is still copying. Join the same
         // note-scoped derivative boundary and re-read the pending resource after
@@ -451,7 +466,11 @@ impl AttachmentService {
             )
             .map_err(AttachmentError::from)?
             .filter(|resource| resource.note_id == initial.note_id)
-            .ok_or_else(|| AttachmentError::Unavailable("pending attachment is no longer available".to_string()))?;
+            .ok_or_else(|| {
+                AttachmentError::Unavailable(
+                    "pending attachment is no longer available".to_string(),
+                )
+            })?;
         let handoff_root = self.storage.attachment_handoff_directory();
         crate::native::handoff::open_managed_file_for_note(
             &handoff_root,
@@ -468,18 +487,14 @@ impl AttachmentService {
         attachment_id: &str,
         profile: &str,
     ) -> Result<String, AttachmentError> {
-        let profile = crate::media_compat::parse_profile(profile)
-            .ok_or_else(|| AttachmentError::InvalidRequest("unsupported media compatibility profile".to_string()))?;
+        let profile = crate::media_compat::parse_profile(profile).ok_or_else(|| {
+            AttachmentError::InvalidRequest("unsupported media compatibility profile".to_string())
+        })?;
         let transport = self.storage.transport_store();
         let cache_directory = self.storage.media_compat_directory();
-        crate::media_compat::probe_attachment(
-            &transport,
-            &cache_directory,
-            attachment_id,
-            profile,
-        )
-        .map(|status| status.as_str().to_string())
-        .map_err(AttachmentError::MediaCompatibility)
+        crate::media_compat::probe_attachment(&transport, &cache_directory, attachment_id, profile)
+            .map(|status| status.as_str().to_string())
+            .map_err(AttachmentError::MediaCompatibility)
     }
 
     pub(crate) fn prepare_media_compatibility(
@@ -487,8 +502,9 @@ impl AttachmentService {
         attachment_id: &str,
         profile: &str,
     ) -> Result<(), AttachmentError> {
-        let profile = crate::media_compat::parse_profile(profile)
-            .ok_or_else(|| AttachmentError::InvalidRequest("unsupported media compatibility profile".to_string()))?;
+        let profile = crate::media_compat::parse_profile(profile).ok_or_else(|| {
+            AttachmentError::InvalidRequest("unsupported media compatibility profile".to_string())
+        })?;
         let transport = self.storage.transport_store();
         let cache_directory = self.storage.media_compat_directory();
         crate::media_compat::prepare_attachment(
@@ -506,8 +522,9 @@ impl AttachmentService {
         attachment_id: &str,
         profile: &str,
     ) -> Result<(), AttachmentError> {
-        let profile = crate::media_compat::parse_profile(profile)
-            .ok_or_else(|| AttachmentError::InvalidRequest("unsupported media compatibility profile".to_string()))?;
+        let profile = crate::media_compat::parse_profile(profile).ok_or_else(|| {
+            AttachmentError::InvalidRequest("unsupported media compatibility profile".to_string())
+        })?;
         let transport = self.storage.transport_store();
         let cache_directory = self.storage.media_compat_directory();
         crate::media_compat::invalidate_attachment(
@@ -620,9 +637,7 @@ impl AttachmentService {
                 &attachment.file_name,
                 attachment.mime_type.as_deref(),
             )
-            .map_err(|error| {
-                AttachmentError::Native(error.context("Could not reveal attachment"))
-            }),
+            .map_err(|error| AttachmentError::Native(error.context("Could not reveal attachment"))),
         }
     }
 
@@ -637,18 +652,26 @@ impl AttachmentService {
             ));
         }
         if payload.stage_token.trim().is_empty() || payload.stage_token.len() > 128 {
-            return Err(AttachmentError::InvalidRequest("image edit staging token is invalid".to_string()));
+            return Err(AttachmentError::InvalidRequest(
+                "image edit staging token is invalid".to_string(),
+            ));
         }
         if payload.edit_recipe.len() > 524_288 {
-            return Err(AttachmentError::InvalidRequest("image edit recipe is too large".to_string()));
+            return Err(AttachmentError::InvalidRequest(
+                "image edit recipe is too large".to_string(),
+            ));
         }
         if attachment_media::kind(&payload.file_name, Some(&payload.mime_type))
             != AttachmentMediaKind::Image
         {
-            return Err(AttachmentError::InvalidRequest("edited rendition is not a supported image".to_string()));
+            return Err(AttachmentError::InvalidRequest(
+                "edited rendition is not a supported image".to_string(),
+            ));
         }
         if !matches!(payload.mime_type.as_str(), "image/png" | "image/jpeg") {
-            return Err(AttachmentError::InvalidRequest("edited rendition must be PNG or JPEG".to_string()));
+            return Err(AttachmentError::InvalidRequest(
+                "edited rendition must be PNG or JPEG".to_string(),
+            ));
         }
         let plaintext_authorization = self
             .storage
@@ -660,22 +683,32 @@ impl AttachmentService {
             .map_err(AttachmentError::from)?
             .into_iter()
             .find(|attachment| attachment.id == payload.attachment_id)
-            .ok_or_else(|| AttachmentError::Unavailable("the image being edited no longer exists".to_string()))?;
+            .ok_or_else(|| {
+                AttachmentError::Unavailable("the image being edited no longer exists".to_string())
+            })?;
         if attachment_media::kind(&current.file_name, current.mime_type.as_deref())
             != AttachmentMediaKind::Image
         {
-            return Err(AttachmentError::Unavailable("the selected attachment is no longer an image".to_string()));
+            return Err(AttachmentError::Unavailable(
+                "the selected attachment is no longer an image".to_string(),
+            ));
         }
         let expected_source = current
             .source_attachment_id
             .as_deref()
             .unwrap_or(current.id.as_str());
         if payload.source_attachment_id != expected_source {
-            return Err(AttachmentError::Unavailable("image edit source changed while the editor was open".to_string()));
+            return Err(AttachmentError::Unavailable(
+                "image edit source changed while the editor was open".to_string(),
+            ));
         }
 
-        let staged_path = crate::native::staging::claim_staged_image_edit(&payload.stage_token, &payload.mime_type, &payload.attachment_id)
-            .map_err(AttachmentError::Native)?;
+        let staged_path = crate::native::staging::claim_staged_image_edit(
+            &payload.stage_token,
+            &payload.mime_type,
+            &payload.attachment_id,
+        )
+        .map_err(AttachmentError::Native)?;
         let add_result = self.storage.add_derived_image_attachment_file_authorized(
             AuthorizedDerivedImageAttachment::new(
                 &note_id,
@@ -687,17 +720,18 @@ impl AttachmentService {
                 &plaintext_authorization,
             ),
         );
-        let cleanup_result = crate::native::staging::discard_staged_image_edit(&payload.stage_token);
+        let cleanup_result =
+            crate::native::staging::discard_staged_image_edit(&payload.stage_token);
         let added = add_result.map_err(AttachmentError::from)?;
         cleanup_result.map_err(AttachmentError::Native)?;
         let attachments = self
             .storage
             .list_attachments_with_authorization(&note_id, &plaintext_authorization)
             .map_err(|error| {
-            AttachmentError::Unavailable(format!(
-                "Edited image was stored, but attachments could not refresh: {error}"
-            ))
-        })?;
+                AttachmentError::Unavailable(format!(
+                    "Edited image was stored, but attachments could not refresh: {error}"
+                ))
+            })?;
         Ok(ImageEditResult { added, attachments })
     }
 
@@ -707,7 +741,9 @@ impl AttachmentService {
         images: Vec<ImageImportRequest>,
     ) -> Result<ImageImportResult, AttachmentError> {
         if images.is_empty() {
-            return Err(AttachmentError::InvalidRequest("no images were supplied".to_string()));
+            return Err(AttachmentError::InvalidRequest(
+                "no images were supplied".to_string(),
+            ));
         }
         // Hold one note-scoped transition permit across the whole batch. Encrypt
         // either waits until every staged image is committed/cleaned, or this
@@ -759,7 +795,9 @@ impl AttachmentService {
             let staged_len = match std::fs::metadata(&staged_path) {
                 Ok(metadata) => metadata.len() as usize,
                 Err(error) => {
-                    let cleanup_error = crate::native::staging::discard_staged_image_import(&image.stage_token).err();
+                    let cleanup_error =
+                        crate::native::staging::discard_staged_image_import(&image.stage_token)
+                            .err();
                     Self::discard_image_import_stages(images.drain(..));
                     failure = Some(match cleanup_error {
                         Some(cleanup_error) => format!(
@@ -772,7 +810,8 @@ impl AttachmentService {
                 }
             };
             if total_bytes.saturating_add(staged_len) > MAX_TRANSIENT_IMAGE_IMPORT_BYTES {
-                let cleanup_error = crate::native::staging::discard_staged_image_import(&image.stage_token).err();
+                let cleanup_error =
+                    crate::native::staging::discard_staged_image_import(&image.stage_token).err();
                 Self::discard_image_import_stages(images.drain(..));
                 failure = Some(match cleanup_error {
                     Some(cleanup_error) => format!(
@@ -791,7 +830,8 @@ impl AttachmentService {
                 &staged_path,
                 &plaintext_authorization,
             );
-            let cleanup_result = crate::native::staging::discard_staged_image_import(&image.stage_token);
+            let cleanup_result =
+                crate::native::staging::discard_staged_image_import(&image.stage_token);
             match (add_result, cleanup_result) {
                 (Ok(attachment), Ok(())) => added.push(attachment),
                 (Ok(attachment), Err(cleanup_error)) => {
@@ -821,10 +861,10 @@ impl AttachmentService {
             .storage
             .list_attachments_with_authorization(&note_id, &plaintext_authorization)
             .map_err(|error| {
-            AttachmentError::Unavailable(format!(
-                "Images were imported, but attachments could not refresh: {error}"
-            ))
-        })?;
+                AttachmentError::Unavailable(format!(
+                    "Images were imported, but attachments could not refresh: {error}"
+                ))
+            })?;
         Ok(ImageImportResult {
             added,
             attachments,
@@ -859,10 +899,7 @@ impl AttachmentService {
     }
 }
 
-fn log_attachment_import_profile(
-    phase: &str,
-    profile: &crate::storage::AttachmentImportProfile,
-) {
+fn log_attachment_import_profile(phase: &str, profile: &crate::storage::AttachmentImportProfile) {
     fn milliseconds(duration: std::time::Duration) -> f64 {
         duration.as_secs_f64() * 1000.0
     }

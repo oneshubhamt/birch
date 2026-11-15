@@ -3,9 +3,8 @@ use super::{EditorCommand, serialize_editor_command};
 pub const EDITOR_BRIDGE_GLOBAL: &str = "__rustnoteEditorBridge";
 
 pub fn dispatch_expression(command: &EditorCommand) -> String {
-    let envelope = serialize_editor_command(command).unwrap_or_else(|_| {
-        r#"{"version":1,"command":"invalid","payload":{}}"#.to_string()
-    });
+    let envelope = serialize_editor_command(command)
+        .unwrap_or_else(|_| r#"{"version":1,"command":"invalid","payload":{}}"#.to_string());
     format!("window.{EDITOR_BRIDGE_GLOBAL}?.dispatch({envelope})")
 }
 
@@ -22,9 +21,8 @@ pub fn dispatch_usize_script(command: &EditorCommand) -> String {
 }
 
 pub fn install_script(command: &EditorCommand, expected_marker: &str) -> String {
-    let envelope = serialize_editor_command(command).unwrap_or_else(|_| {
-        r#"{"version":1,"command":"invalid","payload":{}}"#.to_string()
-    });
+    let envelope = serialize_editor_command(command)
+        .unwrap_or_else(|_| r#"{"version":1,"command":"invalid","payload":{}}"#.to_string());
     let marker = serde_json::to_string(expected_marker).unwrap_or_else(|_| "\"\"".to_string());
     format!(
         r#"
@@ -56,10 +54,12 @@ pub fn runtime_error_script() -> String {
     )
 }
 
-pub fn wait_for_generation_then_dispatch_script(generation: u64, command: &EditorCommand) -> String {
-    let envelope = serialize_editor_command(command).unwrap_or_else(|_| {
-        r#"{"version":1,"command":"invalid","payload":{}}"#.to_string()
-    });
+pub fn wait_for_generation_then_dispatch_script(
+    generation: u64,
+    command: &EditorCommand,
+) -> String {
+    let envelope = serialize_editor_command(command)
+        .unwrap_or_else(|_| r#"{"version":1,"command":"invalid","payload":{}}"#.to_string());
     format!(
         r#"
 const expectedGeneration = {generation};

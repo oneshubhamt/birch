@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
-    fs,
-    io,
+    fs, io,
     path::{Path, PathBuf},
     sync::{Arc, Mutex, OnceLock},
 };
@@ -19,7 +18,6 @@ pub(crate) struct SensitiveTempOwner {
     root: PathBuf,
     lock_file: Mutex<Option<fs::File>>,
 }
-
 
 #[derive(Clone)]
 pub(crate) struct ProcessPrivateOwner {
@@ -74,18 +72,14 @@ impl SensitiveTempOwner {
                     // Never expose such a half-owned session: verify both the
                     // directory and marker after the OS lock is acquired, then
                     // retry allocation if either disappeared.
-                    let cleanup_claimed = crate::security::managed_path_is_present(
-                        &root.join(CLEANUP_CLAIM_FILE),
-                    )
-                    .map_err(|error| {
-                        super::NativeError::operation(format!(
-                            "Could not verify sensitive temporary cleanup claim: {error}"
-                        ))
-                    })?;
-                    if !root.is_dir()
-                        || !root.join(OWNER_LOCK_FILE).is_file()
-                        || cleanup_claimed
-                    {
+                    let cleanup_claimed =
+                        crate::security::managed_path_is_present(&root.join(CLEANUP_CLAIM_FILE))
+                            .map_err(|error| {
+                                super::NativeError::operation(format!(
+                                    "Could not verify sensitive temporary cleanup claim: {error}"
+                                ))
+                            })?;
+                    if !root.is_dir() || !root.join(OWNER_LOCK_FILE).is_file() || cleanup_claimed {
                         drop(lock_file);
                         let _ = super::privacy::remove_tree(&root);
                         continue;
@@ -176,7 +170,11 @@ fn owner_is_live(root: &Path) -> Option<bool> {
         Ok(false) => return None,
         Err(_) => return Some(true),
     }
-    let Ok(file) = fs::OpenOptions::new().read(true).write(true).open(&lock_path) else {
+    let Ok(file) = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&lock_path)
+    else {
         // An unreadable owner marker is not permission to delete potentially
         // live plaintext belonging to another process.
         return Some(true);
@@ -197,7 +195,11 @@ fn claim_abandoned_owner_for_cleanup(root: &Path) -> Option<bool> {
         // delete a potentially live plaintext session.
         Err(_) => return Some(false),
     }
-    let Ok(file) = fs::OpenOptions::new().read(true).write(true).open(&lock_path) else {
+    let Ok(file) = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&lock_path)
+    else {
         return Some(false);
     };
     match file.try_lock() {
@@ -255,9 +257,13 @@ pub(crate) fn cleanup_session_directories(root: &Path, label: &str) -> super::Na
         let entry = entry.map_err(|error| {
             super::NativeError::operation(format!("Could not inspect {label}: {error}"))
         })?;
-        if !entry.file_type().map_err(|error| {
-            super::NativeError::operation(format!("Could not inspect {label}: {error}"))
-        })?.is_dir() {
+        if !entry
+            .file_type()
+            .map_err(|error| {
+                super::NativeError::operation(format!("Could not inspect {label}: {error}"))
+            })?
+            .is_dir()
+        {
             continue;
         }
         let Some(name) = entry.file_name().to_str().map(ToOwned::to_owned) else {
@@ -285,7 +291,8 @@ pub(crate) fn cleanup_session_directories(root: &Path, label: &str) -> super::Na
     Ok(removed)
 }
 
-static PROCESS_SESSIONS: OnceLock<Mutex<HashMap<PathBuf, Arc<SensitiveTempOwner>>>> = OnceLock::new();
+static PROCESS_SESSIONS: OnceLock<Mutex<HashMap<PathBuf, Arc<SensitiveTempOwner>>>> =
+    OnceLock::new();
 
 /// Return the one sensitive-temp session owned by this Rustnote process beneath
 /// a given parent. The owner object remains live for the process lifetime.
@@ -307,9 +314,10 @@ pub(crate) fn process_session_owner(
             owner: Arc::clone(owner),
         });
     }
-    let owner = Arc::new(SensitiveTempOwner::acquire(parent, "session-").map_err(|error| {
-        error.context(format!("Could not prepare {label}"))
-    })?);
+    let owner = Arc::new(
+        SensitiveTempOwner::acquire(parent, "session-")
+            .map_err(|error| error.context(format!("Could not prepare {label}")))?,
+    );
     sessions.insert(parent.to_path_buf(), Arc::clone(&owner));
     Ok(ProcessPrivateOwner { owner })
 }
@@ -336,7 +344,11 @@ mod tests {
         fs::set_permissions(&parent, fs::Permissions::from_mode(0o755)).expect("parent mode");
         let owner = SensitiveTempOwner::acquire(&parent, "session-").expect("owner");
         assert_eq!(
-            fs::metadata(&parent).expect("metadata").permissions().mode() & 0o777,
+            fs::metadata(&parent)
+                .expect("metadata")
+                .permissions()
+                .mode()
+                & 0o777,
             0o755,
             "SensitiveTempOwner must not harden a parent it does not own",
         );
@@ -404,10 +416,7 @@ mod tests {
     #[test]
     fn markerless_v2_cleanup_publishes_claim_before_removal() {
         let parent = temp_root("owner-markerless-claim");
-        let interrupted = parent.join(format!(
-            "session-v2-{}-claimwindow",
-            std::process::id()
-        ));
+        let interrupted = parent.join(format!("session-v2-{}-claimwindow", std::process::id()));
         fs::create_dir_all(&interrupted).expect("interrupted session directory");
         assert!(!interrupted.join(CLEANUP_CLAIM_FILE).exists());
         assert!(claim_unowned_v2_for_cleanup(&interrupted));
@@ -421,10 +430,7 @@ mod tests {
     #[test]
     fn v2_owner_setup_crash_window_is_removed_without_pid_heuristics() {
         let parent = temp_root("owner-setup-crash");
-        let interrupted = parent.join(format!(
-            "session-v2-{}-deadbeef",
-            std::process::id()
-        ));
+        let interrupted = parent.join(format!("session-v2-{}-deadbeef", std::process::id()));
         fs::create_dir_all(&interrupted).expect("interrupted session directory");
         fs::write(interrupted.join("plaintext.tmp"), b"secret").expect("staged plaintext");
 

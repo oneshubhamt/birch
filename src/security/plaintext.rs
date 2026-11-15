@@ -90,15 +90,23 @@ struct DurableExternalOutputOwnership {
 #[derive(Debug)]
 enum DurableManagedAuthority {
     Staging(DurablePlaintextOwnership),
-    VaultOperation { _ownership: DurableVaultOperationOwnership },
-    AttachmentOperation { _ownership: DurableAttachmentOperationOwnership },
-    AttachmentIngest { _ownership: DurableAttachmentIngestOwnership },
+    VaultOperation {
+        _ownership: DurableVaultOperationOwnership,
+    },
+    AttachmentOperation {
+        _ownership: DurableAttachmentOperationOwnership,
+    },
+    AttachmentIngest {
+        _ownership: DurableAttachmentIngestOwnership,
+    },
 }
 
 #[derive(Debug)]
 enum PlaintextCleanupAuthority {
     DurableManaged(DurableManagedAuthority),
-    DurableExternalOutput { _ownership: DurableExternalOutputOwnership },
+    DurableExternalOutput {
+        _ownership: DurableExternalOutputOwnership,
+    },
     DurableNamespace(DurableNamespaceOwnership),
     VaultSession(VaultPlaintextPath),
     ProcessPrivate(crate::native::temp_owner::ProcessPrivateOwner),
@@ -145,7 +153,10 @@ impl DurablePlaintextNamespace {
             ));
         }
         let marker_parent = marker.parent().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "namespace marker has no parent")
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "namespace marker has no parent",
+            )
         })?;
         let marker_parent_metadata = fs::symlink_metadata(marker_parent)?;
         if marker_parent_metadata.file_type().is_symlink() || !marker_parent_metadata.is_dir() {
@@ -196,11 +207,7 @@ impl DurablePlaintextNamespace {
         Self::establish_inner(root, marker, identity.into())
     }
 
-    fn establish_inner(
-        root: PathBuf,
-        marker: PathBuf,
-        identity: String,
-    ) -> io::Result<Self> {
+    fn establish_inner(root: PathBuf, marker: PathBuf, identity: String) -> io::Result<Self> {
         if identity.trim().is_empty() || root == marker || marker.starts_with(&root) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -208,7 +215,10 @@ impl DurablePlaintextNamespace {
             ));
         }
         let marker_parent = marker.parent().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "namespace marker has no parent")
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "namespace marker has no parent",
+            )
         })?;
         fs::create_dir_all(marker_parent)?;
         let marker_parent_metadata = fs::symlink_metadata(marker_parent)?;
@@ -253,7 +263,10 @@ impl DurablePlaintextNamespace {
                         "durable plaintext namespace marker is missing for a nonempty managed root",
                     ));
                 }
-                let mut file = crate::native::private_temp::create_private_file_in_existing_directory(&marker)?;
+                let mut file =
+                    crate::native::private_temp::create_private_file_in_existing_directory(
+                        &marker,
+                    )?;
                 file.write_all(marker_bytes.as_bytes())?;
                 file.sync_all()?;
                 sync_parent_directory(&marker)?;
@@ -293,10 +306,7 @@ impl DurablePlaintextNamespace {
                 "durable plaintext namespace root is not a real directory",
             ));
         }
-        let expected_marker = format!(
-            "rustnote-owned-plaintext-namespace-v1\n{}\n",
-            self.identity
-        );
+        let expected_marker = format!("rustnote-owned-plaintext-namespace-v1\n{}\n", self.identity);
         let marker_metadata = fs::symlink_metadata(&self.marker)?;
         if marker_metadata.file_type().is_symlink()
             || !marker_metadata.is_file()
@@ -331,13 +341,11 @@ impl DurablePlaintextNamespace {
             path,
             scope: PlaintextScope::Library,
             lifecycle,
-            authority: PlaintextCleanupAuthority::DurableNamespace(
-                DurableNamespaceOwnership {
-                    _identity: self.identity.clone(),
-                    root: self.root.clone(),
-                    _marker: self.marker.clone(),
-                },
-            ),
+            authority: PlaintextCleanupAuthority::DurableNamespace(DurableNamespaceOwnership {
+                _identity: self.identity.clone(),
+                root: self.root.clone(),
+                _marker: self.marker.clone(),
+            }),
         })
     }
 
@@ -478,14 +486,14 @@ impl OwnedPlaintext {
             path,
             scope,
             lifecycle,
-            authority: PlaintextCleanupAuthority::DurableManaged(
-                DurableManagedAuthority::Staging(DurablePlaintextOwnership {
+            authority: PlaintextCleanupAuthority::DurableManaged(DurableManagedAuthority::Staging(
+                DurablePlaintextOwnership {
                     stage_id,
                     kind,
                     note_id,
                     relative_path,
-                }),
-            ),
+                },
+            )),
         }
     }
 
@@ -594,19 +602,13 @@ impl OwnedPlaintext {
     /// crash-durable external-output transaction record has been persisted.
     /// The final user-selected destination remains external/user-owned; only
     /// Rustnote's hidden preparation/replacement paths use this authority.
-    pub(crate) fn durable_external_output_reserved(
-        path: PathBuf,
-        operation_id: String,
-    ) -> Self {
+    pub(crate) fn durable_external_output_reserved(path: PathBuf, operation_id: String) -> Self {
         Self::durable_external_output(path, operation_id, PlaintextLifecycle::Reserved)
     }
 
     /// Reconstruct ownership for a hidden predecessor that an already-durable
     /// external-output transaction may have created before process death.
-    pub(crate) fn durable_external_output_existing(
-        path: PathBuf,
-        operation_id: String,
-    ) -> Self {
+    pub(crate) fn durable_external_output_existing(path: PathBuf, operation_id: String) -> Self {
         Self::durable_external_output(path, operation_id, PlaintextLifecycle::Materialized)
     }
 
@@ -847,12 +849,14 @@ impl OwnedPlaintext {
 
     fn create_materialization_file(&self) -> io::Result<File> {
         match &self.authority {
-            PlaintextCleanupAuthority::DurableExternalOutput { .. } =>
-                crate::native::private_temp::create_private_file_in_existing_directory(&self.path),
+            PlaintextCleanupAuthority::DurableExternalOutput { .. } => {
+                crate::native::private_temp::create_private_file_in_existing_directory(&self.path)
+            }
             PlaintextCleanupAuthority::VaultSession(_)
             | PlaintextCleanupAuthority::ProcessPrivate(_)
-            | PlaintextCleanupAuthority::DurableNamespace(_) =>
-                crate::native::private_temp::create_private_file(&self.path),
+            | PlaintextCleanupAuthority::DurableNamespace(_) => {
+                crate::native::private_temp::create_private_file(&self.path)
+            }
             PlaintextCleanupAuthority::DurableManaged(_) => OpenOptions::new()
                 .write(true)
                 .create_new(true)
@@ -877,7 +881,9 @@ impl OwnedPlaintext {
             self.lifecycle,
             PlaintextLifecycle::Reserved | PlaintextLifecycle::Materialized
         ) {
-            return Err(io::Error::other("owned plaintext cannot be renamed in this state"));
+            return Err(io::Error::other(
+                "owned plaintext cannot be renamed in this state",
+            ));
         }
         fs::rename(&self.path, &destination)?;
         self.path = destination;
@@ -1054,10 +1060,7 @@ impl OwnedPlaintext {
     /// was durably established by PlaintextAuthority before this call. The
     /// predecessor keeps its original path identity until its ledger row is
     /// retired, so crash recovery can reconcile either filesystem outcome.
-    pub(crate) fn rename_durable_to_preowned(
-        &mut self,
-        destination: &Path,
-    ) -> io::Result<()> {
+    pub(crate) fn rename_durable_to_preowned(&mut self, destination: &Path) -> io::Result<()> {
         if !matches!(
             &self.authority,
             PlaintextCleanupAuthority::DurableManaged(DurableManagedAuthority::Staging(_))
@@ -1250,7 +1253,10 @@ impl OwnedPlaintext {
 #[cfg(unix)]
 fn sync_parent_directory(path: &Path) -> io::Result<()> {
     let parent = path.parent().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "managed plaintext path has no parent")
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "managed plaintext path has no parent",
+        )
     })?;
     File::open(parent)?.sync_all()
 }
@@ -1322,15 +1328,13 @@ mod tests {
             "rustnote-owned-plaintext-rename-{}",
             rand::random::<u64>()
         ));
-        let owner = crate::native::temp_owner::process_session_owner(&parent, "owned plaintext test")
-            .expect("owner");
+        let owner =
+            crate::native::temp_owner::process_session_owner(&parent, "owned plaintext test")
+                .expect("owner");
         let source = owner.root().join("source.tmp");
-        let mut plaintext = OwnedPlaintext::process_private(
-            owner,
-            "rename-test".to_string(),
-            source.clone(),
-        )
-        .expect("owned plaintext");
+        let mut plaintext =
+            OwnedPlaintext::process_private(owner, "rename-test".to_string(), source.clone())
+                .expect("owned plaintext");
         let mut file = plaintext.create_file().expect("materialize");
         use std::io::Write;
         file.write_all(b"secret").expect("write");
@@ -1357,7 +1361,9 @@ mod tests {
             "operation-test".to_string(),
             note_id,
         );
-        let mut file = plaintext.create_file().expect("materialize owned plaintext");
+        let mut file = plaintext
+            .create_file()
+            .expect("materialize owned plaintext");
         use std::io::Write as _;
         file.write_all(b"secret").expect("write source plaintext");
         drop(file);
@@ -1366,7 +1372,10 @@ mod tests {
         assert!(plaintext.rename_durable_vault_operation(invalid).is_err());
         assert_eq!(plaintext.path(), source);
         assert_eq!(plaintext.lifecycle(), PlaintextLifecycle::Materialized);
-        assert!(source.exists(), "failed rename must preserve predecessor plaintext");
+        assert!(
+            source.exists(),
+            "failed rename must preserve predecessor plaintext"
+        );
 
         plaintext.remove_file().expect("remove test plaintext");
         assert!(!source.exists());
@@ -1390,10 +1399,17 @@ mod tests {
         );
         let invalid = root.join("missing-parent").join("destination.tmp");
 
-        assert!(plaintext.rename_durable_attachment_operation(invalid).is_err());
+        assert!(
+            plaintext
+                .rename_durable_attachment_operation(invalid)
+                .is_err()
+        );
         assert_eq!(plaintext.path(), source);
         assert_eq!(plaintext.lifecycle(), PlaintextLifecycle::Materialized);
-        assert!(source.exists(), "failed rename must preserve predecessor plaintext");
+        assert!(
+            source.exists(),
+            "failed rename must preserve predecessor plaintext"
+        );
 
         plaintext.remove_file().expect("remove test plaintext");
         assert!(!source.exists());
@@ -1409,9 +1425,7 @@ mod tests {
         std::fs::create_dir_all(&root).expect("test root");
         let managed_path = root.join("missing.tmp");
 
-        assert!(
-            !managed_path_is_present(&managed_path).expect("observe missing path")
-        );
+        assert!(!managed_path_is_present(&managed_path).expect("observe missing path"));
         let mut plaintext = OwnedPlaintext::durable_managed(
             managed_path,
             "not-found-stage".to_string(),
@@ -1468,16 +1482,14 @@ mod tests {
             "rustnote-owned-plaintext-delete-{}",
             rand::random::<u64>()
         ));
-        let owner = crate::native::temp_owner::process_session_owner(&parent, "owned plaintext test")
-            .expect("owner");
+        let owner =
+            crate::native::temp_owner::process_session_owner(&parent, "owned plaintext test")
+                .expect("owner");
         let directory = owner.root().join("not-a-file");
         std::fs::create_dir(&directory).expect("directory");
-        let mut plaintext = OwnedPlaintext::process_private(
-            owner,
-            "delete-test".to_string(),
-            directory.clone(),
-        )
-        .expect("owned plaintext");
+        let mut plaintext =
+            OwnedPlaintext::process_private(owner, "delete-test".to_string(), directory.clone())
+                .expect("owned plaintext");
         assert!(plaintext.remove_file().is_err());
         assert_eq!(plaintext.lifecycle(), PlaintextLifecycle::Retiring);
         assert!(directory.exists());
@@ -1498,12 +1510,9 @@ mod tests {
         std::fs::create_dir_all(&root).expect("namespace root");
         std::fs::create_dir_all(&outside).expect("outside root");
         let marker = parent.join(".cache-owner");
-        let namespace = DurablePlaintextNamespace::establish(
-            root.clone(),
-            marker,
-            "namespace-test",
-        )
-        .expect("namespace");
+        let namespace =
+            DurablePlaintextNamespace::establish(root.clone(), marker, "namespace-test")
+                .expect("namespace");
         symlink(&outside, root.join("escape")).expect("escape symlink");
 
         let error = namespace
@@ -1524,12 +1533,9 @@ mod tests {
         let root = parent.join("cache");
         std::fs::create_dir_all(&parent).expect("namespace parent");
         let marker = parent.join(".cache-owner");
-        let namespace = DurablePlaintextNamespace::establish(
-            root.clone(),
-            marker,
-            "absent-subtree-test",
-        )
-        .expect("namespace");
+        let namespace =
+            DurablePlaintextNamespace::establish(root.clone(), marker, "absent-subtree-test")
+                .expect("namespace");
 
         namespace
             .remove_subtree_strict(&root.join("never-created").join("hash"))
@@ -1554,12 +1560,9 @@ mod tests {
         let outside_file = outside.join("secret.txt");
         std::fs::write(&outside_file, b"must survive").expect("outside file");
         let marker = parent.join(".cache-owner");
-        let namespace = DurablePlaintextNamespace::establish(
-            root.clone(),
-            marker,
-            "delete-escape-test",
-        )
-        .expect("namespace");
+        let namespace =
+            DurablePlaintextNamespace::establish(root.clone(), marker, "delete-escape-test")
+                .expect("namespace");
         symlink(&outside, root.join("escape")).expect("escape symlink");
 
         let error = namespace
@@ -1584,12 +1587,9 @@ mod tests {
         let root = parent.join("cache");
         std::fs::create_dir_all(&root).expect("namespace root");
         let marker = parent.join(".cache-owner");
-        let namespace = DurablePlaintextNamespace::establish(
-            root.clone(),
-            marker.clone(),
-            "marker-loss-test",
-        )
-        .expect("namespace");
+        let namespace =
+            DurablePlaintextNamespace::establish(root.clone(), marker.clone(), "marker-loss-test")
+                .expect("namespace");
         std::fs::remove_file(&marker).expect("remove marker");
 
         assert!(
@@ -1599,7 +1599,6 @@ mod tests {
 
         std::fs::remove_dir_all(parent).expect("remove test root");
     }
-
 
     #[test]
     fn durable_namespace_strict_cleanup_refuses_marker_loss() {
@@ -1628,11 +1627,13 @@ mod tests {
             std::fs::read(&secret).expect("plaintext preserved when authority is gone"),
             b"must remain without authority"
         );
-        assert!(!marker.exists(), "cleanup must never recreate missing authority");
+        assert!(
+            !marker.exists(),
+            "cleanup must never recreate missing authority"
+        );
 
         std::fs::remove_dir_all(parent).expect("remove test root");
     }
-
 
     #[test]
     fn durable_namespace_establish_refuses_posthoc_adoption_of_nonempty_root() {
@@ -1653,7 +1654,10 @@ mod tests {
         )
         .expect_err("fresh establishment must reject a nonempty unowned root");
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
-        assert!(!marker.exists(), "failed establishment must not manufacture authority");
+        assert!(
+            !marker.exists(),
+            "failed establishment must not manufacture authority"
+        );
         assert!(root.join("secret.tmp").exists());
 
         std::fs::remove_dir_all(parent).expect("remove test root");
@@ -1668,26 +1672,20 @@ mod tests {
         let root = parent.join("cache");
         std::fs::create_dir_all(&root).expect("namespace root");
         let marker = parent.join(".cache-owner");
-        DurablePlaintextNamespace::establish(
-            root.clone(),
-            marker.clone(),
-            "open-existing-test",
-        )
-        .expect("namespace");
+        DurablePlaintextNamespace::establish(root.clone(), marker.clone(), "open-existing-test")
+            .expect("namespace");
         std::fs::remove_file(&marker).expect("remove marker");
 
         assert!(
-            DurablePlaintextNamespace::open_existing(
-                root,
-                marker.clone(),
-                "open-existing-test",
-            )
-            .is_err(),
+            DurablePlaintextNamespace::open_existing(root, marker.clone(), "open-existing-test",)
+                .is_err(),
             "verify-only reopen must fail closed after marker loss",
         );
-        assert!(!marker.exists(), "verify-only reopen must never recreate authority");
+        assert!(
+            !marker.exists(),
+            "verify-only reopen must never recreate authority"
+        );
 
         std::fs::remove_dir_all(parent).expect("remove test root");
     }
-
 }

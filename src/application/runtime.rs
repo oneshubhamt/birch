@@ -22,14 +22,12 @@ impl RuntimeService {
     /// Best-effort cache/handoff cleanup. These are derived/transient resources, so
     /// cleanup failures remain warnings exactly as before and do not block library open.
     pub(crate) fn cleanup_library_transients(&self) {
-        if let Err(error) = crate::media_compat::cleanup_stale_temporary_files(
-            &self.paths.media_compat_directory(),
-        ) {
+        if let Err(error) =
+            crate::media_compat::cleanup_stale_temporary_files(&self.paths.media_compat_directory())
+        {
             eprintln!("Rustnote media compatibility cleanup skipped: {error}");
         }
-        if let Err(error) = crate::media_compat::prune_cache(
-            &self.paths.media_compat_directory(),
-        ) {
+        if let Err(error) = crate::media_compat::prune_cache(&self.paths.media_compat_directory()) {
             eprintln!("Rustnote media compatibility cache pruning skipped: {error}");
         }
         if let Err(error) = crate::native::handoff::cleanup_stale_attachment_handoffs(

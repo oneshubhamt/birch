@@ -78,15 +78,25 @@ pub struct EditorNoteLinkInsertDescriptor {
 #[serde(tag = "command", content = "payload", rename_all = "snake_case")]
 pub enum EditorCommand {
     Install(EditorInstallPayload),
-    ReadState { dispatch_input: bool },
-    SetEditable { editable: bool },
-    SetAttachmentRegistry { attachments: Vec<EditorAttachmentDescriptor> },
-    RemoveAttachmentFromDocument { attachment_id: String },
+    ReadState {
+        dispatch_input: bool,
+    },
+    SetEditable {
+        editable: bool,
+    },
+    SetAttachmentRegistry {
+        attachments: Vec<EditorAttachmentDescriptor>,
+    },
+    RemoveAttachmentFromDocument {
+        attachment_id: String,
+    },
     RecoverAttachmentImports {
         recovery: EditorAttachmentImportRecovery,
         attachments: Vec<EditorAttachmentDescriptor>,
     },
-    SetNoteLinkRegistry { targets: Vec<NoteLinkTarget> },
+    SetNoteLinkRegistry {
+        targets: Vec<NoteLinkTarget>,
+    },
     MediaCompatibilityResult {
         attachment_id: String,
         profile: String,
@@ -97,7 +107,9 @@ pub enum EditorCommand {
         request_id: String,
         descriptor: EditorNoteLinkInsertDescriptor,
     },
-    FailNoteLinkPicker { request_id: String },
+    FailNoteLinkPicker {
+        request_id: String,
+    },
     BeginAttachmentImport {
         request_id: String,
         items: Vec<EditorAttachmentImportItem>,
@@ -110,7 +122,9 @@ pub enum EditorCommand {
         request_id: String,
         attachments: Vec<EditorAttachmentDescriptor>,
     },
-    FailAttachmentPicker { request_id: String },
+    FailAttachmentPicker {
+        request_id: String,
+    },
     CompletePdfExport {
         request_id: String,
         success: bool,
@@ -120,7 +134,9 @@ pub enum EditorCommand {
         request_id: String,
         attachments: Vec<EditorAttachmentDescriptor>,
     },
-    FailImageImport { request_id: String },
+    FailImageImport {
+        request_id: String,
+    },
     CompleteImageEdit {
         request_id: String,
         descriptor: Box<EditorAttachmentDescriptor>,
@@ -129,14 +145,23 @@ pub enum EditorCommand {
         request_id: String,
         message: String,
     },
-    Dispose { flush: bool },
-    ValidateState { editor_state: String },
+    Dispose {
+        flush: bool,
+    },
+    ValidateState {
+        editor_state: String,
+    },
     ReplaceState {
         editor_state: String,
         generation: u64,
     },
-    Format { action: String },
-    SetTypography { kind: String, value: String },
+    Format {
+        action: String,
+    },
+    SetTypography {
+        kind: String,
+        value: String,
+    },
     SetEditorPreferences {
         auto_indent_enabled: bool,
         auto_first_line_indent: u32,
@@ -144,7 +169,9 @@ pub enum EditorCommand {
         spellcheck_enabled: bool,
     },
     ApplyFontSizeInput,
-    AdjustFontSize { delta: i32 },
+    AdjustFontSize {
+        delta: i32,
+    },
     RefreshSurface,
     FocusEditor,
     OpenInsertMenu,
@@ -156,7 +183,10 @@ pub enum EditorCommand {
     ExitFocus,
     ToggleWindowFullscreen,
     CaptureLinkSelection,
-    InsertLink { url: String, label: String },
+    InsertLink {
+        url: String,
+        label: String,
+    },
 }
 
 #[derive(Clone, Debug, Serialize)]

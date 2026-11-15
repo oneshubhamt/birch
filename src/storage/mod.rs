@@ -55,23 +55,23 @@ impl FromSql for SourceId {
     }
 }
 
-mod attachment_ingest;
-mod capabilities;
-mod attachments;
 mod atomic_output;
+mod attachment_ingest;
+mod attachments;
 mod backup_repository;
 mod backup_support;
 mod backups;
+mod capabilities;
 mod history;
 mod initialization;
 mod locations;
-mod notebooks;
 mod note_candidates;
 mod note_hierarchy;
 mod note_links;
+mod notebooks;
 mod notes;
-mod portability;
 mod plaintext_staging;
+mod portability;
 mod portable_bundle;
 mod properties;
 mod protection;
@@ -83,6 +83,18 @@ mod tags;
 mod transport;
 pub(crate) mod vault_objects;
 
+pub(crate) use attachment_ingest::{
+    AttachmentIngestIntent, PendingAttachmentIngestResource, PreparedAttachmentImport,
+};
+pub(crate) use attachments::{
+    AttachmentImportProfile, AuthorizedDerivedImageAttachment, ProfiledAttachmentImport,
+};
+pub(crate) use capabilities::{
+    AttachmentFileCommandResource, AttachmentStore, EditorStore, ExportStore, LibraryStore,
+    NoteExportResource, NoteStore, PrivacyOperationStore, PrivacyPublicationStore, RuntimeStore,
+    SettingsStore, VaultStore,
+};
+pub(crate) use history::{RevisionRestoreAuthorization, RevisionSnapshotResource};
 pub use locations::StorageLocations;
 pub use settings::DEFAULT_TRASH_RETENTION_DAYS;
 pub use tags::parse_tags;
@@ -91,18 +103,6 @@ pub use transport::{
     AttachmentTransportResource, AttachmentTransportSession, AttachmentTransportStore,
     PdfAnnotationRow,
 };
-pub(crate) use capabilities::{
-    AttachmentFileCommandResource, AttachmentStore, EditorStore, ExportStore, LibraryStore,
-    NoteExportResource, NoteStore, PrivacyOperationStore, PrivacyPublicationStore, RuntimeStore,
-    SettingsStore, VaultStore,
-};
-pub(crate) use attachment_ingest::{
-    AttachmentIngestIntent, PendingAttachmentIngestResource, PreparedAttachmentImport,
-};
-pub(crate) use attachments::{
-    AttachmentImportProfile, AuthorizedDerivedImageAttachment, ProfiledAttachmentImport,
-};
-pub(crate) use history::{RevisionRestoreAuthorization, RevisionSnapshotResource};
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -129,9 +129,8 @@ impl NoteSaveScope {
     pub const TAGS: Self = Self(Self::TAGS_BIT);
     pub const STATE: Self = Self(Self::STATE_BIT);
     pub const DOCUMENT: Self = Self(Self::DOCUMENT_BIT);
-    pub const ALL: Self = Self(
-        Self::TITLE_BIT | Self::TAGS_BIT | Self::STATE_BIT | Self::DOCUMENT_BIT,
-    );
+    pub const ALL: Self =
+        Self(Self::TITLE_BIT | Self::TAGS_BIT | Self::STATE_BIT | Self::DOCUMENT_BIT);
 
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
@@ -292,7 +291,6 @@ impl NoteSaveFailure {
 
 pub(crate) type OwnedNoteSaveResult = Result<(Note, bool), NoteSaveFailure>;
 
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BackupRepositoryRecoveryReport {
     pub quarantined_manifests: usize,
@@ -353,11 +351,7 @@ impl fmt::Debug for DirectoryLock {
 }
 
 impl DirectoryLock {
-    fn acquire(
-        directory: &Path,
-        file_name: &str,
-        kind: DirectoryLockKind,
-    ) -> StorageResult<Self> {
+    fn acquire(directory: &Path, file_name: &str, kind: DirectoryLockKind) -> StorageResult<Self> {
         let path = directory.join(file_name);
         let connection = Connection::open(&path)?;
         connection.busy_timeout(Duration::ZERO)?;
@@ -378,9 +372,7 @@ impl DirectoryLock {
                     DirectoryLockKind::Library => {
                         StorageError::LibraryInUse(directory.to_path_buf())
                     }
-                    DirectoryLockKind::Backup => {
-                        StorageError::BackupInUse(directory.to_path_buf())
-                    }
+                    DirectoryLockKind::Backup => StorageError::BackupInUse(directory.to_path_buf()),
                 });
             }
             return Err(StorageError::Database(error));
@@ -418,8 +410,7 @@ impl DirectoryOwnership {
         let role_lock = DirectoryLock::acquire(directory, role_lock_file, kind)?;
         // The shared role lock prevents one new process from using a directory
         // as a library while another uses it as an automatic backup repository.
-        let common_lock =
-            DirectoryLock::acquire(directory, ".rustnote-directory.lock", kind)?;
+        let common_lock = DirectoryLock::acquire(directory, ".rustnote-directory.lock", kind)?;
         Ok(Arc::new(Self {
             path: directory.to_path_buf(),
             _role_lock: role_lock,
@@ -519,10 +510,7 @@ impl Storage {
             fs::create_dir_all(&automatic_backup_directory)?;
         }
         let automatic_backup_directory = fs::canonicalize(automatic_backup_directory)?;
-        locations::validate_disjoint_directories(
-            &data_directory,
-            &automatic_backup_directory,
-        )?;
+        locations::validate_disjoint_directories(&data_directory, &automatic_backup_directory)?;
         let backup_directory_lock =
             DirectoryOwnership::acquire(&automatic_backup_directory, DirectoryLockKind::Backup)?;
         let storage_locations = StorageLocations {
@@ -728,11 +716,10 @@ impl Storage {
         let _operation_guard = self.lock_operations()?;
         let connection = self.connection()?;
         connection.execute_batch("PRAGMA synchronous = FULL;")?;
-        let (busy, log_frames, checkpointed_frames): (i64, i64, i64) = connection.query_row(
-            "PRAGMA wal_checkpoint(FULL)",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )?;
+        let (busy, log_frames, checkpointed_frames): (i64, i64, i64) =
+            connection.query_row("PRAGMA wal_checkpoint(FULL)", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })?;
         if busy != 0 {
             return Err(StorageError::Integrity(
                 "SQLite could not complete the full WAL checkpoint because the database remained busy"
@@ -750,10 +737,7 @@ impl Storage {
 
 #[cfg(any(test, feature = "internal-test-support"))]
 #[doc(hidden)]
-pub fn lock_protected_note_for_test(
-    storage: &Storage,
-    note_id: &NoteId,
-) -> StorageResult<Note> {
+pub fn lock_protected_note_for_test(storage: &Storage, note_id: &NoteId) -> StorageResult<Note> {
     storage.lock_protected_note(note_id)
 }
 
@@ -768,7 +752,6 @@ pub fn protected_note_accepts_vault_reads_for_test(
         .contains_note_key(note_id)
         .map_err(|message| StorageError::Integrity(message.to_string()))
 }
-
 
 #[cfg(any(test, feature = "internal-test-support"))]
 #[doc(hidden)]
@@ -813,14 +796,7 @@ pub fn protected_transport_test_fixture(
         .attachment_resource(&attachment.id)
         .expect("protected transport read")
         .expect("protected transport resource");
-    (
-        storage,
-        transport,
-        resource,
-        note.id,
-        attachment.id,
-        root,
-    )
+    (storage, transport, resource, note.id, attachment.id, root)
 }
 
 pub fn unix_timestamp() -> i64 {
@@ -844,11 +820,22 @@ fn new_uuid_v4_string() -> String {
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
     format!(
         "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        bytes[0], bytes[1], bytes[2], bytes[3],
-        bytes[4], bytes[5],
-        bytes[6], bytes[7],
-        bytes[8], bytes[9],
-        bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+        bytes[0],
+        bytes[1],
+        bytes[2],
+        bytes[3],
+        bytes[4],
+        bytes[5],
+        bytes[6],
+        bytes[7],
+        bytes[8],
+        bytes[9],
+        bytes[10],
+        bytes[11],
+        bytes[12],
+        bytes[13],
+        bytes[14],
+        bytes[15],
     )
 }
 

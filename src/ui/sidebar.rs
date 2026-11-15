@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
-use dioxus::prelude::*;
 use crate::application::{
     context::ApplicationServices, editor::EditorService, executor::ApplicationExecutor,
 };
+use dioxus::prelude::*;
 
 use crate::build_info::FULL_BUILD_IDENTIFIER;
 use crate::domain::{DEFAULT_NOTEBOOK_ID, Notebook, Section};
@@ -11,16 +11,24 @@ use crate::domain::{DEFAULT_NOTEBOOK_ID, Notebook, Section};
 use super::entity_actions::{ActionTarget, EntityAction};
 use super::note_list_data::reload_note_list;
 use super::notes_header::create_contextual_note;
-use super::responsive::{focus_notebook_tree_item, NotebookTreeNavigation};
+use super::responsive::{NotebookTreeNavigation, focus_notebook_tree_item};
 use super::synchronization::SynchronizationMode;
 use super::task_error::DataTaskError;
 use super::{CompactPane, NotesListState};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum NotebookCommand {
-    Rename { notebook_id: String, name: String },
-    Move { notebook_id: String, parent_id: Option<String> },
-    Delete { notebook_id: String },
+    Rename {
+        notebook_id: String,
+        name: String,
+    },
+    Move {
+        notebook_id: String,
+        parent_id: Option<String>,
+    },
+    Delete {
+        notebook_id: String,
+    },
 }
 
 #[derive(Clone, PartialEq)]
@@ -490,23 +498,23 @@ fn apply_notebook_command(
                     let replacement = task_library
                         .delete_notebook_preserving_contents(&notebook_id)
                         .map_err(DataTaskError::from)?;
-                    ("Notebook deleted; contents preserved".to_string(), Some(replacement))
+                    (
+                        "Notebook deleted; contents preserved".to_string(),
+                        Some(replacement),
+                    )
                 }
             };
 
-            let refreshed_selected_note = if replacement_notebook.is_some() && refresh_selected_note {
+            let refreshed_selected_note = if replacement_notebook.is_some() && refresh_selected_note
+            {
                 match selected_note_id.as_ref() {
-                    Some(note_id) => task_notes
-                        .get(note_id)
-                        .map_err(DataTaskError::from)?,
+                    Some(note_id) => task_notes.get(note_id).map_err(DataTaskError::from)?,
                     None => None,
                 }
             } else {
                 None
             };
-            let next_notebooks = task_library
-                .list_notebooks()
-                .map_err(DataTaskError::from)?;
+            let next_notebooks = task_library.list_notebooks().map_err(DataTaskError::from)?;
             Ok::<_, DataTaskError>((
                 message,
                 replacement_notebook,

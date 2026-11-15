@@ -26,7 +26,6 @@ impl NoteFilters {
             + usize::from(self.without_tags)
     }
 
-
     pub fn from_storage(value: &str) -> Self {
         serde_json::from_str::<Self>(value)
             .unwrap_or_default()
@@ -136,4 +135,3 @@ pub struct NoteListPage {
     pub next_cursor: Option<NoteListCursor>,
     pub total_count: Option<usize>,
 }
-

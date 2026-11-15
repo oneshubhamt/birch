@@ -1,25 +1,26 @@
 use std::{path::PathBuf, sync::Arc};
 
-use dioxus::core::use_drop;
-use dioxus::prelude::*;
 use crate::{
-    editor_bridge::{
-        EditorAttachmentCommand, EditorAttachmentDescriptor, EditorAttachmentImportItem,
-        EditorAttachmentImportRecovery, EditorAttachmentImportRecoveryGroup, EditorCommand,
-        EditorDocumentUpdate, EditorEvent, EditorInstallPayload, EditorMediaCompatibilityCandidate,
-        EditorNoteLinkCommand, EditorNoteLinkInsertDescriptor, decode_editor_document_update, decode_editor_event,
-        dispatch_expression, dispatch_script, dispatch_string_script, dispatch_usize_script,
-        install_script,
-        runtime_error_script, runtime_ready_script,
-        wait_for_generation_then_dispatch_script,
-    },
-    editor_runtime::EDITOR_RUNTIME_MARKER,
     application::{
         attachments::{AttachmentService, PreparedAttachmentImport},
         settings::EditorPreferences,
     },
-    domain::{Attachment, NoteDocument, NoteId, NoteCandidate, NoteLinkTarget, NoteLinkTargetState},
+    domain::{
+        Attachment, NoteCandidate, NoteDocument, NoteId, NoteLinkTarget, NoteLinkTargetState,
+    },
+    editor_bridge::{
+        EditorAttachmentCommand, EditorAttachmentDescriptor, EditorAttachmentImportItem,
+        EditorAttachmentImportRecovery, EditorAttachmentImportRecoveryGroup, EditorCommand,
+        EditorDocumentUpdate, EditorEvent, EditorInstallPayload, EditorMediaCompatibilityCandidate,
+        EditorNoteLinkCommand, EditorNoteLinkInsertDescriptor, decode_editor_document_update,
+        decode_editor_event, dispatch_expression, dispatch_script, dispatch_string_script,
+        dispatch_usize_script, install_script, runtime_error_script, runtime_ready_script,
+        wait_for_generation_then_dispatch_script,
+    },
+    editor_runtime::EDITOR_RUNTIME_MARKER,
 };
+use dioxus::core::use_drop;
+use dioxus::prelude::*;
 
 use super::{eval_bridge, privacy::PrivacyPublicationToken};
 
@@ -122,9 +123,9 @@ pub(super) fn NoteDocumentEditor(view: LiveEditorView, actions: LiveEditorAction
                     };
                     onstatus.call(message);
                 }
-                Err(error) => onstatus.call(format!(
-                    "The editor bridge could not initialise: {error}"
-                )),
+                Err(error) => {
+                    onstatus.call(format!("The editor bridge could not initialise: {error}"))
+                }
             }
         });
     });
@@ -219,10 +220,16 @@ fn attachment_import_recovery(
     note_id: &str,
 ) -> EditorAttachmentImportRecovery {
     let Ok(note_id) = NoteId::parse(note_id) else {
-        return EditorAttachmentImportRecovery { authoritative: false, groups: Vec::new() };
+        return EditorAttachmentImportRecovery {
+            authoritative: false,
+            groups: Vec::new(),
+        };
     };
     let Ok(groups) = service.import_recovery_groups(&note_id) else {
-        return EditorAttachmentImportRecovery { authoritative: false, groups: Vec::new() };
+        return EditorAttachmentImportRecovery {
+            authoritative: false,
+            groups: Vec::new(),
+        };
     };
     EditorAttachmentImportRecovery {
         authoritative: true,

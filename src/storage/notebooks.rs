@@ -198,7 +198,8 @@ impl Storage {
 
         #[cfg(feature = "remote-sync")]
         let moved_note_ids = {
-            let mut statement = transaction.prepare("SELECT id FROM notes WHERE notebook_id = ?1")?;
+            let mut statement =
+                transaction.prepare("SELECT id FROM notes WHERE notebook_id = ?1")?;
             statement
                 .query_map([notebook_id], |row| row.get::<_, crate::domain::NoteId>(0))?
                 .collect::<Result<Vec<_>, _>>()?
@@ -334,7 +335,8 @@ mod tests {
         let root = std::env::temp_dir().join(format!("rustnote-{suffix}"));
         let data = root.join("data");
         let backups = root.join("backups");
-        let storage = Storage::at_with_backup(data, backups).expect("test storage should initialize");
+        let storage =
+            Storage::at_with_backup(data, backups).expect("test storage should initialize");
         (storage, root)
     }
 

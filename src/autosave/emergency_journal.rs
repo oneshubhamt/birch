@@ -17,8 +17,8 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     build_info::FULL_BUILD_IDENTIFIER,
-    editor_projection::derive_editor_projections,
     domain::{Note, NoteId, NoteTitleStyle},
+    editor_projection::derive_editor_projections,
     storage::{Storage, unix_timestamp},
 };
 
@@ -66,7 +66,10 @@ impl std::fmt::Display for EmergencyJournalError {
                 formatter.write_str("emergency journal worker is unavailable")
             }
             Self::WorkerStopped(operation) => {
-                write!(formatter, "emergency journal worker stopped before {operation}")
+                write!(
+                    formatter,
+                    "emergency journal worker stopped before {operation}"
+                )
             }
         }
     }
@@ -156,8 +159,6 @@ struct JournalManifest {
     updated_at: i64,
 }
 
-
-
 struct ScheduledDraft {
     draft: EmergencyDraft,
     deadline: Instant,
@@ -209,12 +210,13 @@ impl EmergencyDraft {
     }
 
     fn into_recovered_note(self, current: &Note) -> JournalResult<Note> {
-        let projections = derive_editor_projections(self.editor_state.as_str()).map_err(|error| {
-            format!(
-                "could not regenerate projections for emergency draft {}: {error}",
-                self.note_id
-            )
-        })?;
+        let projections =
+            derive_editor_projections(self.editor_state.as_str()).map_err(|error| {
+                format!(
+                    "could not regenerate projections for emergency draft {}: {error}",
+                    self.note_id
+                )
+            })?;
         Ok(Note {
             id: self.note_id,
             protection: crate::domain::NoteProtectionState::Unprotected,
@@ -457,7 +459,12 @@ fn recover_candidate_group(
     let current = match storage.get_note(&note_id) {
         Ok(Some(note)) => note,
         Ok(None) => {
-            quarantine_paths(directory, &valid_paths, "missing-note", &mut report.warnings);
+            quarantine_paths(
+                directory,
+                &valid_paths,
+                "missing-note",
+                &mut report.warnings,
+            );
             report.warnings.push(format!(
                 "Emergency draft {note_id} references a missing note and was quarantined."
             ));
@@ -483,7 +490,12 @@ fn recover_candidate_group(
     }
 
     if current.trashed {
-        quarantine_paths(directory, &valid_paths, "trashed-note", &mut report.warnings);
+        quarantine_paths(
+            directory,
+            &valid_paths,
+            "trashed-note",
+            &mut report.warnings,
+        );
         report.warnings.push(format!(
             "Emergency draft {note_id} was not recovered because the note is in Trash and is read-only."
         ));
@@ -667,11 +679,7 @@ fn next_journal_timeout(state: &JournalState) -> Option<Duration> {
         .map(|scheduled| scheduled.deadline.saturating_duration_since(Instant::now()))
 }
 
-fn persist_due_drafts(
-    directory: &Path,
-    state: &mut JournalState,
-    events: &AutosaveEventSender,
-) {
+fn persist_due_drafts(directory: &Path, state: &mut JournalState, events: &AutosaveEventSender) {
     let due = state
         .pending
         .as_ref()
@@ -693,11 +701,7 @@ fn persist_due_drafts(
     }
 }
 
-fn persist_all_pending(
-    directory: &Path,
-    state: &mut JournalState,
-    events: &AutosaveEventSender,
-) {
+fn persist_all_pending(directory: &Path, state: &mut JournalState, events: &AutosaveEventSender) {
     let Some(scheduled) = state.pending.take() else {
         return;
     };
@@ -800,7 +804,11 @@ fn clear_note(
     state.persisted.remove(note_id);
     let paths = draft_paths(directory, note_id);
     let mut removed_file = false;
-    for path in [&paths.final_path, &paths.temporary_path, &paths.previous_path] {
+    for path in [
+        &paths.final_path,
+        &paths.temporary_path,
+        &paths.previous_path,
+    ] {
         removed_file |= privacy_remove_file_if_present(path)?;
     }
     removed_file |= discard_quarantined_records_for_note(directory, note_id)?;
@@ -832,11 +840,13 @@ fn privacy_remove_file_if_present(path: &Path) -> JournalResult<bool> {
         Ok(_) => {}
     }
     let namespace = journal_plaintext_namespace_for_path(path)?;
-    let mut owned = namespace.adopt_existing(path.to_path_buf()).map_err(|error| {
-        EmergencyJournalError::new(format!(
-            "could not resume emergency-journal plaintext ownership: {error}"
-        ))
-    })?;
+    let mut owned = namespace
+        .adopt_existing(path.to_path_buf())
+        .map_err(|error| {
+            EmergencyJournalError::new(format!(
+                "could not resume emergency-journal plaintext ownership: {error}"
+            ))
+        })?;
     owned.remove_file().map_err(|error| {
         EmergencyJournalError::new(format!(
             "could not securely discard {}: {error}",
@@ -853,10 +863,7 @@ fn discard_protected_recovery_records(paths: &[PathBuf]) -> JournalResult<()> {
     Ok(())
 }
 
-fn discard_protected_journal_records(
-    storage: &Storage,
-    directory: &Path,
-) -> JournalResult<()> {
+fn discard_protected_journal_records(storage: &Storage, directory: &Path) -> JournalResult<()> {
     let note_ids = storage
         .protected_note_ids_for_privacy_recovery()
         .map_err(|error| {
@@ -876,10 +883,7 @@ fn discard_protected_journal_records(
     Ok(())
 }
 
-fn discard_quarantined_records_for_note(
-    directory: &Path,
-    note_id: &NoteId,
-) -> JournalResult<bool> {
+fn discard_quarantined_records_for_note(directory: &Path, note_id: &NoteId) -> JournalResult<bool> {
     let quarantine = directory.join(JOURNAL_QUARANTINE_DIRECTORY);
     let entries = match fs::read_dir(&quarantine) {
         Ok(entries) => entries,
@@ -928,10 +932,7 @@ fn reset_journal_storage(data_directory: &Path) -> JournalResult<()> {
     sync_directory(data_directory)
 }
 
-fn write_draft_record(
-    directory: &Path,
-    draft: &EmergencyDraft,
-) -> JournalResult<PersistedDraft> {
+fn write_draft_record(directory: &Path, draft: &EmergencyDraft) -> JournalResult<PersistedDraft> {
     validate_draft(draft)?;
     if estimated_draft_bytes(draft) > MAX_NOTE_JOURNAL_BYTES {
         return journal_error(format!(
@@ -951,7 +952,12 @@ fn write_draft_record(
     let paths = draft_paths(directory, &draft.note_id);
     write_json_file(&paths.temporary_path, &record)?;
     let byte_size = fs::metadata(&paths.temporary_path)
-        .map_err(|error| format!("could not inspect {}: {error}", paths.temporary_path.display()))?
+        .map_err(|error| {
+            format!(
+                "could not inspect {}: {error}",
+                paths.temporary_path.display()
+            )
+        })?
         .len();
     if byte_size > MAX_NOTE_JOURNAL_BYTES {
         let _ = remove_file_if_present(&paths.temporary_path);
@@ -1002,9 +1008,13 @@ fn write_json_file<T: Serialize>(path: &Path, value: &T) -> JournalResult<()> {
     writer
         .flush()
         .map_err(|error| format!("could not flush {}: {error}", path.display()))?;
-    let file = writer
-        .into_inner()
-        .map_err(|error| format!("could not finish {}: {}", path.display(), error.into_error()))?;
+    let file = writer.into_inner().map_err(|error| {
+        format!(
+            "could not finish {}: {}",
+            path.display(),
+            error.into_error()
+        )
+    })?;
     file.sync_all().map_err(|error| {
         EmergencyJournalError::new(format!("could not sync {}: {error}", path.display()))
     })
@@ -1016,11 +1026,13 @@ fn replace_temporary_file(
     previous_path: &Path,
 ) -> JournalResult<()> {
     let namespace = journal_plaintext_namespace_for_path(temporary_path)?;
-    let mut temporary = namespace.adopt_existing(temporary_path.to_path_buf()).map_err(|error| {
-        EmergencyJournalError::new(format!(
-            "could not resume emergency-journal temporary ownership: {error}"
-        ))
-    })?;
+    let mut temporary = namespace
+        .adopt_existing(temporary_path.to_path_buf())
+        .map_err(|error| {
+            EmergencyJournalError::new(format!(
+                "could not resume emergency-journal temporary ownership: {error}"
+            ))
+        })?;
 
     #[cfg(unix)]
     {
@@ -1121,8 +1133,8 @@ fn read_draft_record(path: &Path) -> JournalResult<EmergencyDraftRecord> {
             MAX_NOTE_JOURNAL_BYTES / (1024 * 1024)
         ));
     }
-    let file = File::open(path)
-        .map_err(|error| format!("could not open {}: {error}", path.display()))?;
+    let file =
+        File::open(path).map_err(|error| format!("could not open {}: {error}", path.display()))?;
     let record: EmergencyDraftRecord = serde_json::from_reader(BufReader::new(file))
         .map_err(|error| format!("could not parse {}: {error}", path.display()))?;
     if record.version != JOURNAL_RECORD_VERSION {
@@ -1220,9 +1232,7 @@ fn draft_candidate_base_name(name: &str) -> Option<&str> {
         .strip_suffix(".tmp")
         .or_else(|| name.strip_suffix(".previous"))
         .unwrap_or(name);
-    let hash = base
-        .strip_prefix("note-")?
-        .strip_suffix(".json")?;
+    let hash = base.strip_prefix("note-")?.strip_suffix(".json")?;
     (hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit())).then_some(base)
 }
 
@@ -1246,7 +1256,9 @@ fn journal_plaintext_namespace_for_path(
 ) -> JournalResult<crate::security::DurablePlaintextNamespace> {
     let directory = path
         .ancestors()
-        .find(|candidate| candidate.file_name().and_then(|name| name.to_str()) == Some(JOURNAL_DIRECTORY))
+        .find(|candidate| {
+            candidate.file_name().and_then(|name| name.to_str()) == Some(JOURNAL_DIRECTORY)
+        })
         .ok_or_else(|| {
             EmergencyJournalError::new("emergency-journal path escaped its durable namespace")
         })?;
@@ -1260,12 +1272,7 @@ fn journal_directory(data_directory: &Path) -> PathBuf {
     data_directory.join(JOURNAL_DIRECTORY)
 }
 
-fn quarantine_paths(
-    directory: &Path,
-    paths: &[PathBuf],
-    reason: &str,
-    warnings: &mut Vec<String>,
-) {
+fn quarantine_paths(directory: &Path, paths: &[PathBuf], reason: &str, warnings: &mut Vec<String>) {
     for path in paths {
         if let Err(error) = quarantine_file(directory, path, reason) {
             warnings.push(format!(
@@ -1285,11 +1292,13 @@ fn quarantine_file(directory: &Path, source: &Path, reason: &str) -> JournalResu
         .unwrap_or("journal-record");
     let destination = available_quarantine_path(&quarantine, file_name, reason)?;
     let namespace = journal_plaintext_namespace_for_path(source)?;
-    let mut owned = namespace.adopt_existing(source.to_path_buf()).map_err(|error| {
-        EmergencyJournalError::new(format!(
-            "could not resume emergency-journal quarantine ownership: {error}"
-        ))
-    })?;
+    let mut owned = namespace
+        .adopt_existing(source.to_path_buf())
+        .map_err(|error| {
+            EmergencyJournalError::new(format!(
+                "could not resume emergency-journal quarantine ownership: {error}"
+            ))
+        })?;
     owned
         .rename_durable_namespace(destination.clone())
         .map_err(|error| {
@@ -1387,7 +1396,10 @@ mod privacy_tests {
             error.to_string().contains("could not securely discard"),
             "cleanup failure must propagate instead of becoming a warning"
         );
-        assert!(blocked.exists(), "failed cleanup must leave evidence for retry");
+        assert!(
+            blocked.exists(),
+            "failed cleanup must leave evidence for retry"
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -1407,13 +1419,21 @@ mod privacy_tests {
         let journal = owner.root().to_path_buf();
         ensure_private_directory(&journal).expect("create journal");
         let paths = draft_paths(&journal, &note.id);
-        for path in [&paths.final_path, &paths.temporary_path, &paths.previous_path] {
+        for path in [
+            &paths.final_path,
+            &paths.temporary_path,
+            &paths.previous_path,
+        ] {
             std::fs::write(path, b"corrupt protected plaintext journal")
                 .expect("write corrupt protected record");
         }
 
         recover(&storage).expect("startup privacy recovery");
-        for path in [&paths.final_path, &paths.temporary_path, &paths.previous_path] {
+        for path in [
+            &paths.final_path,
+            &paths.temporary_path,
+            &paths.previous_path,
+        ] {
             assert!(
                 !path.exists(),
                 "protected journal candidate must be deleted before parsing/quarantine"
@@ -1447,13 +1467,16 @@ mod privacy_tests {
         std::fs::create_dir_all(&paths.final_path)
             .expect("create non-file at protected journal path");
 
-        let error = recover(&storage)
-            .expect_err("startup must stop when protected journal cleanup fails");
+        let error =
+            recover(&storage).expect_err("startup must stop when protected journal cleanup fails");
         assert!(
             error.to_string().contains("could not securely discard"),
             "protected root cleanup failure must propagate"
         );
-        assert!(paths.final_path.exists(), "failed cleanup must remain retryable");
+        assert!(
+            paths.final_path.exists(),
+            "failed cleanup must remain retryable"
+        );
 
         drop(storage);
         let _ = std::fs::remove_dir_all(root);
@@ -1474,10 +1497,7 @@ mod privacy_tests {
         let journal = owner.root().to_path_buf();
         let quarantine = journal.join(JOURNAL_QUARANTINE_DIRECTORY);
         ensure_private_directory(&quarantine).expect("create quarantine");
-        let residue = quarantine.join(format!(
-            "{}.123456-corrupt",
-            draft_file_name(&note.id)
-        ));
+        let residue = quarantine.join(format!("{}.123456-corrupt", draft_file_name(&note.id)));
         std::fs::write(&residue, b"legacy plaintext recovery residue")
             .expect("write legacy quarantine residue");
 
@@ -1494,8 +1514,7 @@ mod privacy_tests {
     #[test]
     fn quarantine_cleanup_is_scoped_to_the_target_note() {
         let root = temp_root("quarantine-scope");
-        let owner = journal_plaintext_namespace(&root)
-            .expect("establish journal plaintext owner");
+        let owner = journal_plaintext_namespace(&root).expect("establish journal plaintext owner");
         let journal = owner.root().to_path_buf();
         let quarantine = journal.join(JOURNAL_QUARANTINE_DIRECTORY);
         ensure_private_directory(&quarantine).expect("create quarantine");
@@ -1511,7 +1530,10 @@ mod privacy_tests {
                 .expect("discard target quarantine")
         );
         assert!(!target_path.exists(), "target quarantine must be removed");
-        assert!(other_path.exists(), "unrelated quarantine must remain untouched");
+        assert!(
+            other_path.exists(),
+            "unrelated quarantine must remain untouched"
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -1528,7 +1550,10 @@ mod privacy_tests {
 
         discard_protected_recovery_records(std::slice::from_ref(&record))
             .expect("discard protected recovery residue");
-        assert!(!record.exists(), "protected recovery residue must be removed");
+        assert!(
+            !record.exists(),
+            "protected recovery residue must be removed"
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }

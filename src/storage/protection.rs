@@ -22,34 +22,36 @@ use crate::{
     attachment_paths::canonical_blob_relative_path,
     domain::{
         Attachment, Citation, Note, NoteDocument, NoteId, NoteProtectionState, NoteRevision,
-        NoteRevisionSummary, NoteSourceSummary, RevisionRetention, RevisionSnapshot, Source, SourceId, SourceKind,
+        NoteRevisionSummary, NoteSourceSummary, RevisionRetention, RevisionSnapshot, Source,
+        SourceId, SourceKind,
     },
-    editor_document::{analyze_editor_state, EMPTY_EDITOR_STATE},
+    editor_document::{EMPTY_EDITOR_STATE, analyze_editor_state},
     editor_projection::derive_editor_projections,
     security::{
+        Argon2idParams, DEFAULT_PROTECTED_BLOB_CHUNK_BYTES, OwnedPlaintext, VaultContext,
+        VaultDomain, VaultKey, VaultNoteAccess, VaultReadPermit, VaultService,
         sensitive_data::{
             AttachmentIndex, MetadataState, NOTE_PRIVATE_STATE_FORMAT_VERSION, NotePrivateState,
             ProtectedPublicPersistenceSpec, ProtectedScrubStep, RevisionIndex, RevisionObject,
             SensitiveNoteData, SensitivePdfAnnotation, SensitiveSourceLink, VaultBlobReference,
         },
-        Argon2idParams, DEFAULT_PROTECTED_BLOB_CHUNK_BYTES, VaultContext, VaultDomain,
-        OwnedPlaintext, VaultKey, VaultNoteAccess, VaultReadPermit, VaultService,
     },
     vault_profile::{VaultProfileSpan, VaultProfileStage},
 };
 
-use super::{NoteSaveScope, RevisionMode, Storage, StorageError, StorageResult, new_id, unix_timestamp};
 use super::attachments::sha256_file;
 use super::vault_objects::{VaultCurrentGraph, VaultManifest, VaultNoteRootRecord};
+use super::{
+    NoteSaveScope, RevisionMode, Storage, StorageError, StorageResult, new_id, unix_timestamp,
+};
 
 const LOCKED_ATTACHMENT_NAME: &str = "Locked attachment";
 
 fn ensure_wal_truncated(connection: &Connection) -> StorageResult<()> {
-    let (busy, log_frames, checkpointed_frames): (i64, i64, i64) = connection.query_row(
-        "PRAGMA wal_checkpoint(TRUNCATE)",
-        [],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-    )?;
+    let (busy, log_frames, checkpointed_frames): (i64, i64, i64) =
+        connection.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })?;
     if busy != 0 || (log_frames >= 0 && checkpointed_frames < log_frames) {
         return Err(StorageError::Integrity(format!(
             "SQLite could not fully truncate the WAL during vault privacy cleanup ({checkpointed_frames}/{log_frames} frames, busy={busy})"
@@ -180,7 +182,9 @@ impl Storage {
         for row in rows {
             let (note_id, operation, phase, operation_id, details_json) = row?;
             let note_id = NoteId::parse(note_id).map_err(|_| {
-                StorageError::Integrity("vault transition journal has an invalid note id".to_string())
+                StorageError::Integrity(
+                    "vault transition journal has an invalid note id".to_string(),
+                )
             })?;
             if operation_id.is_empty()
                 || operation_id.len() > 160
@@ -192,11 +196,12 @@ impl Storage {
                     "vault transition journal has an invalid operation id".to_string(),
                 ));
             }
-            let details = serde_json::from_str::<VaultOperationDetails>(&details_json).map_err(|_| {
-                StorageError::Integrity(
-                    "vault transition journal has invalid recovery details".to_string(),
-                )
-            })?;
+            let details =
+                serde_json::from_str::<VaultOperationDetails>(&details_json).map_err(|_| {
+                    StorageError::Integrity(
+                        "vault transition journal has invalid recovery details".to_string(),
+                    )
+                })?;
             for hash in &details.ciphertext_hashes {
                 super::attachments::validate_sha256(hash)?;
             }
@@ -250,7 +255,11 @@ impl Storage {
                 (VAULT_OPERATION_PROTECT, VAULT_PHASE_PREPARED) => {
                     self.restore_retiring_operation(&operation.note_id, &operation.operation_id)?;
                     self.delete_ciphertext_blobs_if_unreferenced(
-                        operation.details.ciphertext_hashes.iter().map(String::as_str),
+                        operation
+                            .details
+                            .ciphertext_hashes
+                            .iter()
+                            .map(String::as_str),
                     )?;
                     self.complete_vault_operation(&operation.note_id)?;
                 }
@@ -278,9 +287,16 @@ impl Storage {
                     self.complete_vault_operation(&operation.note_id)?;
                 }
                 (VAULT_OPERATION_UNPROTECT, VAULT_PHASE_DATABASE_COMMITTED) => {
-                    self.finalize_staged_plaintext_operation(&operation.note_id, &operation.operation_id)?;
+                    self.finalize_staged_plaintext_operation(
+                        &operation.note_id,
+                        &operation.operation_id,
+                    )?;
                     self.delete_ciphertext_blobs_if_unreferenced(
-                        operation.details.ciphertext_hashes.iter().map(String::as_str),
+                        operation
+                            .details
+                            .ciphertext_hashes
+                            .iter()
+                            .map(String::as_str),
                     )?;
                     self.complete_vault_operation(&operation.note_id)?;
                 }
@@ -323,7 +339,6 @@ impl Storage {
         Ok(())
     }
 
-
     #[cfg(test)]
     pub(crate) fn protect_note_with_password(
         &self,
@@ -347,8 +362,7 @@ impl Storage {
             crate::security::NotePrivacyTransition::Protect,
         )?;
         drop(privacy_profile);
-        let preparation_profile =
-            VaultProfileSpan::stage(VaultProfileStage::ProtectPreparation);
+        let preparation_profile = VaultProfileSpan::stage(VaultProfileStage::ProtectPreparation);
         self.discard_managed_plaintext_staging_for_note(note_id)?;
         let connection = self.connection()?;
         if protected_note_exists(&connection, note_id)? {
@@ -387,13 +401,8 @@ impl Storage {
 
         let attachments_encrypt_profile =
             VaultProfileSpan::stage(VaultProfileStage::AttachmentsEncrypt);
-        let protected_blobs = self.protect_note_blobs(
-            &vault,
-            &note_key,
-            note_id,
-            &attachments,
-            &revisions,
-        )?;
+        let protected_blobs =
+            self.protect_note_blobs(&vault, &note_key, note_id, &attachments, &revisions)?;
         drop(attachments_encrypt_profile);
         // `classify` is the exhaustive privacy authority. Revisions are inserted
         // below once their immutable predecessor object IDs are known.
@@ -429,10 +438,9 @@ impl Storage {
             &operation_id,
             &operation_details,
         ) {
-            return Err(self.cleanup_uncommitted_protected_blobs(
-                &sensitive.attachment_index.blobs,
-                error,
-            ));
+            return Err(
+                self.cleanup_uncommitted_protected_blobs(&sensitive.attachment_index.blobs, error)
+            );
         }
         let attachments_stage_profile =
             VaultProfileSpan::stage(VaultProfileStage::AttachmentsStage);
@@ -449,7 +457,10 @@ impl Storage {
                     .restore_retiring_operation(note_id, &operation_id)
                     .and_then(|()| {
                         self.delete_ciphertext_blobs_if_unreferenced(
-                            operation_details.ciphertext_hashes.iter().map(String::as_str),
+                            operation_details
+                                .ciphertext_hashes
+                                .iter()
+                                .map(String::as_str),
                         )
                     });
                 return match rollback_result {
@@ -518,12 +529,8 @@ impl Storage {
                     snapshot.clone(),
                 )
                 .map_err(|message| StorageError::Integrity(message.to_string()))?;
-                let object_id = self.insert_vault_object(
-                    &transaction,
-                    &note_key,
-                    note_id,
-                    &revision_object,
-                )?;
+                let object_id =
+                    self.insert_vault_object(&transaction, &note_key, note_id, &revision_object)?;
                 revision_index_rows.push((
                     object_id.clone(),
                     revision_object.revision_no,
@@ -537,17 +544,11 @@ impl Storage {
                 revision_count = revision_count.saturating_add(1);
             }
             revision_index_rows.reverse();
-            let revision_index = RevisionIndex::from_newest_first(
-                note_id.clone(),
-                revision_index_rows,
-            )
-            .map_err(|message| StorageError::Integrity(message.to_string()))?;
-            let revision_index_id = self.insert_vault_object(
-                &transaction,
-                &note_key,
-                note_id,
-                &revision_index,
-            )?;
+            let revision_index =
+                RevisionIndex::from_newest_first(note_id.clone(), revision_index_rows)
+                    .map_err(|message| StorageError::Integrity(message.to_string()))?;
+            let revision_index_id =
+                self.insert_vault_object(&transaction, &note_key, note_id, &revision_index)?;
 
             let manifest = VaultManifest::new(
                 note_id.clone(),
@@ -560,12 +561,8 @@ impl Storage {
                 revision_floor,
                 revision_count,
             )?;
-            let manifest_id = self.insert_vault_object(
-                &transaction,
-                &note_key,
-                note_id,
-                &manifest,
-            )?;
+            let manifest_id =
+                self.insert_vault_object(&transaction, &note_key, note_id, &manifest)?;
             self.install_vault_note_root(
                 &transaction,
                 &note_key,
@@ -573,11 +570,7 @@ impl Storage {
                 &key_envelope,
                 &manifest_id,
             )?;
-            self.replace_vault_blob_refs(
-                &transaction,
-                note_id,
-                &sensitive.attachment_index,
-            )?;
+            self.replace_vault_blob_refs(&transaction, note_id, &sensitive.attachment_index)?;
             sanitize_protected_note_rows(
                 &transaction,
                 note_id,
@@ -643,7 +636,9 @@ impl Storage {
         let connection = self.connection()?;
         let public_stub = self
             .note_from_connection(&connection, note_id)?
-            .ok_or_else(|| StorageError::Integrity("encrypted note disappeared after commit".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("encrypted note disappeared after commit".to_string())
+            })?;
         note.updated_at = public_stub.updated_at;
         note.protection = NoteProtectionState::Unlocked;
         drop(transition_finalize_profile);
@@ -708,10 +703,12 @@ impl Storage {
         if let Err(error) = crate::native::staging::discard_staged_derivatives_for_note(note_id) {
             failures.push(format!("plaintext note staging cleanup failed: {error}"));
         }
-        if let Err(error) = crate::native::staging::discard_staged_derivatives_for_attachments(
-            &attachment_ids,
-        ) {
-            failures.push(format!("plaintext derivative staging cleanup failed: {error}"));
+        if let Err(error) =
+            crate::native::staging::discard_staged_derivatives_for_attachments(&attachment_ids)
+        {
+            failures.push(format!(
+                "plaintext derivative staging cleanup failed: {error}"
+            ));
         }
         drop(staging_profile);
 
@@ -788,8 +785,7 @@ impl Storage {
             Err(error) => return Err(StorageError::Io(error)),
         }
 
-        let rendition_root =
-            crate::library_paths::image_rendition_directory(&self.data_directory);
+        let rendition_root = crate::library_paths::image_rendition_directory(&self.data_directory);
         crate::native::rendition::persistent_rendition_owner(&rendition_root)?
             .remove_tree_strict()?;
         crate::media_compat::discard_all_cache_strict(
@@ -798,11 +794,12 @@ impl Storage {
         crate::native::handoff::discard_all_handoffs(
             &crate::library_paths::attachment_handoff_directory(&self.data_directory),
         )
-        .map_err(|error| StorageError::Integrity(format!("attachment handoff cleanup failed: {error}")))?;
+        .map_err(|error| {
+            StorageError::Integrity(format!("attachment handoff cleanup failed: {error}"))
+        })?;
         self.reset_backup_repository_for_vault_unlocked()?;
         let mut connection = self.connection()?;
-        let transaction =
-            connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let _ = super::settings::scrub_persisted_note_list_filter_tags(&transaction)?;
         transaction.commit()?;
         drop(connection);
@@ -827,15 +824,11 @@ impl Storage {
         result
     }
 
-
     /// Durable Vault transitions block autosave mutation admission, but an
     /// already-unlocked protected note remains eligible for encrypted autosave.
     /// The in-memory autosave barrier separately blocks Lock/Protect while their
     /// transition is active and after Lock has revoked the note session.
-    pub(crate) fn note_has_pending_vault_operation(
-        &self,
-        note_id: &NoteId,
-    ) -> StorageResult<bool> {
+    pub(crate) fn note_has_pending_vault_operation(&self, note_id: &NoteId) -> StorageResult<bool> {
         let connection = self.connection()?;
         connection
             .query_row(
@@ -931,33 +924,37 @@ impl Storage {
 
     pub(crate) fn lock_protected_note(&self, note_id: &NoteId) -> StorageResult<Note> {
         let privacy_profile = VaultProfileSpan::stage(VaultProfileStage::PrivacyDrains);
-        let _privacy_guard = self.begin_note_privacy_transition(
-            note_id,
-            crate::security::NotePrivacyTransition::Lock,
-        )?;
+        let _privacy_guard = self
+            .begin_note_privacy_transition(note_id, crate::security::NotePrivacyTransition::Lock)?;
         drop(privacy_profile);
         let connection = self.connection()?;
         if !protected_note_exists(&connection, note_id)? {
-            return Err(StorageError::Validation("this note is not encrypted".to_string()));
+            return Err(StorageError::Validation(
+                "this note is not encrypted".to_string(),
+            ));
         }
         let attachment_ids = {
-            let mut statement = connection.prepare(
-                "SELECT id FROM attachments WHERE note_id = ?1 ORDER BY id",
-            )?;
+            let mut statement =
+                connection.prepare("SELECT id FROM attachments WHERE note_id = ?1 ORDER BY id")?;
             let rows = statement.query_map([note_id], |row| row.get::<_, String>(0))?;
             rows.collect::<Result<HashSet<_>, _>>()?
         };
         drop(connection);
         let attachments_cleanup_profile =
             VaultProfileSpan::stage(VaultProfileStage::AttachmentsCleanup);
-        crate::native::staging::discard_staged_derivatives_for_note(note_id.as_str())
-            .map_err(|error| StorageError::Integrity(format!(
-                "protected note staging cleanup failed during Lock: {error}"
-            )))?;
+        crate::native::staging::discard_staged_derivatives_for_note(note_id.as_str()).map_err(
+            |error| {
+                StorageError::Integrity(format!(
+                    "protected note staging cleanup failed during Lock: {error}"
+                ))
+            },
+        )?;
         crate::native::staging::discard_staged_derivatives_for_attachments(&attachment_ids)
-            .map_err(|error| StorageError::Integrity(format!(
-                "protected attachment staging cleanup failed during Lock: {error}"
-            )))?;
+            .map_err(|error| {
+                StorageError::Integrity(format!(
+                    "protected attachment staging cleanup failed during Lock: {error}"
+                ))
+            })?;
         drop(attachments_cleanup_profile);
         // Do not call `get_note()` while the Lock admission is held: the
         // protected hydration path acquires note access and would wait for this
@@ -995,13 +992,11 @@ impl Storage {
         )?;
         let graph = self
             .read_vault_current_graph(&connection, &note_key, note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
-        let revisions = self.read_vault_revision_chain(
-            &connection,
-            &note_key,
-            note_id,
-            &graph.manifest,
-        )?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
+        let revisions =
+            self.read_vault_revision_chain(&connection, &note_key, note_id, &graph.manifest)?;
         let base = self
             .note_from_connection(&connection, note_id)?
             .ok_or_else(|| StorageError::Validation("note no longer exists".to_string()))?;
@@ -1094,7 +1089,10 @@ impl Storage {
             )));
         }
         self.delete_ciphertext_blobs_if_unreferenced(
-            operation_details.ciphertext_hashes.iter().map(String::as_str),
+            operation_details
+                .ciphertext_hashes
+                .iter()
+                .map(String::as_str),
         )?;
         drop(attachments_finalize_profile);
         self.complete_vault_operation(note_id)?;
@@ -1110,7 +1108,8 @@ impl Storage {
         let note_id = base.id.clone();
         let Some(hydrated) = self.with_unlocked_graph(&note_id, |graph| {
             materialize_vault_note(base.clone(), &graph)
-        })? else {
+        })?
+        else {
             base.protection = NoteProtectionState::Locked;
             return Ok(base);
         };
@@ -1125,9 +1124,8 @@ impl Storage {
             return Ok(summary);
         }
         let note_id = summary.id.clone();
-        let Some((title, preview_text, tags, attachment_names)) = self.with_unlocked_graph(
-            &note_id,
-            |graph| {
+        let Some((title, preview_text, tags, attachment_names)) =
+            self.with_unlocked_graph(&note_id, |graph| {
                 let projections = derive_editor_projections(&graph.note_private_state.editor_state)
                     .map_err(StorageError::from)?;
                 let title = graph.note_private_state.title;
@@ -1141,8 +1139,8 @@ impl Storage {
                     .map(|attachment| attachment.file_name)
                     .collect();
                 Ok((title, preview_text, tags, attachment_names))
-            },
-        )? else {
+            })?
+        else {
             summary.protection = NoteProtectionState::Locked;
             // `notes.title` is the user-approved public locked-note label for a
             // protected row. Keep that non-secret label in list summaries while
@@ -1181,13 +1179,11 @@ impl Storage {
         let connection = self.connection()?;
         let head = self
             .read_vault_graph_head(&connection, access.key(), note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
-        let revision_index = self.read_vault_revision_index(
-            &connection,
-            access.key(),
-            note_id,
-            &head.manifest,
-        )?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
+        let revision_index =
+            self.read_vault_revision_index(&connection, access.key(), note_id, &head.manifest)?;
         let summaries = revision_index
             .entries
             .into_iter()
@@ -1235,16 +1231,24 @@ impl Storage {
             .privacy_coordinator
             .acquire_note_access(note_id)
             .map_err(vault_runtime_error)?
-            .ok_or_else(|| StorageError::Validation(
-                "unlock this encrypted note to view its version history".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "unlock this encrypted note to view its version history".to_string(),
+                )
+            })?;
         let connection = self.connection()?;
         let head = self
             .read_vault_graph_head(&connection, access.key(), note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
         let revision = self
             .read_vault_revision_by_handle(
-                &connection, access.key(), note_id, &head.manifest, revision_id,
+                &connection,
+                access.key(),
+                note_id,
+                &head.manifest,
+                revision_id,
             )?
             .ok_or_else(|| StorageError::Validation("revision no longer exists".to_string()))?;
         if !self
@@ -1266,17 +1270,22 @@ impl Storage {
         &self,
         note_id: &NoteId,
         revision_id: &str,
-    ) -> StorageResult<Option<(crate::domain::NoteRevisionRestoreResult, super::RevisionRestoreAuthorization)>> {
+    ) -> StorageResult<
+        Option<(
+            crate::domain::NoteRevisionRestoreResult,
+            super::RevisionRestoreAuthorization,
+        )>,
+    > {
         let connection = self.connection()?;
         if !protected_note_exists(&connection, note_id)? {
             return Ok(None);
         }
         drop(connection);
-        let restore_guard = self
-            .begin_protected_note_restore(note_id)?
-            .ok_or_else(|| StorageError::Validation(
+        let restore_guard = self.begin_protected_note_restore(note_id)?.ok_or_else(|| {
+            StorageError::Validation(
                 "unlock this encrypted note before restoring its version history".to_string(),
-            ))?;
+            )
+        })?;
         let access = restore_guard.access();
         let connection = self.connection()?;
         let base = self
@@ -1284,15 +1293,22 @@ impl Storage {
             .ok_or_else(|| StorageError::Validation("note no longer exists".to_string()))?;
         if base.trashed {
             return Err(StorageError::Validation(
-                "notes in Trash are read-only; recover the note before restoring a version".to_string(),
+                "notes in Trash are read-only; recover the note before restoring a version"
+                    .to_string(),
             ));
         }
         let graph = self
             .read_vault_current_graph(&connection, access.key(), note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
         let selected = self
             .read_vault_revision_by_handle(
-                &connection, access.key(), note_id, &graph.manifest, revision_id,
+                &connection,
+                access.key(),
+                note_id,
+                &graph.manifest,
+                revision_id,
             )?
             .ok_or_else(|| StorageError::Validation("revision no longer exists".to_string()))?;
         let snapshot = selected.snapshot;
@@ -1311,7 +1327,9 @@ impl Storage {
         let mut restored_attachments = snapshot
             .attachments
             .iter()
-            .map(|attachment| super::history::revision_attachment_to_attachment(note_id, attachment))
+            .map(|attachment| {
+                super::history::revision_attachment_to_attachment(note_id, attachment)
+            })
             .collect::<StorageResult<Vec<_>>>()?;
         restored_attachments.sort_by_key(|attachment| attachment.source_attachment_id.is_some());
         for attachment in &restored_attachments {
@@ -1320,10 +1338,12 @@ impl Storage {
                 .blobs
                 .iter()
                 .find(|blob| blob.plaintext_sha256 == attachment.sha256)
-                .ok_or_else(|| StorageError::Integrity(format!(
-                    "protected revision attachment {} has no encrypted blob mapping",
-                    attachment.id
-                )))?;
+                .ok_or_else(|| {
+                    StorageError::Integrity(format!(
+                        "protected revision attachment {} has no encrypted blob mapping",
+                        attachment.id
+                    ))
+                })?;
             if blob.plaintext_byte_size != attachment.byte_size {
                 return Err(StorageError::Integrity(format!(
                     "protected revision attachment {} has an inconsistent encrypted blob mapping",
@@ -1336,10 +1356,12 @@ impl Storage {
             .filter(|attachment| attachment.embedded)
             .map(|attachment| attachment.file_name.clone())
             .collect();
-        let analysis = analyze_editor_state(restored_note.editor_state()).map_err(StorageError::from)?;
+        let analysis =
+            analyze_editor_state(restored_note.editor_state()).map_err(StorageError::from)?;
 
         let current_note = materialize_vault_note(base.clone(), &graph)?;
-        let current_snapshot = RevisionSnapshot::new(&current_note, graph.attachment_index.attachments.clone());
+        let current_snapshot =
+            RevisionSnapshot::new(&current_note, graph.attachment_index.attachments.clone());
         let appended_revision = self.prepare_next_vault_revision(
             &connection,
             access.key(),
@@ -1381,12 +1403,7 @@ impl Storage {
             Some(&attachment_index),
             appended_revision.as_ref(),
         )?;
-        replace_protected_attachment_stubs(
-            &transaction,
-            note_id,
-            &attachment_index,
-            now,
-        )?;
+        replace_protected_attachment_stubs(&transaction, note_id, &attachment_index, now)?;
         transaction.execute(
             "UPDATE notes SET updated_at = ?1 WHERE id = ?2",
             params![now, note_id],
@@ -1442,9 +1459,11 @@ impl Storage {
         }
         let _mutation_guard = self
             .begin_retained_protected_note_mutation(access)?
-            .ok_or_else(|| StorageError::Validation(
-                "encrypted note was locked before runtime normalization".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "encrypted note was locked before runtime normalization".to_string(),
+                )
+            })?;
         self.persist_protected_runtime_normalization_with_access(note, access)
     }
 
@@ -1457,7 +1476,9 @@ impl Storage {
         let connection = self.connection()?;
         let head = self
             .read_vault_graph_head(&connection, access.key(), note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
         let current_private: NotePrivateState = self.read_vault_object(
             &connection,
             access.key(),
@@ -1506,7 +1527,6 @@ impl Storage {
         Ok(())
     }
 
-
     pub(super) fn protected_note_mutation_if_unlocked(
         &self,
         note_id: &NoteId,
@@ -1518,9 +1538,9 @@ impl Storage {
         drop(connection);
         self.begin_protected_note_mutation(note_id)?
             .map(Some)
-            .ok_or_else(|| StorageError::Validation(
-                "unlock this encrypted note before editing it".to_string(),
-            ))
+            .ok_or_else(|| {
+                StorageError::Validation("unlock this encrypted note before editing it".to_string())
+            })
     }
 
     pub(super) fn persist_protected_note_content(
@@ -1547,7 +1567,9 @@ impl Storage {
         // NotePrivateState.
         let head = self
             .read_vault_graph_head(transaction, access.key(), &note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
 
         let needs_private_state = scope.touches_title() || scope.touches_document();
         let mut private_states = if needs_private_state {
@@ -1593,14 +1615,17 @@ impl Storage {
         }
 
         if scope.touches_document() {
-            let new_analysis = analyze_editor_state(note.editor_state()).map_err(StorageError::from)?;
+            let new_analysis =
+                analyze_editor_state(note.editor_state()).map_err(StorageError::from)?;
             let projections = derive_editor_projections(note.editor_state()).map_err(|error| {
                 StorageError::Integrity(format!(
                     "protected editor projection derivation failed: {error}"
                 ))
             })?;
             let (current_private, next_private) = private_states.as_mut().ok_or_else(|| {
-                StorageError::Integrity("protected document save is missing private state".to_string())
+                StorageError::Integrity(
+                    "protected document save is missing private state".to_string(),
+                )
             })?;
             let old_analysis =
                 analyze_editor_state(&current_private.editor_state).map_err(StorageError::from)?;
@@ -1648,12 +1673,8 @@ impl Storage {
         let append_revision = if let Some(mode) = revision_mode {
             let due = match (mode, head.manifest.revision_head.as_ref()) {
                 (RevisionMode::Autosave, Some(revision_head)) => {
-                    let latest: RevisionObject = self.read_vault_object(
-                        transaction,
-                        access.key(),
-                        &note_id,
-                        revision_head,
-                    )?;
+                    let latest: RevisionObject =
+                        self.read_vault_object(transaction, access.key(), &note_id, revision_head)?;
                     now.saturating_sub(latest.created_at)
                         >= super::history::AUTOSAVE_REVISION_INTERVAL_SECONDS
                 }
@@ -1764,25 +1785,24 @@ impl Storage {
         )?;
         if trashed {
             return Err(StorageError::Validation(
-                "notes in Trash are read-only; recover the note before editing metadata".to_string(),
+                "notes in Trash are read-only; recover the note before editing metadata"
+                    .to_string(),
             ));
         }
         drop(connection);
 
         let mutation_guard = self
             .begin_protected_note_mutation(note_id)?
-            .ok_or_else(|| StorageError::Validation(
-                "unlock this encrypted note before editing metadata".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "unlock this encrypted note before editing metadata".to_string(),
+                )
+            })?;
         let access = mutation_guard.access();
         let mut connection = self.connection()?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let result = self.mutate_protected_metadata_with_access(
-            &transaction,
-            access,
-            note_id,
-            mutate,
-        )?;
+        let result =
+            self.mutate_protected_metadata_with_access(&transaction, access, note_id, mutate)?;
         transaction.commit()?;
         if !self
             .privacy_coordinator
@@ -1813,7 +1833,9 @@ impl Storage {
         }
         let head = self
             .read_vault_graph_head(transaction, access.key(), note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
         let current_metadata: MetadataState = self.read_vault_object(
             transaction,
             access.key(),
@@ -1888,7 +1910,9 @@ impl Storage {
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let head = self
             .read_vault_graph_head(&transaction, access.key(), &attachment.note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
         let current_index: AttachmentIndex = self.read_vault_object(
             &transaction,
             access.key(),
@@ -2049,15 +2073,19 @@ impl Storage {
 
         let mutation = self
             .begin_protected_note_mutation(&note_id)?
-            .ok_or_else(|| StorageError::Validation(
-                "unlock this encrypted note before removing attachments".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "unlock this encrypted note before removing attachments".to_string(),
+                )
+            })?;
         let access = mutation.access();
         let mut connection = self.connection()?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let head = self
             .read_vault_graph_head(&transaction, access.key(), &note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
         let current_index: AttachmentIndex = self.read_vault_object(
             &transaction,
             access.key(),
@@ -2069,9 +2097,11 @@ impl Storage {
             .iter()
             .find(|attachment| attachment.id == attachment_id)
             .cloned()
-            .ok_or_else(|| StorageError::Integrity(
-                "protected attachment stub has no encrypted metadata".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                StorageError::Integrity(
+                    "protected attachment stub has no encrypted metadata".to_string(),
+                )
+            })?;
         if attachment.embedded {
             return Err(StorageError::Validation(
                 "embedded attachments must be removed from the document; the stored file is retained for undo and version history"
@@ -2138,7 +2168,8 @@ impl Storage {
         annotations_empty: bool,
     ) -> StorageResult<Option<()>> {
         let connection = self.connection()?;
-        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)? else {
+        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)?
+        else {
             return Ok(None);
         };
         drop(connection);
@@ -2186,9 +2217,11 @@ impl Storage {
                 });
                 Ok(summaries)
             })?
-            .ok_or_else(|| StorageError::Validation(
-                "unlock this encrypted note to view its sources".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "unlock this encrypted note to view its sources".to_string(),
+                )
+            })?;
         Ok(Some(summaries))
     }
 
@@ -2234,21 +2267,27 @@ impl Storage {
         page_index: i64,
     ) -> StorageResult<Option<Option<(String, i64)>>> {
         let connection = self.connection()?;
-        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)? else {
+        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)?
+        else {
             return Ok(None);
         };
         drop(connection);
-        let annotation = self.with_unlocked_metadata_state(&note_id, |metadata| {
-            Ok(metadata
-                .pdf_annotations
-                .into_iter()
-                .find(|annotation| {
-                    annotation.attachment_id == attachment_id && annotation.page_index == page_index
-                })
-                .map(|annotation| (annotation.annotations_json, annotation.updated_at)))
-        })?.ok_or_else(|| StorageError::Validation(
-            "unlock this encrypted note to view its PDF annotations".to_string(),
-        ))?;
+        let annotation = self
+            .with_unlocked_metadata_state(&note_id, |metadata| {
+                Ok(metadata
+                    .pdf_annotations
+                    .into_iter()
+                    .find(|annotation| {
+                        annotation.attachment_id == attachment_id
+                            && annotation.page_index == page_index
+                    })
+                    .map(|annotation| (annotation.annotations_json, annotation.updated_at)))
+            })?
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "unlock this encrypted note to view its PDF annotations".to_string(),
+                )
+            })?;
         Ok(Some(annotation))
     }
 
@@ -2258,35 +2297,40 @@ impl Storage {
         source_byte_limit: usize,
     ) -> StorageResult<Option<Vec<(u32, String)>>> {
         let connection = self.connection()?;
-        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)? else {
+        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)?
+        else {
             return Ok(None);
         };
         drop(connection);
-        let rows = self.with_unlocked_metadata_state(&note_id, |metadata| {
-            let mut rows = metadata
-                .pdf_annotations
-                .into_iter()
-                .filter(|annotation| annotation.attachment_id == attachment_id)
-                .filter_map(|annotation| {
-                    u32::try_from(annotation.page_index)
-                        .ok()
-                        .map(|page_index| (page_index, annotation.annotations_json))
-                })
-                .collect::<Vec<_>>();
-            rows.sort_by_key(|(page_index, _)| *page_index);
-            let mut retained = Vec::with_capacity(rows.len());
-            let mut source_bytes = 0_usize;
-            for row in rows {
-                source_bytes = source_bytes.saturating_add(row.1.len());
-                retained.push(row);
-                if source_bytes > source_byte_limit {
-                    break;
+        let rows = self
+            .with_unlocked_metadata_state(&note_id, |metadata| {
+                let mut rows = metadata
+                    .pdf_annotations
+                    .into_iter()
+                    .filter(|annotation| annotation.attachment_id == attachment_id)
+                    .filter_map(|annotation| {
+                        u32::try_from(annotation.page_index)
+                            .ok()
+                            .map(|page_index| (page_index, annotation.annotations_json))
+                    })
+                    .collect::<Vec<_>>();
+                rows.sort_by_key(|(page_index, _)| *page_index);
+                let mut retained = Vec::with_capacity(rows.len());
+                let mut source_bytes = 0_usize;
+                for row in rows {
+                    source_bytes = source_bytes.saturating_add(row.1.len());
+                    retained.push(row);
+                    if source_bytes > source_byte_limit {
+                        break;
+                    }
                 }
-            }
-            Ok(retained)
-        })?.ok_or_else(|| StorageError::Validation(
-            "unlock this encrypted note to view its PDF annotations".to_string(),
-        ))?;
+                Ok(retained)
+            })?
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "unlock this encrypted note to view its PDF annotations".to_string(),
+                )
+            })?;
         Ok(Some(rows))
     }
 
@@ -2296,24 +2340,29 @@ impl Storage {
         limit: usize,
     ) -> StorageResult<Option<Vec<u32>>> {
         let connection = self.connection()?;
-        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)? else {
+        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)?
+        else {
             return Ok(None);
         };
         drop(connection);
-        let pages = self.with_unlocked_metadata_state(&note_id, |metadata| {
-            let mut pages = metadata
-                .pdf_annotations
-                .into_iter()
-                .filter(|annotation| annotation.attachment_id == attachment_id)
-                .filter_map(|annotation| u32::try_from(annotation.page_index).ok())
-                .collect::<Vec<_>>();
-            pages.sort_unstable();
-            pages.dedup();
-            pages.truncate(limit);
-            Ok(pages)
-        })?.ok_or_else(|| StorageError::Validation(
-            "unlock this encrypted note to view its PDF annotations".to_string(),
-        ))?;
+        let pages = self
+            .with_unlocked_metadata_state(&note_id, |metadata| {
+                let mut pages = metadata
+                    .pdf_annotations
+                    .into_iter()
+                    .filter(|annotation| annotation.attachment_id == attachment_id)
+                    .filter_map(|annotation| u32::try_from(annotation.page_index).ok())
+                    .collect::<Vec<_>>();
+                pages.sort_unstable();
+                pages.dedup();
+                pages.truncate(limit);
+                Ok(pages)
+            })?
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "unlock this encrypted note to view its PDF annotations".to_string(),
+                )
+            })?;
         Ok(Some(pages))
     }
 
@@ -2328,9 +2377,11 @@ impl Storage {
         drop(connection);
         let attachments = self
             .with_unlocked_attachment_index(note_id, |index| Ok(index.attachments))?
-            .ok_or_else(|| StorageError::Validation(
-                "unlock this encrypted note to view its attachments".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "unlock this encrypted note to view its attachments".to_string(),
+                )
+            })?;
         Ok(Some(attachments))
     }
 
@@ -2350,7 +2401,9 @@ impl Storage {
         }
         let head = self
             .read_vault_graph_head(&connection, access.key(), note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
         let index: AttachmentIndex = self.read_vault_object(
             &connection,
             access.key(),
@@ -2386,7 +2439,9 @@ impl Storage {
         }
         let head = self
             .read_vault_graph_head(&connection, access.key(), note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
         let index: AttachmentIndex = self.read_vault_object(
             &connection,
             access.key(),
@@ -2398,7 +2453,9 @@ impl Storage {
             .iter()
             .find(|attachment| attachment.id == attachment_id)
             .cloned()
-            .ok_or_else(|| StorageError::Integrity("protected attachment metadata is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected attachment metadata is missing".to_string())
+            })?;
         if !self
             .privacy_coordinator
             .read_permit_is_publishable(access.permit())
@@ -2417,7 +2474,8 @@ impl Storage {
         access: &VaultNoteAccess,
     ) -> StorageResult<Option<AuthorizedProtectedAttachmentResource>> {
         let connection = self.connection()?;
-        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)? else {
+        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)?
+        else {
             return Ok(None);
         };
         if access.permit().note_id() != &note_id {
@@ -2427,7 +2485,9 @@ impl Storage {
         }
         let head = self
             .read_vault_graph_head(&connection, access.key(), &note_id)?
-            .ok_or_else(|| StorageError::Integrity("protected note graph is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected note graph is missing".to_string())
+            })?;
         let index: AttachmentIndex = self.read_vault_object(
             &connection,
             access.key(),
@@ -2439,15 +2499,17 @@ impl Storage {
             .iter()
             .find(|attachment| attachment.id == attachment_id)
             .cloned()
-            .ok_or_else(|| StorageError::Integrity("protected attachment metadata is missing".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected attachment metadata is missing".to_string())
+            })?;
         let blob = index
             .blobs
             .iter()
             .find(|blob| blob.plaintext_sha256 == attachment.sha256)
             .cloned()
-            .ok_or_else(|| StorageError::Integrity(
-                "protected attachment blob mapping is missing".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                StorageError::Integrity("protected attachment blob mapping is missing".to_string())
+            })?;
         let path = self.materialize_protected_attachment(&note_id, &attachment, &blob, access)?;
         Ok(Some(AuthorizedProtectedAttachmentResource {
             note_id,
@@ -2461,7 +2523,8 @@ impl Storage {
         attachment_id: &str,
     ) -> StorageResult<Option<ProtectedAttachmentResource>> {
         let connection = self.connection()?;
-        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)? else {
+        let Some(note_id) = self.protected_note_id_for_attachment(&connection, attachment_id)?
+        else {
             return Ok(None);
         };
         drop(connection);
@@ -2469,12 +2532,18 @@ impl Storage {
             .privacy_coordinator
             .acquire_note_access(&note_id)
             .map_err(vault_runtime_error)?
-            .ok_or_else(|| StorageError::Validation(
-                "unlock this encrypted note before opening its attachments".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                StorageError::Validation(
+                    "unlock this encrypted note before opening its attachments".to_string(),
+                )
+            })?;
         let resource = self
             .protected_attachment_with_access(attachment_id, &access)?
-            .ok_or_else(|| StorageError::Integrity("protected note state changed during authorized attachment read".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::Integrity(
+                    "protected note state changed during authorized attachment read".to_string(),
+                )
+            })?;
         Ok(Some(ProtectedAttachmentResource {
             path: resource.path,
             permit: access.into_permit(),
@@ -2653,7 +2722,8 @@ impl Storage {
             index
                 .validate_for(note_id)
                 .map_err(|message| StorageError::Integrity(message.to_string()))?;
-            attachment_index_id = self.insert_vault_object(transaction, access.key(), note_id, index)?;
+            attachment_index_id =
+                self.insert_vault_object(transaction, access.key(), note_id, index)?;
         }
 
         let mut revision_index_id = old_manifest.revision_index.clone();
@@ -2666,18 +2736,10 @@ impl Storage {
                     "new protected revision does not extend the current revision head".to_string(),
                 ));
             }
-            let revision_id = self.insert_vault_object(
-                transaction,
-                access.key(),
-                note_id,
-                revision,
-            )?;
-            let mut revision_index = self.read_vault_revision_index(
-                transaction,
-                access.key(),
-                note_id,
-                old_manifest,
-            )?;
+            let revision_id =
+                self.insert_vault_object(transaction, access.key(), note_id, revision)?;
+            let mut revision_index =
+                self.read_vault_revision_index(transaction, access.key(), note_id, old_manifest)?;
             revision_index.entries.insert(
                 0,
                 crate::security::sensitive_data::RevisionIndexEntry {
@@ -2690,12 +2752,8 @@ impl Storage {
             revision_index
                 .validate_for(note_id)
                 .map_err(|message| StorageError::Integrity(message.to_string()))?;
-            revision_index_id = self.insert_vault_object(
-                transaction,
-                access.key(),
-                note_id,
-                &revision_index,
-            )?;
+            revision_index_id =
+                self.insert_vault_object(transaction, access.key(), note_id, &revision_index)?;
             revision_head = Some(revision_id.clone());
             if revision_floor.is_none() {
                 revision_floor = Some(revision_id);
@@ -2714,12 +2772,7 @@ impl Storage {
             revision_floor,
             revision_count,
         )?;
-        self.commit_vault_manifest_root(
-            transaction,
-            access.key(),
-            root,
-            &manifest,
-        )?;
+        self.commit_vault_manifest_root(transaction, access.key(), root, &manifest)?;
         if let Some(index) = attachment_index {
             self.replace_vault_blob_refs(transaction, note_id, index)?;
         }
@@ -2774,9 +2827,7 @@ impl Storage {
                 Ok(record) => protected.push(record),
                 Err(error) => {
                     let cleanup = self.delete_ciphertext_blobs_if_unreferenced(
-                        protected
-                            .iter()
-                            .map(|blob| blob.ciphertext_sha256.as_str()),
+                        protected.iter().map(|blob| blob.ciphertext_sha256.as_str()),
                     );
                     let _ = fs::remove_dir(&staging);
                     if let Err(cleanup_error) = cleanup {
@@ -2860,7 +2911,10 @@ impl Storage {
                 actual_size,
                 DEFAULT_PROTECTED_BLOB_CHUNK_BYTES,
             )?;
-            File::options().write(true).open(&staging_path)?.sync_all()?;
+            File::options()
+                .write(true)
+                .open(&staging_path)?
+                .sync_all()?;
             super::attachments::sync_parent_directory(&staging_path)?;
             let (ciphertext_sha256, ciphertext_size) = sha256_file(&staging_path)?;
             let ciphertext_byte_size = i64::try_from(ciphertext_size).map_err(|_| {
@@ -2903,9 +2957,7 @@ impl Storage {
         error: StorageError,
     ) -> StorageError {
         match self.delete_ciphertext_blobs_if_unreferenced(
-            blobs
-                .iter()
-                .map(|blob| blob.ciphertext_sha256.as_str()),
+            blobs.iter().map(|blob| blob.ciphertext_sha256.as_str()),
         ) {
             Ok(()) => error,
             Err(cleanup_error) => StorageError::Integrity(format!(
@@ -3009,7 +3061,10 @@ impl Storage {
                         blob.plaintext_sha256
                     )));
                 }
-                File::options().write(true).open(owned_plaintext.path())?.sync_all()?;
+                File::options()
+                    .write(true)
+                    .open(owned_plaintext.path())?
+                    .sync_all()?;
                 super::attachments::sync_parent_directory(owned_plaintext.path())?;
                 Ok(())
             })();
@@ -3164,7 +3219,8 @@ impl Storage {
                 operation_id.to_string(),
                 note_id.clone(),
             );
-            if let Err(error) = owned_plaintext.rename_durable_vault_operation(retired_path.clone()) {
+            if let Err(error) = owned_plaintext.rename_durable_vault_operation(retired_path.clone())
+            {
                 restore_retired_plaintext_blobs(&mut retired)?;
                 return Err(error.into());
             }
@@ -3234,8 +3290,7 @@ impl Storage {
             };
         }
 
-        match owned_plaintext
-            .promote_vault_materialized_attachment(note_id, attachment.id.clone())
+        match owned_plaintext.promote_vault_materialized_attachment(note_id, attachment.id.clone())
         {
             Ok(path) => Ok(path),
             Err(message) => match owned_plaintext.remove_file() {
@@ -3252,14 +3307,11 @@ impl Storage {
     /// This is deliberately an explicit/deferred maintenance path. Protected
     /// autosave appends at most one immutable revision after reading only the
     /// current head; it never walks history merely to enforce retention.
-    pub(super) fn prune_unlocked_protected_revision_history(
-        &self,
-    ) -> StorageResult<usize> {
+    pub(super) fn prune_unlocked_protected_revision_history(&self) -> StorageResult<usize> {
         let note_ids = {
             let connection = self.connection()?;
-            let mut statement = connection.prepare(
-                "SELECT note_id FROM vault_note_roots ORDER BY note_id",
-            )?;
+            let mut statement =
+                connection.prepare("SELECT note_id FROM vault_note_roots ORDER BY note_id")?;
             let rows = statement.query_map([], |row| row.get::<_, NoteId>(0))?;
             rows.collect::<Result<Vec<_>, _>>()?
         };
@@ -3302,12 +3354,8 @@ impl Storage {
             note_id,
             &head.manifest.attachment_index,
         )?;
-        let chain = self.read_vault_revision_chain(
-            &transaction,
-            access.key(),
-            note_id,
-            &head.manifest,
-        )?;
+        let chain =
+            self.read_vault_revision_chain(&transaction, access.key(), note_id, &head.manifest)?;
 
         let retained_count = retained_protected_revision_count(&chain, retention);
         let removed = chain.len().saturating_sub(retained_count);
@@ -3366,12 +3414,8 @@ impl Storage {
         if revision_bounds_changed || index_changed {
             let mut attachment_index_id = head.manifest.attachment_index.clone();
             if index_changed {
-                attachment_index_id = self.insert_vault_object(
-                    &transaction,
-                    access.key(),
-                    note_id,
-                    &next_index,
-                )?;
+                attachment_index_id =
+                    self.insert_vault_object(&transaction, access.key(), note_id, &next_index)?;
             }
             let mut revision_index_id = head.manifest.revision_index.clone();
             if revision_bounds_changed {
@@ -3387,12 +3431,8 @@ impl Storage {
                     }),
                 )
                 .map_err(|message| StorageError::Integrity(message.to_string()))?;
-                revision_index_id = self.insert_vault_object(
-                    &transaction,
-                    access.key(),
-                    note_id,
-                    &revision_index,
-                )?;
+                revision_index_id =
+                    self.insert_vault_object(&transaction, access.key(), note_id, &revision_index)?;
             }
             let manifest = VaultManifest::new(
                 note_id.clone(),
@@ -3405,12 +3445,7 @@ impl Storage {
                 revision_floor,
                 revision_count,
             )?;
-            self.commit_vault_manifest_root(
-                &transaction,
-                access.key(),
-                &head.root,
-                &manifest,
-            )?;
+            self.commit_vault_manifest_root(&transaction, access.key(), &head.root, &manifest)?;
             if index_changed {
                 self.replace_vault_blob_refs(&transaction, note_id, &next_index)?;
             }
@@ -3418,11 +3453,7 @@ impl Storage {
 
         // Crash/rollback cannot leave half-pruned history: reachability is
         // computed from the root visible in this same SQLite transaction.
-        self.delete_unreachable_vault_objects(
-            &transaction,
-            access.key(),
-            note_id,
-        )?;
+        self.delete_unreachable_vault_objects(&transaction, access.key(), note_id)?;
         transaction.commit()?;
 
         if !removed_ciphertext_hashes.is_empty() {
@@ -3469,7 +3500,10 @@ impl Storage {
 }
 
 fn retained_protected_revision_count(
-    chain: &[(crate::security::vault_object_spec::VaultObjectId, RevisionObject)],
+    chain: &[(
+        crate::security::vault_object_spec::VaultObjectId,
+        RevisionObject,
+    )],
     retention: &RevisionRetention,
 ) -> usize {
     if chain.is_empty() {
@@ -3516,7 +3550,10 @@ fn discard_retired_plaintext_blobs(retired: &mut [RetiredPlaintextBlob]) -> Stor
         blob.plaintext.remove_file()?;
         super::attachments::sync_parent_directory(&retired_path)?;
     }
-    if let Some(directory) = retired.first().and_then(|blob| blob.plaintext.path().parent()) {
+    if let Some(directory) = retired
+        .first()
+        .and_then(|blob| blob.plaintext.path().parent())
+    {
         let _ = fs::remove_dir(directory);
     }
     Ok(())
@@ -3548,7 +3585,10 @@ fn vault_runtime_error(message: &'static str) -> StorageError {
     StorageError::Integrity(message.to_string())
 }
 
-pub(super) fn protected_note_exists(connection: &Connection, note_id: &NoteId) -> StorageResult<bool> {
+pub(super) fn protected_note_exists(
+    connection: &Connection,
+    note_id: &NoteId,
+) -> StorageResult<bool> {
     Ok(connection.query_row(
         "SELECT EXISTS(SELECT 1 FROM vault_note_roots WHERE note_id = ?1)",
         [note_id],
@@ -3563,7 +3603,9 @@ fn ensure_note_protection_ready(connection: &Connection, note_id: &NoteId) -> St
         |row| row.get(0),
     )?;
     if !exists {
-        return Err(StorageError::Validation("note no longer exists".to_string()));
+        return Err(StorageError::Validation(
+            "note no longer exists".to_string(),
+        ));
     }
     let pending: i64 = connection.query_row(
         "SELECT
@@ -3585,7 +3627,10 @@ fn reconcile_protected_attachment_index(
     index: &mut AttachmentIndex,
     document_attachment_ids: &[String],
 ) -> StorageResult<Vec<String>> {
-    let document_ids = document_attachment_ids.iter().cloned().collect::<HashSet<_>>();
+    let document_ids = document_attachment_ids
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
     let known_ids = index
         .attachments
         .iter()
@@ -3603,7 +3648,12 @@ fn reconcile_protected_attachment_index(
     let source_by_id = index
         .attachments
         .iter()
-        .map(|attachment| (attachment.id.clone(), attachment.source_attachment_id.clone()))
+        .map(|attachment| {
+            (
+                attachment.id.clone(),
+                attachment.source_attachment_id.clone(),
+            )
+        })
         .collect::<HashMap<_, _>>();
     let mut desired_ids = document_ids.clone();
     let mut frontier = document_ids.iter().cloned().collect::<Vec<_>>();
@@ -3832,9 +3882,7 @@ fn sanitize_protected_note_rows(
                     .map(|column| protected_note_scrub_assignment(column))
                     .collect::<StorageResult<Vec<_>>>()?
                     .join(", ");
-                let sql = format!(
-                    "UPDATE notes SET {assignments}, updated_at = ?2 WHERE id = ?3"
-                );
+                let sql = format!("UPDATE notes SET {assignments}, updated_at = ?2 WHERE id = ?3");
                 let changed = transaction.execute(
                     &sql,
                     params![EMPTY_EDITOR_STATE.trim(), now, note_id, locked_label],
@@ -3867,7 +3915,10 @@ fn sanitize_protected_note_rows(
                 transaction.execute("DELETE FROM note_revisions WHERE note_id = ?1", [note_id])?;
             }
             ProtectedScrubStep::OutgoingLinks => {
-                transaction.execute("DELETE FROM note_links WHERE source_note_id = ?1", [note_id])?;
+                transaction.execute(
+                    "DELETE FROM note_links WHERE source_note_id = ?1",
+                    [note_id],
+                )?;
             }
             ProtectedScrubStep::SourcesCitationsAndOrphans => {
                 transaction.execute("DELETE FROM citations WHERE note_id = ?1", [note_id])?;
@@ -3903,7 +3954,10 @@ fn restore_protected_note_rows(
     transaction: &Transaction<'_>,
     base: &Note,
     graph: &VaultCurrentGraph,
-    revisions_newest_first: &[(crate::security::vault_object_spec::VaultObjectId, RevisionObject)],
+    revisions_newest_first: &[(
+        crate::security::vault_object_spec::VaultObjectId,
+        RevisionObject,
+    )],
 ) -> StorageResult<()> {
     let note = materialize_vault_note(base.clone(), graph)?;
     transaction.execute(
@@ -3958,7 +4012,10 @@ fn restore_protected_note_rows(
         }
     }
 
-    transaction.execute("DELETE FROM note_links WHERE source_note_id = ?1", [&base.id])?;
+    transaction.execute(
+        "DELETE FROM note_links WHERE source_note_id = ?1",
+        [&base.id],
+    )?;
     for target in &graph.metadata_state.outgoing_note_links {
         transaction.execute(
             "INSERT OR IGNORE INTO note_links(source_note_id, target_note_id) VALUES (?1, ?2)",
@@ -4052,7 +4109,10 @@ fn load_revision_snapshots(
     Ok(result)
 }
 
-fn load_source_links(connection: &Connection, note_id: &NoteId) -> StorageResult<Vec<SensitiveSourceLink>> {
+fn load_source_links(
+    connection: &Connection,
+    note_id: &NoteId,
+) -> StorageResult<Vec<SensitiveSourceLink>> {
     let mut statement = connection.prepare(
         "SELECT s.id, s.kind, s.title, s.reference, s.created_at, s.updated_at, ns.created_at\n         FROM note_sources ns JOIN sources s ON s.id = ns.source_id\n         WHERE ns.note_id = ?1 ORDER BY ns.created_at, s.id",
     )?;
@@ -4108,7 +4168,10 @@ fn load_source_links(connection: &Connection, note_id: &NoteId) -> StorageResult
     Ok(result)
 }
 
-fn load_pdf_annotations(connection: &Connection, note_id: &NoteId) -> StorageResult<Vec<SensitivePdfAnnotation>> {
+fn load_pdf_annotations(
+    connection: &Connection,
+    note_id: &NoteId,
+) -> StorageResult<Vec<SensitivePdfAnnotation>> {
     let mut statement = connection.prepare(
         "SELECT p.attachment_id, p.page_index, p.annotations_json, p.updated_at\n         FROM pdf_annotation_pages p\n         JOIN attachments a ON a.id = p.attachment_id\n         WHERE a.note_id = ?1 ORDER BY p.attachment_id, p.page_index",
     )?;
@@ -4123,7 +4186,10 @@ fn load_pdf_annotations(connection: &Connection, note_id: &NoteId) -> StorageRes
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
-fn load_outgoing_note_links(connection: &Connection, note_id: &NoteId) -> StorageResult<Vec<NoteId>> {
+fn load_outgoing_note_links(
+    connection: &Connection,
+    note_id: &NoteId,
+) -> StorageResult<Vec<NoteId>> {
     let mut statement = connection.prepare(
         "SELECT target_note_id FROM note_links WHERE source_note_id = ?1 ORDER BY target_note_id",
     )?;
@@ -4191,12 +4257,17 @@ mod tests {
             );
             if metadata.is_file() {
                 bytes.extend_from_slice(
-                    &fs::read(path)
-                        .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display())),
+                    &fs::read(path).unwrap_or_else(|error| {
+                        panic!("failed to read {}: {error}", path.display())
+                    }),
                 );
                 return;
             }
-            assert!(metadata.is_dir(), "unexpected repository entry {}", path.display());
+            assert!(
+                metadata.is_dir(),
+                "unexpected repository entry {}",
+                path.display()
+            );
             let mut entries = fs::read_dir(path)
                 .unwrap_or_else(|error| panic!("failed to list {}: {error}", path.display()))
                 .collect::<std::io::Result<Vec<_>>>()
@@ -4269,11 +4340,7 @@ mod tests {
         })
         .to_string();
         let projections = derive_editor_projections(&editor_state).expect("link projection");
-        source.replace_document(
-            projections.markdown,
-            editor_state,
-            projections.plain_text,
-        );
+        source.replace_document(projections.markdown, editor_state, projections.plain_text);
         source.updated_at = source.updated_at.saturating_add(1);
         let source = storage
             .save_note_owned_with_revision_status_scoped(
@@ -4387,7 +4454,10 @@ mod tests {
         let mut note = storage.create_note(None).expect("create note");
         note.title = "before protection".to_string();
         let note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save checkpoint")
             .0;
         let mut note = storage
@@ -4452,9 +4522,18 @@ mod tests {
         let after_document = current_vault_graph_ids(&storage, &note.id);
         assert_ne!(after_document.manifest, before_document.manifest);
         assert_ne!(after_document.private_state, before_document.private_state);
-        assert_eq!(after_document.metadata_state, before_document.metadata_state);
-        assert_eq!(after_document.attachment_index, before_document.attachment_index);
-        assert_eq!(after_document.revision_index, before_document.revision_index);
+        assert_eq!(
+            after_document.metadata_state,
+            before_document.metadata_state
+        );
+        assert_eq!(
+            after_document.attachment_index,
+            before_document.attachment_index
+        );
+        assert_eq!(
+            after_document.revision_index,
+            before_document.revision_index
+        );
         assert_eq!(after_document.revision_head, before_document.revision_head);
 
         let before_revision = after_document.clone();
@@ -4472,9 +4551,18 @@ mod tests {
         let after_revision = current_vault_graph_ids(&storage, &note_id);
         assert_ne!(after_revision.manifest, before_revision.manifest);
         assert_ne!(after_revision.private_state, before_revision.private_state);
-        assert_eq!(after_revision.metadata_state, before_revision.metadata_state);
-        assert_eq!(after_revision.attachment_index, before_revision.attachment_index);
-        assert_ne!(after_revision.revision_index, before_revision.revision_index);
+        assert_eq!(
+            after_revision.metadata_state,
+            before_revision.metadata_state
+        );
+        assert_eq!(
+            after_revision.attachment_index,
+            before_revision.attachment_index
+        );
+        assert_ne!(
+            after_revision.revision_index,
+            before_revision.revision_index
+        );
         assert_ne!(after_revision.revision_head, before_revision.revision_head);
         assert_eq!(
             after_revision.revision_count,
@@ -4537,33 +4625,27 @@ mod tests {
             .expect("create protected source");
         let after_source = current_vault_graph_ids(&storage, &note.id);
         assert_ne!(
-            after_source.manifest,
-            before_source.manifest,
+            after_source.manifest, before_source.manifest,
             "source mutation must publish a new manifest"
         );
         assert_eq!(
-            after_source.private_state,
-            before_source.private_state,
+            after_source.private_state, before_source.private_state,
             "source mutation must not rewrite NotePrivateState"
         );
         assert_ne!(
-            after_source.metadata_state,
-            before_source.metadata_state,
+            after_source.metadata_state, before_source.metadata_state,
             "source mutation must rewrite MetadataState"
         );
         assert_eq!(
-            after_source.attachment_index,
-            before_source.attachment_index,
+            after_source.attachment_index, before_source.attachment_index,
             "source mutation must not rewrite AttachmentIndex"
         );
         assert_eq!(
-            after_source.revision_head,
-            before_source.revision_head,
+            after_source.revision_head, before_source.revision_head,
             "source mutation must not append a revision"
         );
         assert_eq!(
-            after_source.revision_count,
-            before_source.revision_count,
+            after_source.revision_count, before_source.revision_count,
             "source mutation must preserve revision count"
         );
 
@@ -4573,23 +4655,19 @@ mod tests {
             .expect("add protected citation");
         let after_citation = current_vault_graph_ids(&storage, &note.id);
         assert_eq!(
-            after_citation.private_state,
-            before_citation.private_state,
+            after_citation.private_state, before_citation.private_state,
             "citation mutation must not rewrite NotePrivateState"
         );
         assert_ne!(
-            after_citation.metadata_state,
-            before_citation.metadata_state,
+            after_citation.metadata_state, before_citation.metadata_state,
             "citation mutation must rewrite MetadataState"
         );
         assert_eq!(
-            after_citation.attachment_index,
-            before_citation.attachment_index,
+            after_citation.attachment_index, before_citation.attachment_index,
             "citation mutation must not rewrite AttachmentIndex"
         );
         assert_eq!(
-            after_citation.revision_head,
-            before_citation.revision_head,
+            after_citation.revision_head, before_citation.revision_head,
             "citation mutation must not append a revision"
         );
 
@@ -4605,23 +4683,19 @@ mod tests {
             .expect("protected annotation path");
         let after_annotation = current_vault_graph_ids(&storage, &note.id);
         assert_eq!(
-            after_annotation.private_state,
-            before_annotation.private_state,
+            after_annotation.private_state, before_annotation.private_state,
             "PDF annotation mutation must not rewrite NotePrivateState"
         );
         assert_ne!(
-            after_annotation.metadata_state,
-            before_annotation.metadata_state,
+            after_annotation.metadata_state, before_annotation.metadata_state,
             "PDF annotation mutation must rewrite MetadataState"
         );
         assert_eq!(
-            after_annotation.attachment_index,
-            before_annotation.attachment_index,
+            after_annotation.attachment_index, before_annotation.attachment_index,
             "PDF annotation mutation must not rewrite AttachmentIndex"
         );
         assert_eq!(
-            after_annotation.revision_head,
-            before_annotation.revision_head,
+            after_annotation.revision_head, before_annotation.revision_head,
             "PDF annotation mutation must not append a revision"
         );
 
@@ -4668,23 +4742,19 @@ mod tests {
             .expect("save protected note link");
         let after_link = current_vault_graph_ids(&storage, &note.id);
         assert_ne!(
-            after_link.private_state,
-            before_link.private_state,
+            after_link.private_state, before_link.private_state,
             "document link mutation must rewrite NotePrivateState"
         );
         assert_ne!(
-            after_link.metadata_state,
-            before_link.metadata_state,
+            after_link.metadata_state, before_link.metadata_state,
             "document link mutation must rewrite MetadataState outgoing links"
         );
         assert_eq!(
-            after_link.attachment_index,
-            before_link.attachment_index,
+            after_link.attachment_index, before_link.attachment_index,
             "document link mutation must not rewrite AttachmentIndex"
         );
         assert_eq!(
-            after_link.revision_head,
-            before_link.revision_head,
+            after_link.revision_head, before_link.revision_head,
             "autosave link mutation must not append a revision inside the autosave interval"
         );
 
@@ -4692,18 +4762,24 @@ mod tests {
             .list_note_link_targets(&note.id)
             .expect("protected outgoing link targets while unlocked");
         assert!(
-            targets.iter().any(|candidate| candidate.note_id == target.id),
+            targets
+                .iter()
+                .any(|candidate| candidate.note_id == target.id),
             "unlocked protected source must resolve its encrypted outgoing links"
         );
         let backlinks = storage
             .list_backlinks(&target.id)
             .expect("protected backlink while unlocked");
         assert!(
-            backlinks.iter().any(|candidate| candidate.source_note_id == note.id),
+            backlinks
+                .iter()
+                .any(|candidate| candidate.source_note_id == note.id),
             "unlocked protected source must contribute backlinks from encrypted MetadataState"
         );
 
-        storage.lock_protected_note(&note.id).expect("lock protected source");
+        storage
+            .lock_protected_note(&note.id)
+            .expect("lock protected source");
         assert!(
             storage
                 .list_note_link_targets(&note.id)
@@ -4825,12 +4901,7 @@ mod tests {
             )
             .expect("manifest");
             storage
-                .commit_vault_manifest_root(
-                    &transaction,
-                    access.key(),
-                    &graph.root,
-                    &manifest,
-                )
+                .commit_vault_manifest_root(&transaction, access.key(), &graph.root, &manifest)
                 .expect("swap root inside transaction");
             transaction.rollback().expect("rollback");
         }
@@ -4958,11 +5029,23 @@ mod tests {
         let after_autosave = current_vault_graph_ids(&storage, &note_id);
         assert_ne!(after_autosave.manifest, before_autosave.manifest);
         assert_ne!(after_autosave.private_state, before_autosave.private_state);
-        assert_eq!(after_autosave.metadata_state, before_autosave.metadata_state);
-        assert_eq!(after_autosave.attachment_index, before_autosave.attachment_index);
-        assert_eq!(after_autosave.revision_index, before_autosave.revision_index);
+        assert_eq!(
+            after_autosave.metadata_state,
+            before_autosave.metadata_state
+        );
+        assert_eq!(
+            after_autosave.attachment_index,
+            before_autosave.attachment_index
+        );
+        assert_eq!(
+            after_autosave.revision_index,
+            before_autosave.revision_index
+        );
         assert_eq!(after_autosave.revision_head, before_autosave.revision_head);
-        assert_eq!(after_autosave.revision_count, before_autosave.revision_count);
+        assert_eq!(
+            after_autosave.revision_count,
+            before_autosave.revision_count
+        );
 
         let _ = fs::remove_dir_all(root);
     }
@@ -5002,12 +5085,7 @@ mod tests {
                 .expect("graph")
                 .expect("protected graph");
             let stale = storage
-                .insert_vault_object(
-                    &transaction,
-                    access.key(),
-                    &note.id,
-                    &graph.metadata_state,
-                )
+                .insert_vault_object(&transaction, access.key(), &note.id, &graph.metadata_state)
                 .expect("unreachable object fixture");
             transaction.commit().expect("commit stale object fixture");
             let connection = storage.connection().expect("connection");
@@ -5037,7 +5115,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("object count");
-        assert_eq!(object_count, 15, "manifest + four mutable objects + ten revisions");
+        assert_eq!(
+            object_count, 15,
+            "manifest + four mutable objects + ten revisions"
+        );
         drop(connection);
         let _ = fs::remove_dir_all(root);
     }
@@ -5048,7 +5129,10 @@ mod tests {
         let mut note = storage.create_note(None).expect("create note");
         note.title = "revocation race secret".to_string();
         let note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save note")
             .0;
         storage
@@ -5067,7 +5151,9 @@ mod tests {
                 Ok(graph.note_private_state.title)
             })
         });
-        reader_started_rx.recv().expect("reader entered scoped read");
+        reader_started_rx
+            .recv()
+            .expect("reader entered scoped read");
 
         let (lock_done_tx, lock_done_rx) = mpsc::channel();
         let storage_for_lock = Arc::clone(&storage);
@@ -5089,7 +5175,10 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(1));
         }
-        assert!(revocation_visible, "Lock should publish revocation promptly");
+        assert!(
+            revocation_visible,
+            "Lock should publish revocation promptly"
+        );
         assert!(
             lock_done_rx.try_recv().is_err(),
             "Lock must wait while the scoped decrypted protected state is in use"
@@ -5097,7 +5186,11 @@ mod tests {
 
         release_reader_tx.send(()).expect("release reader");
         assert!(
-            reader.join().expect("join reader").expect("reader result").is_none(),
+            reader
+                .join()
+                .expect("join reader")
+                .expect("reader result")
+                .is_none(),
             "a read finishing after revocation starts must not publish derived plaintext"
         );
         let locked = lock_done_rx
@@ -5206,7 +5299,10 @@ mod tests {
             .attachment_file_command_resource(&note.id, &attachment.id)
             .expect("prepare protected command resource");
         assert_eq!(resource.attachment().file_name, "command-secret-name.txt");
-        assert!(resource.path().exists(), "protected command should own a materialized file");
+        assert!(
+            resource.path().exists(),
+            "protected command should own a materialized file"
+        );
 
         let (lock_done_tx, lock_done_rx) = mpsc::channel();
         let storage_for_lock = Arc::clone(&storage);
@@ -5228,7 +5324,10 @@ mod tests {
             }
             thread::sleep(Duration::from_millis(1));
         }
-        assert!(revocation_visible, "Lock should begin revocation while command is active");
+        assert!(
+            revocation_visible,
+            "Lock should begin revocation while command is active"
+        );
         assert!(
             lock_done_rx.try_recv().is_err(),
             "Lock must wait through the complete protected attachment command lifetime",
@@ -5399,7 +5498,10 @@ mod tests {
         note.tags = vec![old_tag.clone()];
         note.updated_at = unix_timestamp();
         let note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save old checkpoint")
             .0;
 
@@ -5408,7 +5510,10 @@ mod tests {
         latest.tags = vec![format!("{new_marker}-TAG")];
         latest.updated_at = unix_timestamp().saturating_add(1);
         storage
-            .save_note_owned_with_revision_status_for_test(latest, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                latest,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save new checkpoint");
 
         storage
@@ -5443,7 +5548,10 @@ mod tests {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .expect("protected stub");
-        assert_eq!(ordinary_row, ("Locked note".to_string(), String::new(), String::new()));
+        assert_eq!(
+            ordinary_row,
+            ("Locked note".to_string(), String::new(), String::new())
+        );
         let revision_count: i64 = connection
             .query_row(
                 "SELECT COUNT(*) FROM note_revisions WHERE note_id = ?1",
@@ -5451,7 +5559,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("ordinary revision count");
-        assert_eq!(revision_count, 0, "protected restore must not repopulate note_revisions");
+        assert_eq!(
+            revision_count, 0,
+            "protected restore must not repopulate note_revisions"
+        );
         let tag_count: i64 = connection
             .query_row(
                 "SELECT COUNT(*) FROM note_tags WHERE note_id = ?1",
@@ -5459,7 +5570,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("ordinary tag count");
-        assert_eq!(tag_count, 0, "protected restore must not repopulate note_tags");
+        assert_eq!(
+            tag_count, 0,
+            "protected restore must not repopulate note_tags"
+        );
         let fts_count: i64 = connection
             .query_row(
                 "SELECT COUNT(*) FROM notes_fts WHERE note_id = ?1",
@@ -5467,7 +5581,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("ordinary FTS count");
-        assert_eq!(fts_count, 0, "protected restore must not repopulate disk FTS");
+        assert_eq!(
+            fts_count, 0,
+            "protected restore must not repopulate disk FTS"
+        );
         drop(connection);
         // Restore intentionally returns a retained Vault authorization so UI
         // projection/publication can finish safely. This test validates the
@@ -5476,11 +5593,16 @@ mod tests {
         // retained authorization.
         drop(authorization);
 
-        storage.lock_protected_note(&note.id).expect("lock restored note");
+        storage
+            .lock_protected_note(&note.id)
+            .expect("lock restored note");
         let unlocked = storage
             .unlock_protected_note(&note.id, b"correct horse battery staple")
             .expect("unlock restored note");
-        assert_eq!(unlocked.title, old_marker, "restored state must be canonical ciphertext state");
+        assert_eq!(
+            unlocked.title, old_marker,
+            "restored state must be canonical ciphertext state"
+        );
         assert_eq!(unlocked.tags, vec![old_tag]);
 
         let persisted = database_and_wal_bytes(&storage);
@@ -5499,14 +5621,20 @@ mod tests {
         note.title = "restore normalization old".to_string();
         note.updated_at = unix_timestamp();
         let note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save old revision")
             .0;
         let mut latest = note.clone();
         latest.title = "restore normalization latest".to_string();
         latest.updated_at = latest.updated_at.saturating_add(1);
         storage
-            .save_note_owned_with_revision_status_for_test(latest, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                latest,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save latest revision");
         storage
             .protect_note_with_password(&note.id, b"correct horse battery staple")
@@ -5529,10 +5657,7 @@ mod tests {
             .expect("protected restore path");
 
         storage
-            .persist_protected_runtime_normalization_after_restore(
-                &restored.note,
-                &authorization,
-            )
+            .persist_protected_runtime_normalization_after_restore(&restored.note, &authorization)
             .expect("normalization may reuse the retained Restore access");
 
         let storage = Arc::new(storage);
@@ -5577,9 +5702,7 @@ mod tests {
                     &normalization_note,
                     &normalization_authorization,
                 );
-            normalization_tx
-                .send(result)
-                .expect("normalization result");
+            normalization_tx.send(result).expect("normalization result");
         });
         let normalization_result = normalization_rx
             .recv_timeout(Duration::from_secs(1))
@@ -5666,7 +5789,10 @@ mod tests {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .expect("protected public stub");
-        assert_eq!(row, ("Tax records".to_string(), String::new(), String::new()));
+        assert_eq!(
+            row,
+            ("Tax records".to_string(), String::new(), String::new())
+        );
         drop(connection);
 
         let persisted = database_and_wal_bytes(&storage);
@@ -5691,7 +5817,10 @@ mod tests {
         note.tags = vec!["secret-tag".to_string()];
         note.updated_at = unix_timestamp();
         let note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save note")
             .0;
 
@@ -5709,7 +5838,10 @@ mod tests {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .expect("protected row");
-        assert_eq!(row, ("Locked note".to_string(), String::new(), String::new()));
+        assert_eq!(
+            row,
+            ("Locked note".to_string(), String::new(), String::new())
+        );
         let fts_count: i64 = connection
             .query_row(
                 "SELECT COUNT(*) FROM notes_fts WHERE note_id = ?1",
@@ -5720,7 +5852,11 @@ mod tests {
         assert_eq!(fts_count, 0);
         drop(connection);
 
-        assert!(storage.unlock_protected_note(&note.id, b"wrong password").is_err());
+        assert!(
+            storage
+                .unlock_protected_note(&note.id, b"wrong password")
+                .is_err()
+        );
         let unlocked = storage
             .unlock_protected_note(&note.id, b"correct horse battery staple")
             .expect("unlock note");
@@ -5781,7 +5917,10 @@ mod tests {
         note.title = marker.clone();
         note.updated_at = unix_timestamp();
         let note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save marker note")
             .0;
 
@@ -5813,7 +5952,8 @@ mod tests {
     }
 
     #[test]
-    fn no_vacuum_forensic_protect_removes_historical_and_current_plaintext_from_db_wal_and_managed_backups() {
+    fn no_vacuum_forensic_protect_removes_historical_and_current_plaintext_from_db_wal_and_managed_backups()
+     {
         let (storage, root) = test_storage("no-vacuum-forensic-protect");
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -5982,10 +6122,7 @@ mod tests {
             .expect("persist pre-protection filter");
 
         storage
-            .protect_note_with_password(
-                &protected_note.id,
-                b"correct horse battery staple",
-            )
+            .protect_note_with_password(&protected_note.id, b"correct horse battery staple")
             .expect("protect note");
 
         let (_, filter_after_protection) = storage
@@ -6047,14 +6184,22 @@ mod tests {
         note.title = marker.clone();
         note.updated_at = unix_timestamp();
         let note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save note")
             .0;
 
         let source = root.join("private-attachment.txt");
         fs::write(&source, marker.as_bytes()).expect("write source attachment");
         let attachment = storage
-            .add_attachment_file_as(&note.id, "private-attachment.txt", Some("text/plain"), &source)
+            .add_attachment_file_as(
+                &note.id,
+                "private-attachment.txt",
+                Some("text/plain"),
+                &source,
+            )
             .expect("add attachment");
 
         let rendition_dir = storage.data_directory.join(
@@ -6083,7 +6228,9 @@ mod tests {
             .expect("reserve orphaned residue owner");
         let orphaned_residue = orphaned_owner.path().to_path_buf();
         use std::io::Write as _;
-        let mut orphaned_file = orphaned_owner.create_file().expect("create orphaned residue");
+        let mut orphaned_file = orphaned_owner
+            .create_file()
+            .expect("create orphaned residue");
         orphaned_file
             .write_all(marker.as_bytes())
             .expect("write orphaned residue");
@@ -6107,17 +6254,22 @@ mod tests {
             .expect("write unrelated orphan");
         drop(unrelated_file);
 
-        let handoff_root = crate::library_paths::attachment_handoff_directory(&storage.data_directory);
+        let handoff_root =
+            crate::library_paths::attachment_handoff_directory(&storage.data_directory);
         let handoff_process_dir = handoff_root.join(std::process::id().to_string());
         let handoff_dir = handoff_process_dir.join(&attachment.sha256);
         fs::create_dir_all(&handoff_dir).expect("create handoff residue");
-        fs::write(handoff_dir.join("private-attachment.txt"), marker.as_bytes())
-            .expect("write handoff residue");
+        fs::write(
+            handoff_dir.join("private-attachment.txt"),
+            marker.as_bytes(),
+        )
+        .expect("write handoff residue");
 
         // Pending attachment opens do not yet have a content hash. Their handoff
         // copies are keyed to the owning note so Encrypt can still invalidate them.
-        let pending_handoff_dir = handoff_process_dir
-            .join(crate::native::handoff::note_handoff_source_key(note.id.as_str()));
+        let pending_handoff_dir = handoff_process_dir.join(
+            crate::native::handoff::note_handoff_source_key(note.id.as_str()),
+        );
         fs::create_dir_all(&pending_handoff_dir).expect("create pending handoff residue");
         fs::write(
             pending_handoff_dir.join("pending-private-attachment.txt"),
@@ -6140,7 +6292,9 @@ mod tests {
             before.extend_from_slice(&wal);
         }
         assert!(
-            before.windows(marker.len()).any(|window| window == marker.as_bytes()),
+            before
+                .windows(marker.len())
+                .any(|window| window == marker.as_bytes()),
             "test plaintext must exist in SQLite/WAL before protection"
         );
 
@@ -6148,8 +6302,14 @@ mod tests {
             .protect_note_with_password(&note.id, b"correct horse battery staple")
             .expect("protect note and scrub managed residue");
 
-        assert!(!rendition_dir.exists(), "image rendition residue must be removed");
-        assert!(!media_residue.exists(), "media compatibility residue must be removed");
+        assert!(
+            !rendition_dir.exists(),
+            "image rendition residue must be removed"
+        );
+        assert!(
+            !media_residue.exists(),
+            "media compatibility residue must be removed"
+        );
         assert!(
             !orphaned_residue.exists(),
             "matching attachment quarantine residue must be removed",
@@ -6158,19 +6318,27 @@ mod tests {
             unrelated_orphan.exists(),
             "targeted protection cleanup must preserve unrelated orphan history",
         );
-        assert!(!handoff_dir.exists(), "attachment handoff residue must be removed");
+        assert!(
+            !handoff_dir.exists(),
+            "attachment handoff residue must be removed"
+        );
         assert!(
             !pending_handoff_dir.exists(),
             "note-scoped pending handoff residue must be removed",
         );
-        assert!(!backup_residue.exists(), "pre-encryption backup residue must be removed");
+        assert!(
+            !backup_residue.exists(),
+            "pre-encryption backup residue must be removed"
+        );
 
         let mut after = fs::read(&storage.database_path).expect("read scrubbed database");
         if let Ok(wal) = fs::read(&wal_path) {
             after.extend_from_slice(&wal);
         }
         assert!(
-            !after.windows(marker.len()).any(|window| window == marker.as_bytes()),
+            !after
+                .windows(marker.len())
+                .any(|window| window == marker.as_bytes()),
             "SQLite database/WAL must not retain the protected note marker after E3 scrub"
         );
 
@@ -6232,7 +6400,9 @@ mod tests {
         storage
             .unlock_protected_note(&note.id, b"correct horse battery staple")
             .expect("unlock note");
-        let listed = storage.list_attachments(&note.id).expect("list protected attachments");
+        let listed = storage
+            .list_attachments(&note.id)
+            .expect("list protected attachments");
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].file_name, "classified.txt");
         assert_eq!(listed[0].sha256, attachment.sha256);
@@ -6240,7 +6410,10 @@ mod tests {
             .protected_attachment_resource(&attachment.id)
             .expect("protected attachment resource")
             .expect("protected attachment should exist");
-        assert_eq!(fs::read(&resource.path).expect("read materialized attachment"), plaintext);
+        assert_eq!(
+            fs::read(&resource.path).expect("read materialized attachment"),
+            plaintext
+        );
         // The materialized resource intentionally retains a VaultReadPermit for its
         // entire plaintext lifetime. Release it before Unprotect, which must drain
         // active Vault readers before replacing protected state with plaintext.
@@ -6249,7 +6422,10 @@ mod tests {
         storage
             .remove_note_protection_with_password(&note.id, b"correct horse battery staple")
             .expect("remove protection");
-        assert_eq!(fs::read(&plaintext_path).expect("read restored attachment"), plaintext);
+        assert_eq!(
+            fs::read(&plaintext_path).expect("read restored attachment"),
+            plaintext
+        );
         let _ = fs::remove_dir_all(root);
     }
     #[test]
@@ -6257,8 +6433,11 @@ mod tests {
         let (storage, root) = test_storage("attachment-auth-failure-cleanup");
         let note = storage.create_note(None).expect("create note");
         let source = root.join("tamper-source.txt");
-        fs::write(&source, b"plaintext that must not survive failed authentication")
-            .expect("write attachment source");
+        fs::write(
+            &source,
+            b"plaintext that must not survive failed authentication",
+        )
+        .expect("write attachment source");
         let attachment = storage
             .add_attachment_file_as(&note.id, "tamper-source.txt", Some("text/plain"), &source)
             .expect("add attachment");
@@ -6382,12 +6561,7 @@ mod tests {
             ciphertext_hashes: Vec::new(),
         };
         storage
-            .begin_vault_operation(
-                &note.id,
-                VAULT_OPERATION_PROTECT,
-                operation_id,
-                &details,
-            )
+            .begin_vault_operation(&note.id, VAULT_OPERATION_PROTECT, operation_id, &details)
             .expect("begin journal");
         let retiring = storage.retiring_operation_directory(operation_id);
         fs::create_dir_all(&retiring).expect("retiring dir");
@@ -6402,7 +6576,9 @@ mod tests {
         assert_eq!(fs::read(&canonical).expect("restored blob"), plaintext);
         let connection = storage.connection().expect("connection");
         let operations: i64 = connection
-            .query_row("SELECT COUNT(*) FROM vault_operations", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM vault_operations", [], |row| {
+                row.get(0)
+            })
             .expect("operation count");
         assert_eq!(operations, 0);
         let _ = fs::remove_dir_all(root);
@@ -6432,12 +6608,7 @@ mod tests {
             ciphertext_hashes: Vec::new(),
         };
         storage
-            .begin_vault_operation(
-                &note.id,
-                VAULT_OPERATION_UNPROTECT,
-                operation_id,
-                &details,
-            )
+            .begin_vault_operation(&note.id, VAULT_OPERATION_UNPROTECT, operation_id, &details)
             .expect("begin journal");
         let incoming = storage.incoming_operation_directory(operation_id);
         fs::create_dir_all(&incoming).expect("incoming dir");
@@ -6467,7 +6638,10 @@ mod tests {
         let mut note = storage.create_note(None).expect("create note");
         note.title = "protected recovery marker".to_string();
         let note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save note")
             .0;
         let source = root.join("recover-protect-committed.txt");
@@ -6501,12 +6675,7 @@ mod tests {
         };
         let details = VaultOperationDetails { ciphertext_hashes };
         storage
-            .begin_vault_operation(
-                &note.id,
-                VAULT_OPERATION_PROTECT,
-                operation_id,
-                &details,
-            )
+            .begin_vault_operation(&note.id, VAULT_OPERATION_PROTECT, operation_id, &details)
             .expect("begin journal");
         {
             let connection = storage.connection().expect("connection");
@@ -6534,14 +6703,19 @@ mod tests {
         let storage = Storage::at_with_backup(data_directory, backup_directory)
             .expect("restart library and recover committed protect");
 
-        assert!(!retiring.exists(), "retired plaintext staging must be removed");
+        assert!(
+            !retiring.exists(),
+            "retired plaintext staging must be removed"
+        );
         assert!(
             !rendition.exists(),
             "restart recovery must scrub managed plaintext derivatives"
         );
         let connection = storage.connection().expect("connection");
         let operations: i64 = connection
-            .query_row("SELECT COUNT(*) FROM vault_operations", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM vault_operations", [], |row| {
+                row.get(0)
+            })
             .expect("operation count");
         assert_eq!(operations, 0);
         assert!(
@@ -6581,10 +6755,15 @@ mod tests {
         let storage = Storage::at_with_backup(data_directory, backup_directory)
             .expect("restart library and recover prepared unprotect");
 
-        assert!(!incoming.exists(), "prepared plaintext staging must be discarded");
+        assert!(
+            !incoming.exists(),
+            "prepared plaintext staging must be discarded"
+        );
         let connection = storage.connection().expect("connection");
         let operations: i64 = connection
-            .query_row("SELECT COUNT(*) FROM vault_operations", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM vault_operations", [], |row| {
+                row.get(0)
+            })
             .expect("operation count");
         assert_eq!(operations, 0);
         assert!(
@@ -6602,7 +6781,12 @@ mod tests {
         let source = root.join("derivative-race.pdf");
         fs::write(&source, b"%PDF-1.4\nplaintext derivative race\n%%EOF\n").expect("write source");
         let attachment = storage
-            .add_attachment_file_as(&note.id, "derivative-race.pdf", Some("application/pdf"), &source)
+            .add_attachment_file_as(
+                &note.id,
+                "derivative-race.pdf",
+                Some("application/pdf"),
+                &source,
+            )
             .expect("add attachment");
 
         let permit = storage
@@ -6629,8 +6813,11 @@ mod tests {
                 .expect("rendition path"),
         );
         fs::create_dir_all(&rendition).expect("rendition directory");
-        fs::write(rendition.join("late-preview.bin"), b"late plaintext preview")
-            .expect("late preview residue");
+        fs::write(
+            rendition.join("late-preview.bin"),
+            b"late plaintext preview",
+        )
+        .expect("late preview residue");
         let stage_token = crate::native::staging::stage_pdf_export(
             &attachment.id,
             b"%PDF-1.4\nlate staged plaintext\n%%EOF\n",
@@ -6644,7 +6831,10 @@ mod tests {
             .expect("protection succeeds");
         assert!(protected.protection.is_protected());
         protect.join().expect("protect thread");
-        assert!(!rendition.exists(), "late cache derivative must be scrubbed before Encrypt returns");
+        assert!(
+            !rendition.exists(),
+            "late cache derivative must be scrubbed before Encrypt returns"
+        );
         assert!(
             crate::native::staging::save_staged_pdf_export(
                 &stage_token,
@@ -6675,17 +6865,15 @@ mod tests {
         // tests, which can silently pass when the test runner is root).
         let media_cache = crate::library_paths::media_compat_directory(&storage.data_directory);
         if media_cache.exists() {
-            crate::native::privacy::remove_tree(&media_cache).expect("remove media cache directory");
+            crate::native::privacy::remove_tree(&media_cache)
+                .expect("remove media cache directory");
         }
         if let Some(parent) = media_cache.parent() {
             fs::create_dir_all(parent).expect("media cache parent");
         }
         fs::write(&media_cache, b"not a directory").expect("install deterministic cleanup fault");
 
-        let result = storage.protect_note_with_password(
-            &note.id,
-            b"correct horse battery staple",
-        );
+        let result = storage.protect_note_with_password(&note.id, b"correct horse battery staple");
         assert!(
             result.is_err(),
             "Encrypt must report failure when managed plaintext cleanup cannot complete"
@@ -6703,7 +6891,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("pending finalization count");
-        assert_eq!(pending, 1, "failed cleanup must retain durable recovery state");
+        assert_eq!(
+            pending, 1,
+            "failed cleanup must retain durable recovery state"
+        );
         drop(connection);
 
         fs::remove_file(&media_cache).expect("repair media cache path");
@@ -6714,7 +6905,9 @@ mod tests {
             .expect("restart after filesystem cleanup becomes possible");
         let connection = storage.connection().expect("connection");
         let pending: i64 = connection
-            .query_row("SELECT COUNT(*) FROM vault_operations", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM vault_operations", [], |row| {
+                row.get(0)
+            })
             .expect("pending operation count");
         assert_eq!(pending, 0);
         drop(connection);
@@ -6729,7 +6922,10 @@ mod tests {
         let mut note = storage.create_note(None).expect("create note");
         note.title = marker.to_string();
         let note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save checkpoint")
             .0;
         let source = root.join("repeat-cycle.txt");
@@ -6763,8 +6959,12 @@ mod tests {
                 .find(|candidate| candidate.id == attachment.id)
                 .expect("restored attachment");
             assert_eq!(
-                fs::read(storage.attachment_file_path(&restored_attachment).expect("attachment path"))
-                    .expect("restored attachment bytes"),
+                fs::read(
+                    storage
+                        .attachment_file_path(&restored_attachment)
+                        .expect("attachment path")
+                )
+                .expect("restored attachment bytes"),
                 marker.as_bytes()
             );
         }
@@ -6872,12 +7072,18 @@ mod tests {
         let mut note = storage.create_note(None).expect("create note");
         note.title = marker.clone();
         let mut note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save secret revision")
             .0;
         note.title = "current non-secret title".to_string();
         note = storage
-            .save_note_owned_with_revision_status_for_test(note, super::super::RevisionMode::Checkpoint)
+            .save_note_owned_with_revision_status_for_test(
+                note,
+                super::super::RevisionMode::Checkpoint,
+            )
             .expect("save current revision")
             .0;
         assert_ne!(note.title, marker);
@@ -6905,7 +7111,10 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("revision count");
-        assert!(revision_rows >= 2, "revision history must round-trip through Vault");
+        assert!(
+            revision_rows >= 2,
+            "revision history must round-trip through Vault"
+        );
         drop(connection);
 
         let _ = fs::remove_dir_all(root);
@@ -6923,7 +7132,10 @@ mod tests {
             .reset_backup_repository_for_vault_unlocked()
             .expect("reset Rustnote child repository");
 
-        assert_eq!(fs::read(&sentinel).expect("sentinel survives"), b"must survive");
+        assert_eq!(
+            fs::read(&sentinel).expect("sentinel survives"),
+            b"must survive"
+        );
         assert!(
             storage
                 .automatic_backup_directory
@@ -6944,8 +7156,11 @@ mod tests {
         fs::write(&unrelated, b"unrelated user data").expect("write unrelated sentinel");
         fs::create_dir_all(legacy_like_snapshot.parent().expect("snapshot parent"))
             .expect("create root-level lookalike");
-        fs::write(&legacy_like_snapshot, b"not owned by the current repository authority")
-            .expect("write root-level lookalike");
+        fs::write(
+            &legacy_like_snapshot,
+            b"not owned by the current repository authority",
+        )
+        .expect("write root-level lookalike");
         fs::write(
             parent.join("repository.json"),
             br#"{"format_version":1,"last_attempt_at":null,"last_result":"obsolete","snapshots":[]}"#,
@@ -6978,5 +7193,4 @@ mod tests {
         );
         let _ = fs::remove_dir_all(root);
     }
-
 }

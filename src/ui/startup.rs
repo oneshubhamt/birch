@@ -3,19 +3,19 @@ use std::path::PathBuf;
 use dioxus::prelude::*;
 
 use crate::build_info::FULL_BUILD_IDENTIFIER;
-use crate::library::LibraryRuntime;
 use crate::domain::{
     NoteFilters, NoteListCursor, NoteListQuery, NoteSort, NoteSummary, Notebook, Section,
 };
+use crate::library::LibraryRuntime;
 
+use super::app::RunningApp;
+use super::responsive::{clamp_note_list_width, clamp_sidebar_width};
+use crate::application::errors::DataAccessError;
 use crate::application::{
     context::{ApplicationOpenError, ApplicationServices},
     executor::ApplicationExecutor,
     settings::{EditorPreferences, SettingsService},
 };
-use crate::application::errors::DataAccessError;
-use super::app::RunningApp;
-use super::responsive::{clamp_note_list_width, clamp_sidebar_width};
 
 #[derive(Clone, PartialEq)]
 pub(super) struct InitialApplication {
@@ -58,11 +58,15 @@ impl std::fmt::Display for StartupError {
 }
 
 impl From<ApplicationOpenError> for StartupError {
-    fn from(error: ApplicationOpenError) -> Self { Self::Application(error) }
+    fn from(error: ApplicationOpenError) -> Self {
+        Self::Application(error)
+    }
 }
 
 impl From<DataAccessError> for StartupError {
-    fn from(error: DataAccessError) -> Self { Self::Data(error) }
+    fn from(error: DataAccessError) -> Self {
+        Self::Data(error)
+    }
 }
 
 fn initialize_application(libraries: &LibraryRuntime) -> StartupState {
@@ -76,17 +80,16 @@ fn initialize_application(libraries: &LibraryRuntime) -> StartupState {
         let preferences = library.note_list_preferences()?;
         let sort_order = NoteSort::from_value(&preferences.0);
         let filters = NoteFilters::from_storage(&preferences.1);
-        let initial_page = library
-            .list_notes_page(
-                &NoteListQuery {
-                    section: Section::Notes,
-                    notebook_id: None,
-                    search: String::new(),
-                    sort: sort_order,
-                    filters: filters.clone(),
-                },
-                None,
-            )?;
+        let initial_page = library.list_notes_page(
+            &NoteListQuery {
+                section: Section::Notes,
+                notebook_id: None,
+                search: String::new(),
+                sort: sort_order,
+                filters: filters.clone(),
+            },
+            None,
+        )?;
         let dark_mode = settings.dark_mode()?;
         let editor_preferences = settings.editor_preferences()?;
         let widths = settings.layout_widths()?;
@@ -172,7 +175,6 @@ pub fn App() -> Element {
 
     rsx! { {application} }
 }
-
 
 #[component]
 fn StartupRecovery(

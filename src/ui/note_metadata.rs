@@ -4,41 +4,40 @@ use dioxus::prelude::*;
 use rfd::AsyncFileDialog;
 
 use crate::application::context::ApplicationServices;
-use crate::application::errors::{ExportError, PortabilityError};
 use crate::application::editor::EditorService;
-use crate::application::notes::{NoteService, RevisionSnapshotResource};
-use crate::application::persistence::{NoteChangeScope, unix_timestamp};
+use crate::application::errors::{ExportError, PortabilityError};
 use crate::application::export::{
     cancel_note_pdf_print_script, prepare_note_pdf_print_script, wait_note_pdf_print_script,
 };
-use crate::application::portability::{destination_for_collection, portable_format_filter, suggested_portable_note_file_name};
-use crate::application::privacy::PrivacyPublicationService;
-use crate::portability::{PortabilityFormat, PortabilityScope};
-use crate::{
-    editor_document::DocumentValidationError,
-    editor_projection::derive_editor_projections,
-    markdown::render_markdown,
-    application::errors::DataAccessError,
+use crate::application::notes::{NoteService, RevisionSnapshotResource};
+use crate::application::persistence::{NoteChangeScope, unix_timestamp};
+use crate::application::portability::{
+    destination_for_collection, portable_format_filter, suggested_portable_note_file_name,
 };
+use crate::application::privacy::PrivacyPublicationService;
 use crate::domain::{
     Note, NoteId, NoteRevisionSummary, Notebook, RevisionRetention, RevisionSnapshot,
     RevisionStorageUsage,
 };
-
-use crate::application::executor::{
-    ApplicationExecutionError, ApplicationExecutor, ApplicationOperation, ExecutionFailure,
+use crate::portability::{PortabilityFormat, PortabilityScope};
+use crate::{
+    application::errors::DataAccessError, editor_document::DocumentValidationError,
+    editor_projection::derive_editor_projections, markdown::render_markdown,
 };
+
 use super::editor::schedule_draft_scoped;
-use super::eval_bridge;
 use super::entity_commands::{TagCommand, execute_tag_command_blocking};
+use super::eval_bridge;
+use super::note_card::relative_time;
+use super::sidebar::{indented_notebook_name, notebook_name_for};
 use super::synchronization::{
     EditorSession, SynchronizationError, SynchronizationMode, begin_draft_flush_scoped,
     complete_draft_flush, synchronize_current_editor,
 };
-use super::note_card::relative_time;
-use super::sidebar::{indented_notebook_name, notebook_name_for};
 use super::{EditorPopover, TagCatalogMutation, storage_or_report};
-
+use crate::application::executor::{
+    ApplicationExecutionError, ApplicationExecutor, ApplicationOperation, ExecutionFailure,
+};
 
 #[derive(Debug)]
 enum RevisionPreviewError {
@@ -70,11 +69,15 @@ impl std::error::Error for RevisionPreviewError {
 }
 
 impl From<DataAccessError> for RevisionPreviewError {
-    fn from(error: DataAccessError) -> Self { Self::Data(error) }
+    fn from(error: DataAccessError) -> Self {
+        Self::Data(error)
+    }
 }
 
 impl From<DocumentValidationError> for RevisionPreviewError {
-    fn from(error: DocumentValidationError) -> Self { Self::Projection(error) }
+    fn from(error: DocumentValidationError) -> Self {
+        Self::Projection(error)
+    }
 }
 
 impl ExecutionFailure for RevisionPreviewError {
@@ -130,20 +133,24 @@ struct MetadataExportContext {
 }
 
 fn begin_metadata_export(action: MetadataExportAction, context: MetadataExportContext) {
-    if *context.busy.read() { return; }
+    if *context.busy.read() {
+        return;
+    }
     let publication_token = match action {
-        MetadataExportAction::Notebook(_) => context.privacy_epoch
+        MetadataExportAction::Notebook(_) => context
+            .privacy_epoch
             .capture_multi_note_publication_with_lifecycle(
                 &context.services.privacy(),
                 context.library_generation,
                 context.note_generation,
             ),
-        MetadataExportAction::Note(_) | MetadataExportAction::NotePdf => context.privacy_epoch
-            .capture_note_publication(
+        MetadataExportAction::Note(_) | MetadataExportAction::NotePdf => {
+            context.privacy_epoch.capture_note_publication(
                 &context.services.privacy(),
                 &context.draft.peek().id,
                 context.note_generation,
-            ),
+            )
+        }
     };
     let Some(publication_token) = publication_token else {
         context
@@ -191,12 +198,19 @@ impl std::fmt::Display for MetadataExportError {
             Self::Export(error) => std::fmt::Display::fmt(error, formatter),
             Self::Portability(error) => std::fmt::Display::fmt(error, formatter),
             Self::NoSelectedNote => formatter.write_str("no note is selected"),
-            Self::PrivacyAuthorizationChanged => formatter.write_str(
-                "privacy authorization changed while the export was in progress",
+            Self::PrivacyAuthorizationChanged => formatter
+                .write_str("privacy authorization changed while the export was in progress"),
+            Self::PdfPreparation(message) => write!(
+                formatter,
+                "Could not prepare the note for PDF export: {message}"
             ),
-            Self::PdfPreparation(message) => write!(formatter, "Could not prepare the note for PDF export: {message}"),
-            Self::PdfPreparationRejected => formatter.write_str("the note could not be prepared for PDF export"),
-            Self::PrintDialog(message) => write!(formatter, "Could not open the native print dialog: {message}"),
+            Self::PdfPreparationRejected => {
+                formatter.write_str("the note could not be prepared for PDF export")
+            }
+            Self::PrintDialog(message) => write!(
+                formatter,
+                "Could not open the native print dialog: {message}"
+            ),
         }
     }
 }
@@ -217,13 +231,19 @@ impl std::error::Error for MetadataExportError {
 }
 
 impl From<SynchronizationError> for MetadataExportError {
-    fn from(error: SynchronizationError) -> Self { Self::Synchronization(error) }
+    fn from(error: SynchronizationError) -> Self {
+        Self::Synchronization(error)
+    }
 }
 impl From<ExportError> for MetadataExportError {
-    fn from(error: ExportError) -> Self { Self::Export(error) }
+    fn from(error: ExportError) -> Self {
+        Self::Export(error)
+    }
 }
 impl From<PortabilityError> for MetadataExportError {
-    fn from(error: PortabilityError) -> Self { Self::Portability(error) }
+    fn from(error: PortabilityError) -> Self {
+        Self::Portability(error)
+    }
 }
 
 async fn portable_export_destination(
@@ -240,7 +260,11 @@ async fn portable_export_destination(
             .set_title("Choose a folder for the notebook export")
             .pick_folder()
             .await?;
-        return Some(destination_for_collection(selected.path(), "Rustnote notebook", format));
+        return Some(destination_for_collection(
+            selected.path(),
+            "Rustnote notebook",
+            format,
+        ));
     }
     let (label, extensions) = portable_format_filter(format);
     let file_name = if collection {
@@ -249,7 +273,11 @@ async fn portable_export_destination(
         suggested_portable_note_file_name(&draft.title, format)
     };
     AsyncFileDialog::new()
-        .set_title(if collection { "Export notebook" } else { "Export note" })
+        .set_title(if collection {
+            "Export notebook"
+        } else {
+            "Export note"
+        })
         .add_filter(label, extensions)
         .set_file_name(&file_name)
         .save_file()
@@ -264,7 +292,9 @@ async fn perform_metadata_export(
 ) -> Result<Option<String>, MetadataExportError> {
     let note_id = context.draft.peek().id.clone();
     let export_service = context.services.export();
-    let export_lifetime = export_service.begin_note_export_lifetime(note_id.clone()).await?;
+    let export_lifetime = export_service
+        .begin_note_export_lifetime(note_id.clone())
+        .await?;
     if !publication_token.is_publishable() || !export_lifetime.is_publishable() {
         return Err(MetadataExportError::PrivacyAuthorizationChanged);
     }
@@ -276,7 +306,9 @@ async fn perform_metadata_export(
     let destination = if action == MetadataExportAction::NotePdf {
         None
     } else {
-        let Some(path) = portable_export_destination(action, &draft).await else { return Ok(None); };
+        let Some(path) = portable_export_destination(action, &draft).await else {
+            return Ok(None);
+        };
         if !publication_token.is_publishable() || !export_lifetime.is_publishable() {
             return Err(MetadataExportError::PrivacyAuthorizationChanged);
         }
@@ -299,25 +331,37 @@ async fn perform_metadata_export(
     match action {
         MetadataExportAction::Note(format) => {
             let path = destination.expect("portable note destination");
-            let result = context.services.portability().export_scope(
-                &context.background,
-                PortabilityScope::Note(synchronized.id.clone()),
-                format,
-                path,
-            ).await?;
+            let result = context
+                .services
+                .portability()
+                .export_scope(
+                    &context.background,
+                    PortabilityScope::Note(synchronized.id.clone()),
+                    format,
+                    path,
+                )
+                .await?;
             if !publication_token.is_publishable() || !export_lifetime.is_publishable() {
                 return Err(MetadataExportError::PrivacyAuthorizationChanged);
             }
-            Ok(Some(format!("{} exported to {}", format.label(), result.display())))
+            Ok(Some(format!(
+                "{} exported to {}",
+                format.label(),
+                result.display()
+            )))
         }
         MetadataExportAction::Notebook(format) => {
             let path = destination.expect("portable notebook destination");
-            let result = context.services.portability().export_scope(
-                &context.background,
-                PortabilityScope::Notebook(synchronized.notebook_id.clone()),
-                format,
-                path,
-            ).await?;
+            let result = context
+                .services
+                .portability()
+                .export_scope(
+                    &context.background,
+                    PortabilityScope::Notebook(synchronized.notebook_id.clone()),
+                    format,
+                    path,
+                )
+                .await?;
             if !publication_token.is_publishable() || !export_lifetime.is_publishable() {
                 return Err(MetadataExportError::PrivacyAuthorizationChanged);
             }
@@ -335,7 +379,9 @@ async fn perform_metadata_export(
                 let _ = eval_bridge::join_idempotent::<bool>(cancel_note_pdf_print_script()).await;
                 return Err(MetadataExportError::PrivacyAuthorizationChanged);
             }
-            if !prepared { return Err(MetadataExportError::PdfPreparationRejected); }
+            if !prepared {
+                return Err(MetadataExportError::PdfPreparationRejected);
+            }
             if let Err(error) = context.desktop.webview.print() {
                 let _ = eval_bridge::join_idempotent::<bool>(cancel_note_pdf_print_script()).await;
                 return Err(MetadataExportError::PrintDialog(error.to_string()));
@@ -760,7 +806,6 @@ pub(super) fn NoteMetadata(view: NoteMetadataView, actions: NoteMetadataActions)
 
     }
 }
-
 
 #[derive(Clone, PartialEq)]
 struct MetadataTagChipView {
@@ -1188,7 +1233,6 @@ fn focus_and_select_metadata_input(element_id: String) {
     });
 }
 
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct NoteRevisionRestoreRequest {
     pub revision_id: String,
@@ -1265,7 +1309,10 @@ pub(super) fn RevisionHistoryPanel(
         library_generation,
         note_generation,
     } = view;
-    let RevisionHistoryPanelActions { onrestore, onstatus } = actions;
+    let RevisionHistoryPanelActions {
+        onrestore,
+        onstatus,
+    } = actions;
     let background_coordinator = use_context::<ApplicationExecutor>();
     let history_notes = notes.clone();
     let history_note_id = note_id.clone();
@@ -1330,7 +1377,9 @@ pub(super) fn RevisionHistoryPanel(
         .and_then(|id| revision_items.iter().find(|revision| &revision.id == id))
         .cloned()
         .or_else(|| revision_items.first().cloned());
-    let selected_id = selected_revision.as_ref().map(|revision| revision.id.clone());
+    let selected_id = selected_revision
+        .as_ref()
+        .map(|revision| revision.id.clone());
 
     let revision_privacy = note_privacy;
     let _privacy_invalidator = use_effect(move || {
@@ -1350,11 +1399,9 @@ pub(super) fn RevisionHistoryPanel(
     let preview_notes = notes.clone();
     let preview_note_id = note_id.clone();
     let _preview_loader = use_effect(move || {
-        let Some(publication_token) = privacy_epoch.capture_note_publication(
-            &privacy,
-            &preview_note_id,
-            note_generation,
-        ) else {
+        let Some(publication_token) =
+            privacy_epoch.capture_note_publication(&privacy, &preview_note_id, note_generation)
+        else {
             preview_loading_id.set(None);
             return;
         };
@@ -1471,12 +1518,12 @@ pub(super) fn RevisionHistoryPanel(
         .then_some(selected_id.as_ref())
         .flatten()
         .and_then(|id| {
-        preview_error
-            .read()
-            .as_ref()
-            .filter(|(error_id, _)| error_id == id)
-            .map(|(_, error)| error.clone())
-    });
+            preview_error
+                .read()
+                .as_ref()
+                .filter(|(error_id, _)| error_id == id)
+                .map(|(_, error)| error.clone())
+        });
     let selected_loading = !previews_are_current
         || selected_id
             .as_ref()
@@ -1831,10 +1878,7 @@ pub(super) fn RevisionHistoryPanel(
     }
 }
 
-fn schedule_revision_limit_change(
-    change: RevisionLimitChange,
-    context: RevisionLimitContext,
-) {
+fn schedule_revision_limit_change(change: RevisionLimitChange, context: RevisionLimitContext) {
     let RevisionLimitContext {
         notes,
         note_id,
@@ -1918,7 +1962,9 @@ fn schedule_revision_limit_change(
                 publication_token.publish(|| {
                     let previous_selection = selected_revision_id.read().clone();
                     let next_selection = previous_selection
-                        .filter(|selected| refreshed.iter().any(|revision| revision.id == *selected))
+                        .filter(|selected| {
+                            refreshed.iter().any(|revision| revision.id == *selected)
+                        })
                         .or_else(|| refreshed.first().map(|revision| revision.id.clone()));
                     retention.set(next_retention);
                     revisions.set(refreshed);

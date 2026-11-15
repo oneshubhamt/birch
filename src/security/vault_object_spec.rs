@@ -4,7 +4,6 @@
 //! plaintext note/revision metadata; authenticated object context binds them to
 //! the owning note, object kind and payload format when ciphertext is sealed.
 
-
 use std::fmt;
 
 use serde::{Deserialize, Serialize};

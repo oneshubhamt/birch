@@ -61,10 +61,12 @@ fn configured_directory() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         if let Some(home) = env::var_os("HOME") {
-            return Some(PathBuf::from(home)
-                .join("Library")
-                .join("Application Support")
-                .join("Rustnote"));
+            return Some(
+                PathBuf::from(home)
+                    .join("Library")
+                    .join("Application Support")
+                    .join("Rustnote"),
+            );
         }
     }
     #[cfg(target_os = "windows")]

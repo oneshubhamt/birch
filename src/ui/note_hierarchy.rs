@@ -6,9 +6,7 @@ use crate::application::{
 };
 use crate::domain::{HierarchyNoteSummary, NoteCandidate, NoteHierarchy, NoteId};
 
-use super::{
-    note_picker::{NotePicker, NotePickerActions, NotePickerView},
-};
+use super::note_picker::{NotePicker, NotePickerActions, NotePickerView};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum HierarchyPickerMode {
@@ -79,8 +77,7 @@ pub(super) fn NoteHierarchyPanel(
     let mut mutation_busy = use_signal(|| false);
     let mut reload_generation = use_signal(|| 0_u64);
     let mut request_generation = use_signal(|| 0_u64);
-    let mut published_token =
-        use_signal(|| None::<super::privacy::PrivacyPublicationToken>);
+    let mut published_token = use_signal(|| None::<super::privacy::PrivacyPublicationToken>);
     let privacy = use_context::<PrivacyPublicationService>();
     let multi_note_privacy = use_memo(move || privacy_epoch.observe_multi_note());
     let hierarchy_is_current = published_token
@@ -94,8 +91,11 @@ pub(super) fn NoteHierarchyPanel(
     let _hierarchy_effect = use_effect(move || {
         let _multi_note_privacy = *multi_note_privacy.read();
         let _library_generation = *library_generation.read();
-        let Some(publication_token) = privacy_epoch.capture_multi_note_publication_with_lifecycle(&hierarchy_privacy, library_generation, note_generation)
-        else {
+        let Some(publication_token) = privacy_epoch.capture_multi_note_publication_with_lifecycle(
+            &hierarchy_privacy,
+            library_generation,
+            note_generation,
+        ) else {
             hierarchy.set(NoteHierarchy::default());
             published_token.set(None);
             loading.set(false);
@@ -127,7 +127,7 @@ pub(super) fn NoteHierarchyPanel(
                 Ok(current) => {
                     published_token.set(Some(publication_token.clone()));
                     hierarchy.set(current);
-                },
+                }
                 Err(error) => {
                     hierarchy.set(NoteHierarchy::default());
                     onstatus.call(format!("Could not load note hierarchy: {error}"));

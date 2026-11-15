@@ -8,16 +8,16 @@ use std::{
 use rusqlite::{OptionalExtension, TransactionBehavior, params};
 
 use crate::{
-    editor_document::analyze_editor_state,
     domain::{Attachment, NoteId},
+    editor_document::analyze_editor_state,
     storage::unix_timestamp,
 };
 
-use super::{Storage, StorageError, StorageResult, new_id};
 use super::attachments::{
-    AttachmentImportProfile, AttachmentStagingMode, ProfiledAttachmentImport, StagedAttachmentImport,
-    canonical_attachment_identity, sha256_file, sync_parent_directory,
+    AttachmentImportProfile, AttachmentStagingMode, ProfiledAttachmentImport,
+    StagedAttachmentImport, canonical_attachment_identity, sha256_file, sync_parent_directory,
 };
+use super::{Storage, StorageError, StorageResult, new_id};
 
 const MAX_PENDING_INGESTS: i64 = 32;
 static FINALIZE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -92,7 +92,10 @@ impl Storage {
             )));
         }
 
-        self.validate_note_accepts_attachment_with_authorization(note_id, &plaintext_authorization)?;
+        self.validate_note_accepts_attachment_with_authorization(
+            note_id,
+            &plaintext_authorization,
+        )?;
         let pending_count: i64 = self.connection()?.query_row(
             "SELECT COUNT(*)
              FROM attachment_ingest_jobs AS jobs
@@ -142,10 +145,9 @@ impl Storage {
         let staged_with_clone = match owned_plaintext.copy_from(source) {
             Ok(staged_with_clone) => staged_with_clone,
             Err(error) => {
-                return Err(self.cleanup_owned_plaintext_after_error(
-                    &mut owned_plaintext,
-                    error.into(),
-                ));
+                return Err(
+                    self.cleanup_owned_plaintext_after_error(&mut owned_plaintext, error.into())
+                );
             }
         };
         let managed_stage = stage_started.elapsed();
@@ -164,10 +166,7 @@ impl Storage {
             sync_parent_directory(&staging_path)
         })();
         if let Err(error) = sync_result {
-            return Err(self.cleanup_owned_plaintext_after_error(
-                &mut owned_plaintext,
-                error,
-            ));
+            return Err(self.cleanup_owned_plaintext_after_error(&mut owned_plaintext, error));
         }
         let staging_sync = sync_started.elapsed();
 
@@ -192,10 +191,9 @@ impl Storage {
             let (sha256, verified_size) = match sha256_file(&staging_path) {
                 Ok(result) => result,
                 Err(error) => {
-                    return Err(self.cleanup_owned_plaintext_after_error(
-                        &mut owned_plaintext,
-                        error,
-                    ));
+                    return Err(
+                        self.cleanup_owned_plaintext_after_error(&mut owned_plaintext, error)
+                    );
                 }
             };
             profile.hash_finalize = hash_started.elapsed();
@@ -245,19 +243,16 @@ impl Storage {
             note_id: note_id.clone(),
             file_name: file_name.clone(),
             mime_type: mime_type.clone(),
-            byte_size: i64::try_from(byte_size).map_err(|_| StorageError::Validation(
-                "attachment is too large to index".to_string()
-            ))?,
+            byte_size: i64::try_from(byte_size).map_err(|_| {
+                StorageError::Validation("attachment is too large to index".to_string())
+            })?,
             staging_relative_path,
             request_id,
             created_at: now,
             updated_at: now,
         };
         if let Err(error) = self.insert_attachment_ingest_job(&job, &mut owned_plaintext) {
-            return Err(self.cleanup_owned_plaintext_after_error(
-                &mut owned_plaintext,
-                error,
-            ));
+            return Err(self.cleanup_owned_plaintext_after_error(&mut owned_plaintext, error));
         }
 
         let prepare_total = started.elapsed();
@@ -379,7 +374,9 @@ impl Storage {
         let path = if staging_path.is_file() {
             staging_path
         } else if let Some(access) = authorization.access() {
-            let Some(resource) = self.protected_attachment_with_access(&job.attachment_id, access)? else {
+            let Some(resource) =
+                self.protected_attachment_with_access(&job.attachment_id, access)?
+            else {
                 return Ok(None);
             };
             resource.path
@@ -484,9 +481,9 @@ impl Storage {
                 job.file_name
             )));
         }
-        let expected_size = u64::try_from(job.byte_size).map_err(|_| StorageError::Integrity(
-            "pending attachment has a negative byte size".to_string()
-        ))?;
+        let expected_size = u64::try_from(job.byte_size).map_err(|_| {
+            StorageError::Integrity("pending attachment has a negative byte size".to_string())
+        })?;
         if staging_path.metadata()?.len() != expected_size {
             self.discard_attachment_ingest_job(&job)?;
             return Err(StorageError::Integrity(format!(
@@ -615,7 +612,6 @@ impl Storage {
         self.delete_attachment_ingest_job(&job.id)
     }
 
-
     pub(super) fn validate_note_accepts_attachment_with_authorization(
         &self,
         note_id: &NoteId,
@@ -636,7 +632,9 @@ impl Storage {
             )
             .optional()?;
         match state {
-            None => Err(StorageError::Validation("note no longer exists".to_string())),
+            None => Err(StorageError::Validation(
+                "note no longer exists".to_string(),
+            )),
             Some((trashed, _)) if trashed != 0 => Err(StorageError::Validation(
                 "notes in Trash are read-only; recover the note before adding attachments"
                     .to_string(),
@@ -787,7 +785,9 @@ impl Storage {
     }
 }
 
-fn attachment_ingest_job_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AttachmentIngestJob> {
+fn attachment_ingest_job_from_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<AttachmentIngestJob> {
     Ok(AttachmentIngestJob {
         id: row.get(0)?,
         attachment_id: row.get(1)?,
@@ -851,7 +851,10 @@ mod tests {
             "generic staging ownership must transfer atomically to the ingest row"
         );
         assert!(pending.path.is_file());
-        assert_eq!(fs::read(&pending.path).expect("read staged bytes"), b"durable attachment bytes");
+        assert_eq!(
+            fs::read(&pending.path).expect("read staged bytes"),
+            b"durable attachment bytes"
+        );
         assert!(
             storage
                 .list_attachments(&note.id)
@@ -865,7 +868,10 @@ mod tests {
         let final_path = storage
             .attachment_file_path(&finalized.attachment)
             .expect("resolve canonical attachment path");
-        assert_eq!(fs::read(final_path).expect("read finalized bytes"), b"durable attachment bytes");
+        assert_eq!(
+            fs::read(final_path).expect("read finalized bytes"),
+            b"durable attachment bytes"
+        );
         assert_eq!(
             storage
                 .list_attachments(&note.id)
@@ -897,8 +903,14 @@ mod tests {
         drop(storage);
         let reopened = Storage::at_with_backup(root.join("data"), root.join("backups"))
             .expect("startup recovery");
-        assert!(!unowned.exists(), "startup must remove unowned .incoming plaintext");
-        assert!(owned_path.is_file(), "durably owned ingest staging must survive startup cleanup");
+        assert!(
+            !unowned.exists(),
+            "startup must remove unowned .incoming plaintext"
+        );
+        assert!(
+            owned_path.is_file(),
+            "durably owned ingest staging must survive startup cleanup"
+        );
         assert!(
             reopened
                 .pending_attachment_ingest_resource(&prepared.ingest_id)
@@ -962,7 +974,10 @@ mod tests {
         let staging_path = storage
             .staging_attachment_path(&job.staging_relative_path)
             .expect("staging path");
-        let incoming = staging_path.parent().expect("incoming parent").to_path_buf();
+        let incoming = staging_path
+            .parent()
+            .expect("incoming parent")
+            .to_path_buf();
         let preserved_incoming = storage.attachments_directory.join(".incoming-preserved");
         fs::rename(&incoming, &preserved_incoming).expect("move incoming directory");
         symlink(".incoming", &incoming).expect("symlink loop");
@@ -979,7 +994,9 @@ mod tests {
             "durable ingest owner must survive ambiguous absence"
         );
         assert!(
-            preserved_incoming.join(staging_path.file_name().expect("staging name")).is_file(),
+            preserved_incoming
+                .join(staging_path.file_name().expect("staging name"))
+                .is_file(),
             "underlying plaintext must remain covered by the durable owner"
         );
 
@@ -995,7 +1012,10 @@ mod tests {
                 .is_none(),
             "owner may retire only after cleanup succeeds"
         );
-        assert!(!staging_path.exists(), "retry must remove the managed plaintext");
+        assert!(
+            !staging_path.exists(),
+            "retry must remove the managed plaintext"
+        );
 
         cleanup(storage, root);
     }

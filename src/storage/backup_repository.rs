@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::build_info::FULL_BUILD_IDENTIFIER;
 use crate::domain::{
-    BackupRepositorySnapshot, BackupRepositoryStatus, BackupSnapshotKind,
-    CompleteArchiveSummary,
+    BackupRepositorySnapshot, BackupRepositoryStatus, BackupSnapshotKind, CompleteArchiveSummary,
 };
 
 use super::attachments::{
@@ -86,7 +85,6 @@ struct BackupRepositoryIndex {
     snapshots: Vec<RepositorySnapshotIndexEntry>,
 }
 
-
 impl BackupRepositoryIndex {
     fn empty(library_id: &str) -> Self {
         Self {
@@ -98,7 +96,6 @@ impl BackupRepositoryIndex {
         }
     }
 }
-
 
 #[derive(Debug)]
 struct InvalidRepositoryArtifact {
@@ -316,7 +313,9 @@ fn read_bounded(path: &Path, limit: u64) -> StorageResult<Vec<u8>> {
         )));
     }
     let capacity = usize::try_from(metadata.len()).map_err(|_| {
-        StorageError::InvalidBackup("repository metadata is too large for this platform".to_string())
+        StorageError::InvalidBackup(
+            "repository metadata is too large for this platform".to_string(),
+        )
     })?;
     let mut bytes = Vec::with_capacity(capacity);
     BufReader::new(File::open(path)?).read_to_end(&mut bytes)?;
@@ -365,9 +364,11 @@ fn manifest_usage(manifests: &[RepositorySnapshotManifest]) -> StorageResult<u64
             StorageError::Integrity("backup repository size overflow".to_string())
         })?;
         bytes = bytes
-            .checked_add(u64::try_from(serde_json::to_vec_pretty(manifest)?.len()).map_err(|_| {
-                StorageError::Integrity("backup manifest size overflow".to_string())
-            })?)
+            .checked_add(
+                u64::try_from(serde_json::to_vec_pretty(manifest)?.len()).map_err(|_| {
+                    StorageError::Integrity("backup manifest size overflow".to_string())
+                })?,
+            )
             .ok_or_else(|| {
                 StorageError::Integrity("backup repository size overflow".to_string())
             })?;
@@ -470,7 +471,6 @@ fn backup_namespace_identity(library_id: &str) -> String {
     format!("backup-repository:{library_id}")
 }
 
-
 impl Storage {
     fn backup_repository_layout_at(&self, backup_directory: &Path) -> RepositoryLayout {
         RepositoryLayout::new(&backup_directory.join(REPOSITORY_DIRECTORY_NAME))
@@ -558,13 +558,11 @@ impl Storage {
                 backup_namespace_identity(&self.library_id),
             )
         };
-        namespace_result
-            .map(Some)
-            .map_err(|error| {
-                StorageError::Integrity(format!(
-                    "automatic backup namespace ownership could not be established: {error}"
-                ))
-            })
+        namespace_result.map(Some).map_err(|error| {
+            StorageError::Integrity(format!(
+                "automatic backup namespace ownership could not be established: {error}"
+            ))
+        })
     }
 
     /// Establish the canonical durable namespace before any repository
@@ -630,10 +628,9 @@ impl Storage {
         &self,
         backup_directory: &Path,
     ) -> StorageResult<Option<crate::security::DurablePlaintextNamespace>> {
-        let Some(namespace) = self.establish_backup_repository_namespace_unlocked_at(
-            backup_directory,
-            false,
-        )? else {
+        let Some(namespace) =
+            self.establish_backup_repository_namespace_unlocked_at(backup_directory, false)?
+        else {
             return Ok(None);
         };
         let layout = self.backup_repository_layout_at(backup_directory);
@@ -665,7 +662,9 @@ impl Storage {
     /// engine, so a protection transition invalidates the app-managed repository
     /// as one unit. A fresh encrypted-state snapshot may be created normally after
     /// the transition.
-    pub(super) fn discharge_current_backup_privacy_obligation_unlocked(&self) -> StorageResult<bool> {
+    pub(super) fn discharge_current_backup_privacy_obligation_unlocked(
+        &self,
+    ) -> StorageResult<bool> {
         if !super::locations::backup_privacy_reset_required_for(
             &self.library_id,
             &self.data_directory,
@@ -678,9 +677,7 @@ impl Storage {
         // on an empty substitute mount. Only the surviving external marker can
         // authorize cleanup of an existing repository.
         if self
-            .purge_owned_backup_repository_for_vault_unlocked_at(
-                &self.automatic_backup_directory,
-            )?
+            .purge_owned_backup_repository_for_vault_unlocked_at(&self.automatic_backup_directory)?
             .is_none()
         {
             return Err(StorageError::Validation(
@@ -743,8 +740,8 @@ impl Storage {
                 None
             };
 
-            let Some(_namespace) = self
-                .purge_owned_backup_repository_for_vault_unlocked_at(backup_directory)?
+            let Some(_namespace) =
+                self.purge_owned_backup_repository_for_vault_unlocked_at(backup_directory)?
             else {
                 // Parent existence alone is not proof that a removable repository
                 // returned. Preserve the durable obligation rather than claiming
@@ -829,7 +826,8 @@ impl Storage {
         let Ok(index) = serde_json::from_slice::<BackupRepositoryIndex>(&bytes) else {
             return BackupRepositoryIndex::empty(&self.library_id);
         };
-        if index.format_version == REPOSITORY_FORMAT_VERSION && index.library_id == self.library_id {
+        if index.format_version == REPOSITORY_FORMAT_VERSION && index.library_id == self.library_id
+        {
             index
         } else {
             BackupRepositoryIndex::empty(&self.library_id)
@@ -1125,11 +1123,9 @@ impl Storage {
                 protected_quarantine.insert(destination.clone());
                 report.quarantined_manifests += 1;
                 if report.details.len() < MAX_QUARANTINE_DETAILS {
-                    report.details.push(format!(
-                        "{}: {}",
-                        destination.display(),
-                        invalid.reason
-                    ));
+                    report
+                        .details
+                        .push(format!("{}: {}", destination.display(), invalid.reason));
                 }
             }
             if let Some(snapshot_id) = invalid.snapshot_id.as_deref() {
@@ -1191,7 +1187,10 @@ impl Storage {
 
         report.purged_quarantine_artifacts =
             self.prune_repository_quarantine(layout, &protected_quarantine)?;
-        let quarantine_present = fs::read_dir(&layout.quarantine)?.next().transpose()?.is_some();
+        let quarantine_present = fs::read_dir(&layout.quarantine)?
+            .next()
+            .transpose()?
+            .is_some();
         if !quarantine_present {
             let referenced_blobs = loaded
                 .valid
@@ -1379,12 +1378,7 @@ impl Storage {
             self.for_each_archive_blob(&database, |sha256, relative_path, byte_size| {
                 let source = self.attachments_directory.join(relative_path);
                 let repository_path = layout.blob_path(sha256);
-                ensure_repository_blob(
-                    &source,
-                    &repository_path,
-                    sha256,
-                    byte_size,
-                )?;
+                ensure_repository_blob(&source, &repository_path, sha256, byte_size)?;
                 blobs.push(RepositoryBlobReference {
                     sha256: sha256.to_string(),
                     byte_size,
@@ -1490,10 +1484,8 @@ impl Storage {
             return Ok(None);
         }
         let attempt = (|| -> StorageResult<Option<PathBuf>> {
-            let created = self.create_repository_snapshot_unlocked(
-                BackupSnapshotKind::Automatic,
-                now,
-            )?;
+            let created =
+                self.create_repository_snapshot_unlocked(BackupSnapshotKind::Automatic, now)?;
             match created {
                 Some(manifest) => {
                     let (_namespace, layout) = self.verified_backup_repository_layout_unlocked()?;
@@ -1520,10 +1512,8 @@ impl Storage {
             }
         })();
         if let Err(error) = &attempt {
-            let _ = self.record_repository_result(
-                format!("Automatic backup failed: {error}"),
-                None,
-            );
+            let _ =
+                self.record_repository_result(format!("Automatic backup failed: {error}"), None);
         }
         attempt
     }
@@ -1600,11 +1590,10 @@ impl Storage {
     }
 
     fn backup_repository_status_unlocked(&self) -> StorageResult<BackupRepositoryStatus> {
-        let pending_privacy_reset_count =
-            super::locations::pending_backup_privacy_reset_count_for(
-                &self.library_id,
-                &self.data_directory,
-            )?;
+        let pending_privacy_reset_count = super::locations::pending_backup_privacy_reset_count_for(
+            &self.library_id,
+            &self.data_directory,
+        )?;
         if self.current_backup_privacy_reset_pending_unlocked()? {
             return Ok(BackupRepositoryStatus {
                 budget_bytes: self.backup_repository_budget_bytes()?,
@@ -1658,16 +1647,15 @@ impl Storage {
             .iter()
             .rev()
             .map(|manifest| {
-                let expanded_bytes = manifest.blobs.iter().try_fold(
-                    manifest.database_bytes,
-                    |total, blob| {
-                        total.checked_add(blob.byte_size).ok_or_else(|| {
-                            StorageError::Integrity(
-                                "backup snapshot size overflow".to_string(),
-                            )
-                        })
-                    },
-                )?;
+                let expanded_bytes =
+                    manifest
+                        .blobs
+                        .iter()
+                        .try_fold(manifest.database_bytes, |total, blob| {
+                            total.checked_add(blob.byte_size).ok_or_else(|| {
+                                StorageError::Integrity("backup snapshot size overflow".to_string())
+                            })
+                        })?;
                 Ok(BackupRepositorySnapshot {
                     snapshot_id: manifest.snapshot_id.clone(),
                     kind: manifest.kind,
@@ -1708,16 +1696,19 @@ impl Storage {
         let manifest = manifests
             .into_iter()
             .find(|manifest| manifest.snapshot_id == snapshot_id)
-            .ok_or_else(|| StorageError::InvalidBackup("backup snapshot was not found".to_string()))?;
-        self.verify_repository_snapshot(&layout, &manifest)?;
-        let expanded_bytes = manifest
-            .blobs
-            .iter()
-            .try_fold(manifest.database_bytes, |total, blob| {
-                total.checked_add(blob.byte_size).ok_or_else(|| {
-                    StorageError::Integrity("backup snapshot size overflow".to_string())
-                })
+            .ok_or_else(|| {
+                StorageError::InvalidBackup("backup snapshot was not found".to_string())
             })?;
+        self.verify_repository_snapshot(&layout, &manifest)?;
+        let expanded_bytes =
+            manifest
+                .blobs
+                .iter()
+                .try_fold(manifest.database_bytes, |total, blob| {
+                    total.checked_add(blob.byte_size).ok_or_else(|| {
+                        StorageError::Integrity("backup snapshot size overflow".to_string())
+                    })
+                })?;
         Ok(CompleteArchiveSummary {
             created_at: manifest.created_at,
             archive_bytes: expanded_bytes,
@@ -1738,16 +1729,14 @@ impl Storage {
             self.stage_backup_repository_snapshot_unlocked(snapshot_id)?
         };
         let summary = staged.summary.clone();
-        let _privacy_guard = match self.begin_library_privacy_transition(
-            crate::security::LibraryPrivacyTransition::Restore,
-        ) {
+        let _privacy_guard = match self
+            .begin_library_privacy_transition(crate::security::LibraryPrivacyTransition::Restore)
+        {
             Ok(guard) => guard,
             Err(error) => {
                 return match discard_restore_stage_directory(&staged.directory) {
                     Ok(()) => Err(error),
-                    Err(cleanup) => Err(StorageError::Integrity(format!(
-                        "{error}; {cleanup}"
-                    ))),
+                    Err(cleanup) => Err(StorageError::Integrity(format!("{error}; {cleanup}"))),
                 };
             }
         };
@@ -1756,9 +1745,9 @@ impl Storage {
             (Ok(()), Ok(())) => Ok(summary),
             (Err(error), Ok(())) => Err(error),
             (Ok(()), Err(cleanup)) => Err(cleanup),
-            (Err(error), Err(cleanup)) => Err(StorageError::Integrity(format!(
-                "{error}; {cleanup}"
-            ))),
+            (Err(error), Err(cleanup)) => {
+                Err(StorageError::Integrity(format!("{error}; {cleanup}")))
+            }
         }
     }
 
@@ -1773,7 +1762,9 @@ impl Storage {
         let manifest = manifests
             .into_iter()
             .find(|manifest| manifest.snapshot_id == snapshot_id)
-            .ok_or_else(|| StorageError::InvalidBackup("backup snapshot was not found".to_string()))?;
+            .ok_or_else(|| {
+                StorageError::InvalidBackup("backup snapshot was not found".to_string())
+            })?;
         self.verify_repository_snapshot(&layout, &manifest)?;
 
         let restore_root = crate::native::staging::archive_restore_process_root()
@@ -1793,19 +1784,18 @@ impl Storage {
         if let Err(error) = stage_result {
             return match discard_restore_stage_directory(&staging_directory) {
                 Ok(()) => Err(error),
-                Err(cleanup) => Err(StorageError::Integrity(format!(
-                    "{error}; {cleanup}"
-                ))),
+                Err(cleanup) => Err(StorageError::Integrity(format!("{error}; {cleanup}"))),
             };
         }
-        let expanded_bytes = manifest
-            .blobs
-            .iter()
-            .try_fold(manifest.database_bytes, |total, blob| {
-                total.checked_add(blob.byte_size).ok_or_else(|| {
-                    StorageError::Integrity("backup snapshot size overflow".to_string())
-                })
-            })?;
+        let expanded_bytes =
+            manifest
+                .blobs
+                .iter()
+                .try_fold(manifest.database_bytes, |total, blob| {
+                    total.checked_add(blob.byte_size).ok_or_else(|| {
+                        StorageError::Integrity("backup snapshot size overflow".to_string())
+                    })
+                })?;
         Ok(StagedCompleteArchive {
             directory: staging_directory,
             database_path,
@@ -1839,11 +1829,14 @@ mod vault_backup_location_tests {
 
         // Establish the historical repository through Storage itself so its
         // ownership metadata positively identifies the same library.
-        let historical_storage =
-            Storage::at_with_backup(data.clone(), historical_backup.clone()).expect("historical storage");
+        let historical_storage = Storage::at_with_backup(data.clone(), historical_backup.clone())
+            .expect("historical storage");
         let historical_repository = historical_backup.join(REPOSITORY_DIRECTORY_NAME);
-        fs::write(historical_repository.join("plaintext.sqlite3"), b"sensitive plaintext")
-            .expect("historical plaintext");
+        fs::write(
+            historical_repository.join("plaintext.sqlite3"),
+            b"sensitive plaintext",
+        )
+        .expect("historical plaintext");
         fs::write(historical_backup.join("keep-me.txt"), b"user file").expect("parent user file");
         drop(historical_storage);
 
@@ -1884,7 +1877,8 @@ mod vault_backup_location_tests {
         drop(historical);
 
         fs::rename(&historical_backup, &offline_storage).expect("simulate unplugged volume");
-        let current = Storage::at_with_backup(data.clone(), current_backup).expect("current storage");
+        let current =
+            Storage::at_with_backup(data.clone(), current_backup).expect("current storage");
         current
             .reset_backup_repository_for_vault_unlocked()
             .expect("local reset succeeds while old volume is offline");
@@ -1914,22 +1908,30 @@ mod vault_backup_location_tests {
         );
         drop(current);
 
-        let settings_error = Storage::save_configured_locations(
-            data.clone(),
-            historical_backup.clone(),
-        )
-        .expect_err("settings must not recreate a missing privacy-pending mount path");
-        assert!(settings_error.to_string().contains("requires Vault privacy cleanup"));
+        let settings_error =
+            Storage::save_configured_locations(data.clone(), historical_backup.clone())
+                .expect_err("settings must not recreate a missing privacy-pending mount path");
+        assert!(
+            settings_error
+                .to_string()
+                .contains("requires Vault privacy cleanup")
+        );
         assert!(!historical_backup.exists());
 
         let unavailable = Storage::at_with_backup(data.clone(), historical_backup.clone())
             .expect_err("pending missing backup location must not be recreated locally");
-        assert!(unavailable.to_string().contains("requires Vault privacy cleanup"));
+        assert!(
+            unavailable
+                .to_string()
+                .contains("requires Vault privacy cleanup")
+        );
         assert!(!historical_backup.exists());
 
         fs::create_dir(&historical_backup).expect("substitute mount path");
         let substitute = Storage::at_with_backup(data.clone(), historical_backup.clone())
-            .expect_err("an empty substitute parent is not proof that the remembered volume returned");
+            .expect_err(
+                "an empty substitute parent is not proof that the remembered volume returned",
+            );
         assert!(substitute.to_string().contains("cannot prove"));
         assert!(
             !historical_backup.join(REPOSITORY_DIRECTORY_NAME).exists(),
@@ -1969,11 +1971,14 @@ mod vault_backup_location_tests {
         let current_backup = root.join("external-backups");
         let offline_storage = root.join("external-backups-offline");
 
-        let storage = Storage::at_with_backup(data.clone(), current_backup.clone())
-            .expect("storage");
+        let storage =
+            Storage::at_with_backup(data.clone(), current_backup.clone()).expect("storage");
         let repository = current_backup.join(REPOSITORY_DIRECTORY_NAME);
-        fs::write(repository.join("pre-encryption-plaintext.sqlite3"), b"historical plaintext")
-            .expect("repository plaintext");
+        fs::write(
+            repository.join("pre-encryption-plaintext.sqlite3"),
+            b"historical plaintext",
+        )
+        .expect("repository plaintext");
         let library_id = storage.library_id().to_string();
 
         fs::rename(&current_backup, &offline_storage).expect("simulate unplugged current volume");
@@ -2002,7 +2007,9 @@ mod vault_backup_location_tests {
             "offline repository bytes remain until the real volume returns",
         );
 
-        let status = storage.backup_repository_status().expect("safe pending status");
+        let status = storage
+            .backup_repository_status()
+            .expect("safe pending status");
         assert_eq!(status.pending_privacy_reset_count, 1);
         assert!(status.last_result.contains("pending Vault privacy cleanup"));
         assert!(
@@ -2061,11 +2068,15 @@ mod vault_backup_location_tests {
         let repository = backup.join(REPOSITORY_DIRECTORY_NAME);
         let owner = backup_namespace_marker(&backup);
         let index = repository.join(INDEX_FILE_NAME);
-        assert!(owner.is_file(), "durable owner must live outside repository root");
+        assert!(
+            owner.is_file(),
+            "durable owner must live outside repository root"
+        );
         fs::remove_file(&index).expect("simulate crash before mutable index publication");
         drop(storage);
 
-        let reopened = Storage::at_with_backup(data, backup).expect("external owner permits recovery");
+        let reopened =
+            Storage::at_with_backup(data, backup).expect("external owner permits recovery");
         assert!(owner.is_file());
         assert!(index.is_file());
         drop(reopened);
@@ -2082,18 +2093,28 @@ mod vault_backup_location_tests {
         let historical = Storage::at_with_backup(data.clone(), historical_backup.clone())
             .expect("historical storage");
         let historical_repository = historical_backup.join(REPOSITORY_DIRECTORY_NAME);
-        fs::write(historical_repository.join("plaintext.sqlite3"), b"sensitive plaintext")
-            .expect("historical plaintext");
+        fs::write(
+            historical_repository.join("plaintext.sqlite3"),
+            b"sensitive plaintext",
+        )
+        .expect("historical plaintext");
         drop(historical);
 
         let storage = Storage::at_with_backup(data, current_backup).expect("current storage");
-        fs::write(backup_namespace_marker(&historical_backup), b"corrupt-owner")
-            .expect("corrupt external owner marker");
+        fs::write(
+            backup_namespace_marker(&historical_backup),
+            b"corrupt-owner",
+        )
+        .expect("corrupt external owner marker");
 
         let error = storage
             .reset_backup_repositories_for_vault_unlocked(std::slice::from_ref(&historical_backup))
             .expect_err("corrupt external authority must fail Vault cleanup closed");
-        assert!(error.to_string().contains("namespace ownership could not be established"));
+        assert!(
+            error
+                .to_string()
+                .contains("namespace ownership could not be established")
+        );
         assert!(
             historical_repository.join("plaintext.sqlite3").is_file(),
             "unverifiable repository must be preserved rather than destructively guessed",
@@ -2119,7 +2140,9 @@ mod vault_backup_location_tests {
             .expect_err("external namespace owner must prevent cross-library claim");
         assert!(
             error.to_string().contains("different Rustnote library")
-                || error.to_string().contains("namespace ownership could not be established")
+                || error
+                    .to_string()
+                    .contains("namespace ownership could not be established")
                 || error.to_string().contains("already associated")
         );
         assert!(owner.is_file());
@@ -2149,14 +2172,26 @@ mod vault_backup_location_tests {
         fs::remove_file(repository.join(INDEX_FILE_NAME)).expect("simulate deleted index");
         fs::remove_file(&removed_manifest).expect("simulate deleted manifest");
         fs::remove_file(&removed_snapshot).expect("simulate deleted snapshot");
-        assert!(owner.is_file(), "external owner must survive partial repository deletion");
+        assert!(
+            owner.is_file(),
+            "external owner must survive partial repository deletion"
+        );
         drop(storage);
 
         let reopened = Storage::at_with_backup(data.clone(), backup.clone())
             .expect("restart must finish interrupted Vault cleanup");
-        assert!(!surviving_secret.exists(), "remaining plaintext must be purged on restart");
-        assert!(owner.is_file(), "cleanup authority survives repository replacement");
-        assert!(repository.join(INDEX_FILE_NAME).is_file(), "clean repository is recreated");
+        assert!(
+            !surviving_secret.exists(),
+            "remaining plaintext must be purged on restart"
+        );
+        assert!(
+            owner.is_file(),
+            "cleanup authority survives repository replacement"
+        );
+        assert!(
+            repository.join(INDEX_FILE_NAME).is_file(),
+            "clean repository is recreated"
+        );
         assert!(
             !super::super::locations::backup_privacy_reset_required_for(
                 reopened.library_id(),
@@ -2178,7 +2213,11 @@ mod vault_backup_location_tests {
         let storage = Storage::at_with_backup(data.clone(), backup.clone()).expect("storage");
         let repository = backup.join(REPOSITORY_DIRECTORY_NAME);
         let owner = backup_namespace_marker(&backup);
-        fs::write(repository.join("plaintext.sqlite3"), b"pre-protection plaintext").expect("secret");
+        fs::write(
+            repository.join("plaintext.sqlite3"),
+            b"pre-protection plaintext",
+        )
+        .expect("secret");
 
         super::super::locations::begin_backup_privacy_reset_for(
             storage.library_id(),
@@ -2189,7 +2228,9 @@ mod vault_backup_location_tests {
             .establish_backup_repository_namespace_unlocked_at(&backup, false)
             .expect("namespace lookup")
             .expect("namespace exists");
-        namespace.remove_tree_strict().expect("simulate completed tree deletion");
+        namespace
+            .remove_tree_strict()
+            .expect("simulate completed tree deletion");
         assert!(!repository.exists());
         assert!(owner.is_file(), "authority must outlive tree deletion");
         drop(storage);
@@ -2222,11 +2263,17 @@ mod vault_backup_location_tests {
         let error = storage
             .automatic_backup_due()
             .expect_err("backup operation must not recreate a missing durable owner");
-        assert!(error.to_string().contains("durable ownership is missing or corrupt"));
-        assert!(!marker.exists(), "steady-state operation must not manufacture replacement ownership");
+        assert!(
+            error
+                .to_string()
+                .contains("durable ownership is missing or corrupt")
+        );
+        assert!(
+            !marker.exists(),
+            "steady-state operation must not manufacture replacement ownership"
+        );
 
         drop(storage);
         let _ = fs::remove_dir_all(root);
     }
-
 }

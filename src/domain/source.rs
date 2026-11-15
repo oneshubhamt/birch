@@ -180,7 +180,10 @@ mod b6_typed_id_tests {
     #[test]
     fn identifier_parse_preserves_typed_validation_error() {
         assert!(matches!(SourceId::parse(""), Err(SourceIdError)));
-        assert!(matches!(SourceId::parse("bad\nidentifier"), Err(SourceIdError)));
+        assert!(matches!(
+            SourceId::parse("bad\nidentifier"),
+            Err(SourceIdError)
+        ));
         assert!(SourceId::parse("valid-id").is_ok());
     }
 }

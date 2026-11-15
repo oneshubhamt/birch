@@ -19,7 +19,11 @@ pub(crate) struct PortabilityCodecError {
 }
 
 impl PortabilityCodecError {
-    pub(crate) fn new(message: impl Into<String>) -> Self { Self { message: message.into() } }
+    pub(crate) fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
 }
 
 impl std::fmt::Display for PortabilityCodecError {
@@ -31,17 +35,17 @@ impl std::fmt::Display for PortabilityCodecError {
 impl std::error::Error for PortabilityCodecError {}
 
 impl From<String> for PortabilityCodecError {
-    fn from(message: String) -> Self { Self::new(message) }
+    fn from(message: String) -> Self {
+        Self::new(message)
+    }
 }
 
 pub(crate) type PortabilityResult<T> = Result<T, PortabilityCodecError>;
 
 pub(crate) use document::{
-    ImportedDocument, ResourceResolution, canonical_editor_state,
-    remap_canonical_editor_state, resolve_import_placeholders,
+    ImportedDocument, ResourceResolution, canonical_editor_state, remap_canonical_editor_state,
+    resolve_import_placeholders,
 };
-
-
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ImportPlan {
@@ -51,13 +55,20 @@ pub(crate) struct ImportPlan {
 }
 
 impl ImportPlan {
-    pub(crate) fn inspection(&self) -> &ImportInspection { &self.inspection }
+    pub(crate) fn inspection(&self) -> &ImportInspection {
+        &self.inspection
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ImportPlanPayload {
-    Editable { root: PathBuf, files: Vec<PlannedImportFile> },
-    RustnoteBundle { semantic_sha256: String },
+    Editable {
+        root: PathBuf,
+        files: Vec<PlannedImportFile>,
+    },
+    RustnoteBundle {
+        semantic_sha256: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -92,7 +103,11 @@ impl PortabilityCapabilities {
     pub(crate) const fn description(self) -> &'static str {
         if self.lossless && self.rustnote_metadata && self.revision_history {
             "Lossless Rustnote transfer with attachments, hierarchy, sources, annotations, and version history."
-        } else if self.rich_text && self.attachments && self.internal_note_links && self.paragraph_layout {
+        } else if self.rich_text
+            && self.attachments
+            && self.internal_note_links
+            && self.paragraph_layout
+        {
             "Semantic rich text with safe local attachment assets, relative note links, and supported paragraph layout."
         } else if self.rich_text && self.attachments && self.internal_note_links {
             "Editable rich text with safe local attachment assets and relative note links; Rustnote-only paragraph layout is omitted."
@@ -159,7 +174,12 @@ pub(crate) enum PortabilityFormat {
 }
 
 impl PortabilityFormat {
-    pub(crate) const ALL: [Self; 4] = [Self::PlainText, Self::Markdown, Self::Html, Self::RustnoteBundle];
+    pub(crate) const ALL: [Self; 4] = [
+        Self::PlainText,
+        Self::Markdown,
+        Self::Html,
+        Self::RustnoteBundle,
+    ];
 
     pub(crate) const fn extension(self) -> &'static str {
         match self {
@@ -182,20 +202,40 @@ impl PortabilityFormat {
     pub(crate) const fn capabilities(self) -> PortabilityCapabilities {
         match self {
             Self::PlainText => PortabilityCapabilities {
-                rich_text: false, attachments: false, internal_note_links: false,
-                paragraph_layout: false, rustnote_metadata: false, revision_history: false, lossless: false,
+                rich_text: false,
+                attachments: false,
+                internal_note_links: false,
+                paragraph_layout: false,
+                rustnote_metadata: false,
+                revision_history: false,
+                lossless: false,
             },
             Self::Markdown => PortabilityCapabilities {
-                rich_text: true, attachments: true, internal_note_links: true,
-                paragraph_layout: false, rustnote_metadata: false, revision_history: false, lossless: false,
+                rich_text: true,
+                attachments: true,
+                internal_note_links: true,
+                paragraph_layout: false,
+                rustnote_metadata: false,
+                revision_history: false,
+                lossless: false,
             },
             Self::Html => PortabilityCapabilities {
-                rich_text: true, attachments: true, internal_note_links: true,
-                paragraph_layout: true, rustnote_metadata: false, revision_history: false, lossless: false,
+                rich_text: true,
+                attachments: true,
+                internal_note_links: true,
+                paragraph_layout: true,
+                rustnote_metadata: false,
+                revision_history: false,
+                lossless: false,
             },
             Self::RustnoteBundle => PortabilityCapabilities {
-                rich_text: true, attachments: true, internal_note_links: true,
-                paragraph_layout: true, rustnote_metadata: true, revision_history: true, lossless: true,
+                rich_text: true,
+                attachments: true,
+                internal_note_links: true,
+                paragraph_layout: true,
+                rustnote_metadata: true,
+                revision_history: true,
+                lossless: true,
             },
         }
     }
@@ -229,9 +269,9 @@ pub(crate) fn decode_editable(
             let text = decode_text(bytes)?;
             html::decode(&text)
         }
-        PortabilityFormat::RustnoteBundle => {
-            Err(PortabilityCodecError::new("Rustnote bundles use the native bundle importer"))
-        }
+        PortabilityFormat::RustnoteBundle => Err(PortabilityCodecError::new(
+            "Rustnote bundles use the native bundle importer",
+        )),
     }
 }
 
@@ -252,18 +292,22 @@ pub(crate) fn encode_editable(
             Ok(output.into_bytes())
         }
         PortabilityFormat::Markdown => {
-            markdown::encode(title, editor_state, attachment_paths, note_paths).map(String::into_bytes)
+            markdown::encode(title, editor_state, attachment_paths, note_paths)
+                .map(String::into_bytes)
         }
         PortabilityFormat::Html => {
             html::encode(title, editor_state, attachment_paths, note_paths).map(String::into_bytes)
         }
-        PortabilityFormat::RustnoteBundle => {
-            Err(PortabilityCodecError::new("Rustnote bundles use the native bundle exporter"))
-        }
+        PortabilityFormat::RustnoteBundle => Err(PortabilityCodecError::new(
+            "Rustnote bundles use the native bundle exporter",
+        )),
     }
 }
 
-pub(crate) use resource::{is_asset_namespace_name, is_asset_namespace_path, safe_relative_path as safe_relative_resource_path};
+pub(crate) use resource::{
+    is_asset_namespace_name, is_asset_namespace_path,
+    safe_relative_path as safe_relative_resource_path,
+};
 
 fn decode_text(bytes: &[u8]) -> PortabilityResult<String> {
     if bytes.starts_with(&[0xff, 0xfe]) {
@@ -300,16 +344,25 @@ mod tests {
 
     #[test]
     fn portable_format_detection_is_narrow() {
-        assert_eq!(PortabilityFormat::from_path(Path::new("note.MD")), Some(PortabilityFormat::Markdown));
+        assert_eq!(
+            PortabilityFormat::from_path(Path::new("note.MD")),
+            Some(PortabilityFormat::Markdown)
+        );
         assert_eq!(PortabilityFormat::from_path(Path::new("note.docx")), None);
     }
 
     #[test]
     fn resource_paths_cannot_escape_import_root() {
-        assert_eq!(safe_relative_resource_path("assets/image.png"), Some(PathBuf::from("assets/image.png")));
+        assert_eq!(
+            safe_relative_resource_path("assets/image.png"),
+            Some(PathBuf::from("assets/image.png"))
+        );
         assert_eq!(safe_relative_resource_path("../secret.txt"), None);
         assert_eq!(safe_relative_resource_path("/tmp/secret.txt"), None);
-        assert_eq!(safe_relative_resource_path("https://example.com/a.png"), None);
+        assert_eq!(
+            safe_relative_resource_path("https://example.com/a.png"),
+            None
+        );
     }
 
     #[test]
@@ -322,12 +375,17 @@ mod tests {
         assert!(!markdown.paragraph_layout && !markdown.lossless);
 
         let html = PortabilityFormat::Html.capabilities();
-        assert!(html.rich_text && html.attachments && html.internal_note_links && html.paragraph_layout);
+        assert!(
+            html.rich_text && html.attachments && html.internal_note_links && html.paragraph_layout
+        );
         assert!(!html.lossless);
 
-
         let native = PortabilityFormat::RustnoteBundle.capabilities();
-        assert!(native.lossless && native.rustnote_metadata && native.revision_history && native.attachments);
+        assert!(
+            native.lossless
+                && native.rustnote_metadata
+                && native.revision_history
+                && native.attachments
+        );
     }
-
 }

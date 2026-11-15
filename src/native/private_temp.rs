@@ -38,7 +38,6 @@ pub(crate) fn ensure_directory(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-
 /// Prepare a Rustnote-owned private namespace beneath a stable per-user
 /// temporary root. The root is created one level below the OS temp directory
 /// with `create_dir` (never `create_dir_all`), so a pre-existing intermediate
@@ -212,9 +211,12 @@ pub(crate) fn create_private_file_in_existing_directory(path: &Path) -> io::Resu
 /// Create a private leaf directory without changing its existing parent.
 /// Ownership metadata must already exist before this is called.
 pub(crate) fn create_private_directory_in_existing_directory(path: &Path) -> io::Result<()> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "private directory has no parent"))?;
+    let parent = path.parent().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "private directory has no parent",
+        )
+    })?;
     let parent_metadata = fs::symlink_metadata(parent)?;
     if parent_metadata.file_type().is_symlink() || !parent_metadata.is_dir() {
         return Err(io::Error::new(

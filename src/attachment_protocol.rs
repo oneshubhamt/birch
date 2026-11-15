@@ -189,7 +189,10 @@ fn read_pdf_exact_at(file: &PdfReadHandle, offset: u64, bytes: &mut [u8]) -> io:
             .file
             .seek_read(&mut bytes[read..], offset.saturating_add(read as u64))?;
         if count == 0 {
-            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "PDF read ended early"));
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "PDF read ended early",
+            ));
         }
         read += count;
     }
@@ -332,11 +335,9 @@ pub(crate) fn attachment_asset_response(
             return protocol_error(415, "Attachment type is not available for inline preview");
         }
     };
-    let content_type = attachment_media::resolved_mime_type(
-        &record.file_name,
-        record.mime_type.as_deref(),
-    )
-    .unwrap_or_else(|| "application/octet-stream".to_string());
+    let content_type =
+        attachment_media::resolved_mime_type(&record.file_name, record.mime_type.as_deref())
+            .unwrap_or_else(|| "application/octet-stream".to_string());
     serve_file(
         &request,
         &record.path,
@@ -373,7 +374,10 @@ fn image_edit_stage_response(
                 Err(error) => return attachment_json_error(error.status, error.message),
             };
             if record.note_trashed {
-                return attachment_json_error(403, "Image editing is unavailable while the note is in Trash");
+                return attachment_json_error(
+                    403,
+                    "Image editing is unavailable while the note is in Trash",
+                );
             }
             if attachment_media::kind(&record.file_name, record.mime_type.as_deref())
                 != AttachmentMediaKind::Image
@@ -395,9 +399,16 @@ fn image_edit_stage_response(
                 return attachment_json_error(415, "Rendered image format is unsupported");
             };
             if !hinted_mime_type.is_empty() && hinted_mime_type != detected_mime_type {
-                return attachment_json_error(400, "Rendered image media type does not match its data");
+                return attachment_json_error(
+                    400,
+                    "Rendered image media type does not match its data",
+                );
             }
-            let token = match rustnote::native::staging::stage_image_edit(resource, request.body(), detected_mime_type) {
+            let token = match rustnote::native::staging::stage_image_edit(
+                resource,
+                request.body(),
+                detected_mime_type,
+            ) {
                 Ok(token) => token,
                 Err(_) => return attachment_json_error(400, "Could not stage edited image"),
             };
@@ -419,7 +430,9 @@ fn image_import_stage_response(
     route_path: &str,
     library: Option<&LibraryContext>,
 ) -> Response<Cow<'static, [u8]>> {
-    let resource = route_path.trim_start_matches("/image-import-stage").trim_start_matches('/');
+    let resource = route_path
+        .trim_start_matches("/image-import-stage")
+        .trim_start_matches('/');
     match request.method().as_str() {
         "POST" => {
             if !resource.is_empty() {
@@ -447,7 +460,9 @@ fn image_import_stage_response(
             let transport = library.transport_store();
             let _plaintext_permit = match transport.plaintext_attachment_ingress_permit(&note_id) {
                 Ok(permit) => permit,
-                Err(_) => return attachment_json_error(403, "Images cannot be staged for this note"),
+                Err(_) => {
+                    return attachment_json_error(403, "Images cannot be staged for this note");
+                }
             };
             let hinted_mime_type = request
                 .headers()
@@ -462,7 +477,10 @@ fn image_import_stage_response(
             {
                 return attachment_json_error(415, "Image import staging only accepts image data");
             }
-            let token = match rustnote::native::staging::stage_image_import(note_id.as_str(), request.body()) {
+            let token = match rustnote::native::staging::stage_image_import(
+                note_id.as_str(),
+                request.body(),
+            ) {
                 Ok(token) => token,
                 Err(error) => return attachment_json_error(400, &error.to_string()),
             };
@@ -484,10 +502,7 @@ fn image_import_stage_response(
     }
 }
 
-fn attachment_json_response(
-    status: u16,
-    body: Cow<'static, [u8]>,
-) -> Response<Cow<'static, [u8]>> {
+fn attachment_json_response(status: u16, body: Cow<'static, [u8]>) -> Response<Cow<'static, [u8]>> {
     Response::builder()
         .status(status)
         .header("Content-Type", "application/json; charset=utf-8")
@@ -503,9 +518,8 @@ fn attachment_json_error(status: u16, message: &str) -> Response<Cow<'static, [u
 }
 
 fn regular_file_exists(path: &Path) -> bool {
-    fs::symlink_metadata(path).is_ok_and(|metadata| {
-        !metadata.file_type().is_symlink() && metadata.is_file()
-    })
+    fs::symlink_metadata(path)
+        .is_ok_and(|metadata| !metadata.file_type().is_symlink() && metadata.is_file())
 }
 
 fn compatible_image_preview_response(
@@ -550,8 +564,7 @@ fn compatible_image_preview_response(
 
     let cached_is_valid = fs::symlink_metadata(&cache_path).is_ok_and(|metadata| {
         !metadata.file_type().is_symlink() && metadata.is_file() && metadata.len() > 0
-    })
-        && imagesize::size(&cache_path).is_ok();
+    }) && imagesize::size(&cache_path).is_ok();
     if !cached_is_valid {
         let _ = rustnote::native::rendition::discard_persistent_image_rendition(
             &library.paths().image_rendition_directory(),
@@ -639,10 +652,9 @@ fn screen_image_preview_response(
 
     let cached_is_valid = fs::symlink_metadata(&cache_path).is_ok_and(|metadata| {
         !metadata.file_type().is_symlink() && metadata.is_file() && metadata.len() > 0
-    })
-        && imagesize::size(&cache_path).is_ok_and(|size| {
-            size.width.max(size.height) <= rustnote::image_rendition::SCREEN_LONG_EDGE as usize
-        });
+    }) && imagesize::size(&cache_path).is_ok_and(|size| {
+        size.width.max(size.height) <= rustnote::image_rendition::SCREEN_LONG_EDGE as usize
+    });
     if !cached_is_valid {
         let _ = rustnote::native::rendition::discard_persistent_image_rendition(
             &library.paths().image_rendition_directory(),
@@ -662,7 +674,8 @@ fn screen_image_preview_response(
             && imagesize::size(&cache_path).is_ok_and(|size| {
                 size.width > 0
                     && size.height > 0
-                    && size.width.max(size.height) <= rustnote::image_rendition::SCREEN_LONG_EDGE as usize
+                    && size.width.max(size.height)
+                        <= rustnote::image_rendition::SCREEN_LONG_EDGE as usize
             });
         if !valid_output {
             let _ = rustnote::native::rendition::discard_persistent_image_rendition(
@@ -758,7 +771,11 @@ pub(crate) fn pdf_asset_response(
 ) -> Response<Cow<'static, [u8]>> {
     let method = request.method().as_str();
     let Some(path) = pdf_asset_route_path(request.uri().path()) else {
-        return pdf_response(404, "text/plain; charset=utf-8", Cow::Borrowed(b"Not found"));
+        return pdf_response(
+            404,
+            "text/plain; charset=utf-8",
+            Cow::Borrowed(b"Not found"),
+        );
     };
 
     if path.starts_with("/annotations/") {
@@ -789,7 +806,11 @@ pub(crate) fn pdf_asset_response(
         return pdf_response(204, "text/plain; charset=utf-8", Cow::Borrowed(EMPTY_BYTES));
     }
     if !matches!(method, "GET" | "HEAD") {
-        return pdf_response(405, "text/plain; charset=utf-8", Cow::Borrowed(b"Method not allowed"));
+        return pdf_response(
+            405,
+            "text/plain; charset=utf-8",
+            Cow::Borrowed(b"Method not allowed"),
+        );
     }
 
     match path {
@@ -798,17 +819,29 @@ pub(crate) fn pdf_asset_response(
         "/viewer.css" => pdf_response(
             200,
             "text/css; charset=utf-8",
-            if method == "HEAD" { Cow::Borrowed(EMPTY_BYTES) } else { Cow::Borrowed(PDF_VIEWER_CSS) },
+            if method == "HEAD" {
+                Cow::Borrowed(EMPTY_BYTES)
+            } else {
+                Cow::Borrowed(PDF_VIEWER_CSS)
+            },
         ),
         "/bootstrap.js" => pdf_response(
             200,
             "text/javascript; charset=utf-8",
-            if method == "HEAD" { Cow::Borrowed(EMPTY_BYTES) } else { Cow::Borrowed(PDF_BOOTSTRAP_JS) },
+            if method == "HEAD" {
+                Cow::Borrowed(EMPTY_BYTES)
+            } else {
+                Cow::Borrowed(PDF_BOOTSTRAP_JS)
+            },
         ),
         _ if path.starts_with("/runtime/legacy/wasm/") => {
             let name = path.trim_start_matches("/runtime/legacy/wasm/");
             if name.is_empty() || name.contains('/') || name.contains('\\') {
-                return pdf_response(404, "text/plain; charset=utf-8", Cow::Borrowed(b"Not found"));
+                return pdf_response(
+                    404,
+                    "text/plain; charset=utf-8",
+                    Cow::Borrowed(b"Not found"),
+                );
             }
             let content_type = if name.ends_with(".wasm") {
                 "application/wasm"
@@ -819,38 +852,54 @@ pub(crate) fn pdf_asset_response(
             };
             match pdf_wasm_asset(name) {
                 Some(asset) => pdf_response(
-                        200,
-                        content_type,
-                        if method == "HEAD" {
-                            Cow::Borrowed(EMPTY_BYTES)
-                        } else {
-                            Cow::Borrowed(asset)
-                        },
-                    ),
-                None => pdf_response(404, "text/plain; charset=utf-8", Cow::Borrowed(b"Not found")),
+                    200,
+                    content_type,
+                    if method == "HEAD" {
+                        Cow::Borrowed(EMPTY_BYTES)
+                    } else {
+                        Cow::Borrowed(asset)
+                    },
+                ),
+                None => pdf_response(
+                    404,
+                    "text/plain; charset=utf-8",
+                    Cow::Borrowed(b"Not found"),
+                ),
             }
         }
         _ if path.starts_with("/runtime/legacy/standard_fonts/") => {
             let name = path.trim_start_matches("/runtime/legacy/standard_fonts/");
             if name.is_empty() || name.contains('/') || name.contains('\\') {
-                return pdf_response(404, "text/plain; charset=utf-8", Cow::Borrowed(b"Not found"));
+                return pdf_response(
+                    404,
+                    "text/plain; charset=utf-8",
+                    Cow::Borrowed(b"Not found"),
+                );
             }
             match pdf_standard_font_asset(name) {
                 Some(font) => pdf_response(
                     200,
                     "application/octet-stream",
-                    if method == "HEAD" { Cow::Borrowed(EMPTY_BYTES) } else { Cow::Borrowed(font) },
+                    if method == "HEAD" {
+                        Cow::Borrowed(EMPTY_BYTES)
+                    } else {
+                        Cow::Borrowed(font)
+                    },
                 ),
-                None => pdf_response(404, "text/plain; charset=utf-8", Cow::Borrowed(b"Not found")),
+                None => pdf_response(
+                    404,
+                    "text/plain; charset=utf-8",
+                    Cow::Borrowed(b"Not found"),
+                ),
             }
         }
         _ if path.starts_with("/metadata/") => {
             if method != "GET" {
                 return pdf_response(
-            405,
-            "application/json; charset=utf-8",
-            json_error("Method not allowed"),
-        );
+                    405,
+                    "application/json; charset=utf-8",
+                    json_error("Method not allowed"),
+                );
             }
             let attachment_id = path.trim_start_matches("/metadata/");
             let Some(library) = library else {
@@ -865,10 +914,10 @@ pub(crate) fn pdf_asset_response(
         _ if path.starts_with("/document/") => {
             if method != "GET" {
                 return pdf_response(
-                405,
-                "text/plain; charset=utf-8",
-                Cow::Borrowed(b"Method not allowed"),
-            );
+                    405,
+                    "text/plain; charset=utf-8",
+                    Cow::Borrowed(b"Method not allowed"),
+                );
             }
             let attachment_id = path.trim_start_matches("/document/");
             if !valid_attachment_id(attachment_id) {
@@ -879,7 +928,11 @@ pub(crate) fn pdf_asset_response(
             };
             serve_pdf_document(&request, attachment_id, library)
         }
-        _ => pdf_response(404, "text/plain; charset=utf-8", Cow::Borrowed(b"Not found")),
+        _ => pdf_response(
+            404,
+            "text/plain; charset=utf-8",
+            Cow::Borrowed(b"Not found"),
+        ),
     }
 }
 
@@ -1162,10 +1215,7 @@ fn annotation_anchor(object: &serde_json::Map<String, Value>) -> Option<(f64, f6
             let rect = object.get("rects")?.as_array()?.first()?.as_array()?;
             Some((rect.first()?.as_f64()?, rect.get(1)?.as_f64()?))
         }
-        "note" | "text" => Some((
-            object.get("x")?.as_f64()?,
-            object.get("y")?.as_f64()?,
-        )),
+        "note" | "text" => Some((object.get("x")?.as_f64()?, object.get("y")?.as_f64()?)),
         "ink" | "shape" => {
             let point = object.get("points")?.as_array()?.first()?.as_array()?;
             Some((point.first()?.as_f64()?, point.get(1)?.as_f64()?))
@@ -1320,8 +1370,11 @@ fn parse_annotation_path(path: &str) -> Option<(&str, u32)> {
 }
 
 fn validate_annotation_payload(bytes: &[u8]) -> Result<String, &'static str> {
-    let value: Value = serde_json::from_slice(bytes).map_err(|_| "Annotations must be valid JSON")?;
-    let object = value.as_object().ok_or("Annotation page must be an object")?;
+    let value: Value =
+        serde_json::from_slice(bytes).map_err(|_| "Annotations must be valid JSON")?;
+    let object = value
+        .as_object()
+        .ok_or("Annotation page must be an object")?;
     if object.len() != 2 || object.get("version").and_then(Value::as_u64) != Some(1) {
         return Err("Unsupported annotation page format");
     }
@@ -1339,12 +1392,20 @@ fn validate_annotation_payload(bytes: &[u8]) -> Result<String, &'static str> {
 }
 
 fn validate_annotation(annotation: &Value) -> Result<(), &'static str> {
-    let object = annotation.as_object().ok_or("Each annotation must be an object")?;
-    let id = object.get("id").and_then(Value::as_str).ok_or("Annotation id is required")?;
+    let object = annotation
+        .as_object()
+        .ok_or("Each annotation must be an object")?;
+    let id = object
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or("Annotation id is required")?;
     if !valid_annotation_id(id) {
         return Err("Invalid annotation id");
     }
-    let kind = object.get("kind").and_then(Value::as_str).ok_or("Annotation kind is required")?;
+    let kind = object
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or("Annotation kind is required")?;
     validate_timestamp(object.get("createdAt"))?;
     validate_timestamp(object.get("updatedAt"))?;
     match kind {
@@ -1358,13 +1419,30 @@ fn validate_annotation(annotation: &Value) -> Result<(), &'static str> {
 }
 
 fn validate_text_mark(object: &serde_json::Map<String, Value>) -> Result<(), &'static str> {
-    validate_keys(object, &["id", "kind", "createdAt", "updatedAt", "rects", "text", "color"])?;
+    validate_keys(
+        object,
+        &[
+            "id",
+            "kind",
+            "createdAt",
+            "updatedAt",
+            "rects",
+            "text",
+            "color",
+        ],
+    )?;
     validate_color(object.get("color"))?;
-    let text = object.get("text").and_then(Value::as_str).unwrap_or_default();
+    let text = object
+        .get("text")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if text.len() > MAX_TEXT_MARK_TEXT_BYTES {
         return Err("Marked text is too large");
     }
-    let rects = object.get("rects").and_then(Value::as_array).ok_or("Text mark rectangles are required")?;
+    let rects = object
+        .get("rects")
+        .and_then(Value::as_array)
+        .ok_or("Text mark rectangles are required")?;
     if rects.is_empty() || rects.len() > MAX_TEXT_MARK_RECTS {
         return Err("Invalid text mark rectangle count");
     }
@@ -1375,25 +1453,64 @@ fn validate_text_mark(object: &serde_json::Map<String, Value>) -> Result<(), &'s
 }
 
 fn validate_note(object: &serde_json::Map<String, Value>) -> Result<(), &'static str> {
-    validate_keys(object, &["id", "kind", "createdAt", "updatedAt", "x", "y", "width", "height", "text", "color"])?;
+    validate_keys(
+        object,
+        &[
+            "id",
+            "kind",
+            "createdAt",
+            "updatedAt",
+            "x",
+            "y",
+            "width",
+            "height",
+            "text",
+            "color",
+        ],
+    )?;
     validate_color(object.get("color"))?;
     validate_box_geometry(object)?;
-    validate_text_field(object, MAX_TEXT_ANNOTATION_BYTES, "Note text is required", "Note text is too large")
+    validate_text_field(
+        object,
+        MAX_TEXT_ANNOTATION_BYTES,
+        "Note text is required",
+        "Note text is too large",
+    )
 }
 
 fn validate_ink(object: &serde_json::Map<String, Value>) -> Result<(), &'static str> {
-    validate_keys(object, &["id", "kind", "createdAt", "updatedAt", "points", "width", "color"])?;
+    validate_keys(
+        object,
+        &[
+            "id",
+            "kind",
+            "createdAt",
+            "updatedAt",
+            "points",
+            "width",
+            "color",
+        ],
+    )?;
     validate_color(object.get("color"))?;
-    let width = object.get("width").and_then(Value::as_f64).ok_or("Ink width is required")?;
+    let width = object
+        .get("width")
+        .and_then(Value::as_f64)
+        .ok_or("Ink width is required")?;
     if !width.is_finite() || !(0.0005..=0.05).contains(&width) {
         return Err("Invalid ink width");
     }
-    let points = object.get("points").and_then(Value::as_array).ok_or("Ink points are required")?;
+    let points = object
+        .get("points")
+        .and_then(Value::as_array)
+        .ok_or("Ink points are required")?;
     if points.len() < 2 || points.len() > MAX_INK_POINTS {
         return Err("Invalid ink point count");
     }
     for point in points {
-        let pair = point.as_array().filter(|pair| pair.len() == 2).ok_or("Invalid ink point")?;
+        let pair = point
+            .as_array()
+            .filter(|pair| pair.len() == 2)
+            .ok_or("Invalid ink point")?;
         for value in pair {
             validate_unit_number(value)?;
         }
@@ -1404,7 +1521,16 @@ fn validate_ink(object: &serde_json::Map<String, Value>) -> Result<(), &'static 
 fn validate_shape(object: &serde_json::Map<String, Value>) -> Result<(), &'static str> {
     validate_keys(
         object,
-        &["id", "kind", "createdAt", "updatedAt", "shape", "points", "width", "color"],
+        &[
+            "id",
+            "kind",
+            "createdAt",
+            "updatedAt",
+            "shape",
+            "points",
+            "width",
+            "color",
+        ],
     )?;
     validate_color(object.get("color"))?;
     match object.get("shape").and_then(Value::as_str) {
@@ -1452,7 +1578,19 @@ fn validate_shape(object: &serde_json::Map<String, Value>) -> Result<(), &'stati
 fn validate_text_box(object: &serde_json::Map<String, Value>) -> Result<(), &'static str> {
     validate_keys(
         object,
-        &["id", "kind", "createdAt", "updatedAt", "x", "y", "width", "height", "text", "color", "size"],
+        &[
+            "id",
+            "kind",
+            "createdAt",
+            "updatedAt",
+            "x",
+            "y",
+            "width",
+            "height",
+            "text",
+            "color",
+            "size",
+        ],
     )?;
     validate_color(object.get("color"))?;
     validate_box_geometry(object)?;
@@ -1505,7 +1643,10 @@ fn validate_text_field(
 }
 
 fn validate_rect(value: &Value) -> Result<(), &'static str> {
-    let rect = value.as_array().filter(|rect| rect.len() == 4).ok_or("Invalid text mark rectangle")?;
+    let rect = value
+        .as_array()
+        .filter(|rect| rect.len() == 4)
+        .ok_or("Invalid text mark rectangle")?;
     for value in rect {
         validate_unit_number(value)?;
     }
@@ -1536,10 +1677,16 @@ fn validate_color(value: Option<&Value>) -> Result<(), &'static str> {
 }
 
 fn validate_timestamp(value: Option<&Value>) -> Result<(), &'static str> {
-    value.and_then(Value::as_u64).map(|_| ()).ok_or("Invalid annotation timestamp")
+    value
+        .and_then(Value::as_u64)
+        .map(|_| ())
+        .ok_or("Invalid annotation timestamp")
 }
 
-fn validate_keys(object: &serde_json::Map<String, Value>, allowed: &[&str]) -> Result<(), &'static str> {
+fn validate_keys(
+    object: &serde_json::Map<String, Value>,
+    allowed: &[&str],
+) -> Result<(), &'static str> {
     if object.keys().all(|key| allowed.contains(&key.as_str())) {
         Ok(())
     } else {
@@ -1550,11 +1697,15 @@ fn validate_keys(object: &serde_json::Map<String, Value>, allowed: &[&str]) -> R
 fn valid_annotation_id(value: &str) -> bool {
     value.starts_with("ann_")
         && (5..=128).contains(&value.len())
-        && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
 }
 
 fn json_error(message: &str) -> Cow<'static, [u8]> {
-    let body = serde_json::json!({ "error": message }).to_string().into_bytes();
+    let body = serde_json::json!({ "error": message })
+        .to_string()
+        .into_bytes();
     Cow::Owned(body)
 }
 
@@ -1599,7 +1750,10 @@ fn pdf_attachment_with_session(
 ) -> Result<ManagedAttachment, ProtocolError> {
     let record = pdf_attachment_content_with_session(session, attachment_id)?;
     if !looks_like_pdf(&record.path) {
-        return Err(ProtocolError::new(415, "Attachment does not contain a PDF header"));
+        return Err(ProtocolError::new(
+            415,
+            "Attachment does not contain a PDF header",
+        ));
     }
     Ok(record)
 }
@@ -1640,7 +1794,12 @@ fn managed_attachment_with_session(
         Err(StorageError::Integrity(_)) => {
             return Err(ProtocolError::new(400, "Invalid attachment identity"));
         }
-        Err(_) => return Err(ProtocolError::new(500, "Could not read attachment metadata")),
+        Err(_) => {
+            return Err(ProtocolError::new(
+                500,
+                "Could not read attachment metadata",
+            ));
+        }
     };
 
     Ok(managed_attachment_from_resource(resource))
@@ -1665,7 +1824,11 @@ fn managed_attachment_from_resource(resource: AttachmentTransportResource) -> Ma
 }
 
 fn pdf_protocol_error(status: u16, message: &'static str) -> Response<Cow<'static, [u8]>> {
-    pdf_response(status, "text/plain; charset=utf-8", Cow::Borrowed(message.as_bytes()))
+    pdf_response(
+        status,
+        "text/plain; charset=utf-8",
+        Cow::Borrowed(message.as_bytes()),
+    )
 }
 
 fn pdf_uses_read_session(file_len: u64) -> bool {
@@ -1738,7 +1901,10 @@ fn serve_pdf_document(
     library: &LibraryContext,
 ) -> Response<Cow<'static, [u8]>> {
     if request.headers().contains_key("range") {
-        return pdf_protocol_error(400, "PDF local transport does not accept HTTP Range headers");
+        return pdf_protocol_error(
+            400,
+            "PDF local transport does not accept HTTP Range headers",
+        );
     }
 
     if request.uri().query() == Some("full=1") {
@@ -1930,10 +2096,7 @@ fn serve_file(
     )
 }
 
-fn range_not_satisfiable(
-    file_len: u64,
-    cache_control: &str,
-) -> Response<Cow<'static, [u8]>> {
+fn range_not_satisfiable(file_len: u64, cache_control: &str) -> Response<Cow<'static, [u8]>> {
     Response::builder()
         .status(416)
         .header("Content-Range", format!("bytes */{file_len}"))
@@ -2046,7 +2209,6 @@ fn parse_single_byte_range(header: &str, file_len: u64) -> Option<ParsedByteRang
     }
 }
 
-
 fn attachment_asset_route_path(path: &str) -> &str {
     path.strip_prefix("/rustnoteattachment").unwrap_or(path)
 }
@@ -2117,8 +2279,8 @@ mod pdf_transport_tests {
         let bytes = b"%PDF-1.4\nrequest scoped handle\n%%EOF\n";
         std::fs::write(&path, bytes).expect("write pdf");
 
-        let file_len = create_pdf_read_session("att_pdf_session_metadata", &path)
-            .expect("cache PDF metadata");
+        let file_len =
+            create_pdf_read_session("att_pdf_session_metadata", &path).expect("cache PDF metadata");
         assert_eq!(file_len, bytes.len() as u64);
         std::fs::remove_file(&path).expect("unlink pdf");
         assert_eq!(
@@ -2156,7 +2318,8 @@ mod pdf_transport_tests {
         let note_for_lock = note_id.clone();
         let lock_thread = thread::spawn(move || {
             started_tx.send(()).expect("signal lock start");
-            let result = rustnote::storage::lock_protected_note_for_test(&storage_for_lock, &note_for_lock);
+            let result =
+                rustnote::storage::lock_protected_note_for_test(&storage_for_lock, &note_for_lock);
             done_tx.send(result).expect("signal lock finish");
         });
 
@@ -2215,7 +2378,8 @@ mod pdf_transport_tests {
         let note_for_lock = note_id.clone();
         let lock_thread = thread::spawn(move || {
             started_tx.send(()).expect("signal lock start");
-            let result = rustnote::storage::lock_protected_note_for_test(&storage_for_lock, &note_for_lock);
+            let result =
+                rustnote::storage::lock_protected_note_for_test(&storage_for_lock, &note_for_lock);
             done_tx.send(result).expect("signal lock finish");
         });
 
@@ -2230,7 +2394,10 @@ mod pdf_transport_tests {
             }
             thread::sleep(Duration::from_millis(1));
         }
-        assert!(revocation_visible, "Lock should publish PDF revocation promptly");
+        assert!(
+            revocation_visible,
+            "Lock should publish PDF revocation promptly"
+        );
         assert!(
             done_rx.try_recv().is_err(),
             "Lock must wait while the PDF OS handle retains its vault lease"
@@ -2293,10 +2460,7 @@ mod pdf_transport_tests {
             })
         );
         assert_eq!(
-            parse_pdf_document_read(
-                Some("offset=0&length=2097153"),
-                large_file,
-            ),
+            parse_pdf_document_read(Some("offset=0&length=2097153"), large_file,),
             None
         );
         assert_eq!(

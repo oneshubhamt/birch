@@ -3,10 +3,6 @@ use std::{sync::Arc, time::Duration};
 use dioxus::prelude::*;
 use dioxus_desktop::tao::event::{Event as TaoEvent, WindowEvent};
 
-use crate::application::editor::EditorPersistenceEvent;
-use crate::application::executor::{
-    ApplicationExecutionStatus, ApplicationExecutor, ApplicationOperation,
-};
 use super::background::BackgroundOperationViewport;
 use super::editor::{EditorPane, EditorPaneView};
 use super::note_list_data::{
@@ -22,25 +18,28 @@ use super::responsive::{
     MIN_NOTE_LIST_WIDTH, MIN_SIDEBAR_WIDTH, ResizeState, SIDEBAR_OVERLAY_BREAKPOINT,
     SPLITTER_WIDTH, TRANSIENT_UI_SCRIPT, begin_note_list_resize, capture_resize_pointer,
     finish_resize, focus_search_input, layout_widths_for_resize, note_list_width_for_viewport,
-    reset_note_list_width, reset_sidebar_width,
-    resize_note_list_with_keyboard, resize_sidebar_with_keyboard,
-    schedule_layout_widths_save, sidebar_width_for_viewport,
+    reset_note_list_width, reset_sidebar_width, resize_note_list_with_keyboard,
+    resize_sidebar_with_keyboard, schedule_layout_widths_save, sidebar_width_for_viewport,
 };
 use super::settings::{SettingsOverlay, SettingsOverlayView};
 use super::shortcuts_help::ShortcutsDialog;
 use super::shutdown::{
-    CloseDurabilityOverlay, CloseDurabilityRequest, CloseDurabilityState,
-    begin_close_durability,
+    CloseDurabilityOverlay, CloseDurabilityRequest, CloseDurabilityState, begin_close_durability,
 };
 use super::sidebar::{Sidebar, SidebarView};
 use super::startup::InitialApplication;
 use super::synchronization::{
-    EditorSession, EditorSynchronizationContext, SynchronizationMode, synchronize_then_begin_whole_library_operation,
+    EditorSession, EditorSynchronizationContext, SynchronizationMode,
+    synchronize_then_begin_whole_library_operation,
 };
 use super::toast::{ProtectedStatusPublisher, ToastViewport, route_status_message};
 use super::{
     CompactPane, ListPopover, NotesListState, ToastMessage, refresh_tags,
     request_note_list_preferences_save,
+};
+use crate::application::editor::EditorPersistenceEvent;
+use crate::application::executor::{
+    ApplicationExecutionStatus, ApplicationExecutor, ApplicationOperation,
 };
 use crate::domain::{NoteId, Section};
 
@@ -62,9 +61,13 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
         note_list_width: initial_note_list_width,
     } = initial;
     let initial_privacy_publication = initial_services.privacy();
-    let initial_selected_note = initial_notes
-        .first()
-        .and_then(|summary| initial_services.library().get_note(&summary.id).ok().flatten());
+    let initial_selected_note = initial_notes.first().and_then(|summary| {
+        initial_services
+            .library()
+            .get_note(&summary.id)
+            .ok()
+            .flatten()
+    });
     let initial_note_cache = NoteListCache::from_first_page(initial_notes);
     let mut initial_page_cursors = vec![None];
     if let Some(cursor) = initial_next_note_cursor {
@@ -75,8 +78,7 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
         use_context_provider(move || initial_privacy_publication.clone());
     let editor_preferences = use_signal(move || initial_editor_preferences);
     let _editor_preferences_context = use_context_provider(move || editor_preferences);
-    let preference_persistence_lock =
-        use_signal(|| Arc::new(tokio::sync::Mutex::new(())));
+    let preference_persistence_lock = use_signal(|| Arc::new(tokio::sync::Mutex::new(())));
 
     let notebooks = use_signal(move || initial_notebooks);
     let tags = use_signal(move || initial_tags);
@@ -118,16 +120,14 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
     let desktop = dioxus_desktop::use_window();
     let guarded_desktop = desktop.clone();
     let _native_close_guard = use_effect(move || {
-        guarded_desktop
-            .set_close_behavior(dioxus_desktop::WindowCloseBehaviour::WindowHides);
+        guarded_desktop.set_close_behavior(dioxus_desktop::WindowCloseBehaviour::WindowHides);
     });
 
     let background_operations = use_context::<Signal<ApplicationExecutionStatus>>();
     let background_coordinator = use_context::<ApplicationExecutor>();
     let _editing_availability_guard = use_effect(move || {
-        let script = application_editing_availability_script(
-            background_operations.read().editing_available,
-        );
+        let script =
+            application_editing_availability_script(background_operations.read().editing_available);
         spawn(async move {
             let _ = document::eval(&script).join::<bool>().await;
         });
@@ -180,8 +180,7 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
     let toast_sequence = use_signal(|| 0_u64);
     let protected_status_publisher =
         ProtectedStatusPublisher::new(save_status, toast, toast_sequence);
-    let _protected_status_context =
-        use_context_provider(move || protected_status_publisher);
+    let _protected_status_context = use_context_provider(move || protected_status_publisher);
 
     let _status_router = use_effect(move || {
         route_status_message(status.read().clone(), save_status, toast, toast_sequence);
@@ -306,8 +305,7 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
     // only after the revocation window closes and fresh multi-note authority can
     // be acquired. The selected note/editor is intentionally untouched here.
     let aggregate_privacy = use_memo(move || privacy_epoch.observe_multi_note());
-    let mut aggregate_privacy_seen =
-        use_signal(|| None::<(u64, u64, bool)>);
+    let mut aggregate_privacy_seen = use_signal(|| None::<(u64, u64, bool)>);
     let mut aggregate_list_generation = list_generation;
     let mut aggregate_list_page_request = list_page_request;
     let mut aggregate_note_cache = note_cache;
@@ -330,8 +328,7 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
         aggregate_privacy_seen.set(Some(current));
 
         if current.2 {
-            let next_generation =
-                (*aggregate_list_generation.peek()).wrapping_add(1);
+            let next_generation = (*aggregate_list_generation.peek()).wrapping_add(1);
             aggregate_list_generation.set(next_generation);
             aggregate_list_page_request.set(None);
             aggregate_note_cache.set(NoteListCache::default());
@@ -390,12 +387,14 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
         async move {
             tokio::time::sleep(Duration::from_millis(250)).await;
             let runtime_for_maintenance = maintenance_runtime.clone();
-            match maintenance_background.clone().execute(ApplicationOperation::StartupMaintenance, move || {
-                runtime_for_maintenance
-                    .run_deferred_maintenance()
-                    .map_err(super::task_error::DataTaskError::from)
-            })
-            .await
+            match maintenance_background
+                .clone()
+                .execute(ApplicationOperation::StartupMaintenance, move || {
+                    runtime_for_maintenance
+                        .run_deferred_maintenance()
+                        .map_err(super::task_error::DataTaskError::from)
+                })
+                .await
             {
                 Ok(report) => {
                     if report.has_activity() {
@@ -405,15 +404,10 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
                         else {
                             return;
                         };
-                        let Some(_publication_lease) = publication_token.begin_publication()
-                        else {
+                        let Some(_publication_lease) = publication_token.begin_publication() else {
                             return;
                         };
-                        let _ = refresh_tags(
-                            &maintenance_library,
-                            tags,
-                            maintenance_status,
-                        );
+                        let _ = refresh_tags(&maintenance_library, tags, maintenance_status);
                         refresh_note_list(library_state);
                     }
                     if report.backup_recovery.found_corruption() {
@@ -454,9 +448,8 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
                     }
                 }
                 Err(error) => {
-                    ingest_recovery_status.set(format!(
-                        "Attachment import recovery failed: {error}"
-                    ));
+                    ingest_recovery_status
+                        .set(format!("Attachment import recovery failed: {error}"));
                 }
             }
         }
@@ -478,18 +471,19 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
             loop {
                 let runtime_for_trash = trash_maintenance_runtime.clone();
                 let privacy_revocation = privacy_epoch.begin_multi_note_ui_revocation();
-                let purge_result = trash_maintenance_background.clone().execute(ApplicationOperation::TrashMaintenance, move || {
+                let purge_result = trash_maintenance_background
+                    .clone()
+                    .execute(ApplicationOperation::TrashMaintenance, move || {
                         runtime_for_trash
                             .purge_expired_notes()
                             .map_err(super::task_error::DataTaskError::from)
                     })
-                .await;
+                    .await;
                 drop(privacy_revocation);
                 match purge_result {
                     Ok(_) => {}
                     Err(error) => {
-                        trash_maintenance_status
-                            .set(format!("Trash maintenance failed: {error}"));
+                        trash_maintenance_status.set(format!("Trash maintenance failed: {error}"));
                     }
                 }
                 tokio::time::sleep(Duration::from_secs(60 * 60)).await;
@@ -576,12 +570,13 @@ pub(super) fn RunningApp(initial: InitialApplication) -> Element {
                     }
                 };
                 let runtime_for_backup = automatic_backup_runtime.clone();
-                match backup_turn.execute(move || {
-                    runtime_for_backup
-                        .maybe_create_automatic_backup(&backup_lease)
-                        .map_err(super::task_error::DataTaskError::from)
-                })
-                .await
+                match backup_turn
+                    .execute(move || {
+                        runtime_for_backup
+                            .maybe_create_automatic_backup(&backup_lease)
+                            .map_err(super::task_error::DataTaskError::from)
+                    })
+                    .await
                 {
                     Ok(_) => {}
                     Err(error) => {
@@ -657,8 +652,7 @@ window.removeEventListener("resize", reportViewportWidth);
                             &services.read().privacy(),
                             &saved_note.id,
                             note_selection_generation,
-                        )
-                            && let Some(_note_lease) = note_token.begin_publication()
+                        ) && let Some(_note_lease) = note_token.begin_publication()
                         {
                             let next_persistence_generation =
                                 (*persistence_generation.peek()).wrapping_add(1);
@@ -677,14 +671,13 @@ window.removeEventListener("resize", reportViewportWidth);
                             });
                         }
 
-                        if let Some(aggregate_token) = privacy_epoch
-                            .capture_multi_note_publication(&services.read().privacy(), list_generation)
-                            && let Some(_aggregate_lease) = aggregate_token.begin_publication()
+                        if let Some(aggregate_token) = privacy_epoch.capture_multi_note_publication(
+                            &services.read().privacy(),
+                            list_generation,
+                        ) && let Some(_aggregate_lease) = aggregate_token.begin_publication()
                         {
-                            let listed_current = note_cache
-                                .read()
-                                .note_by_id(&saved_note.id)
-                                .cloned();
+                            let listed_current =
+                                note_cache.read().note_by_id(&saved_note.id).cloned();
                             let tags_changed = listed_current
                                 .as_ref()
                                 .is_none_or(|note| note.tags != saved_note.tags);
@@ -719,9 +712,7 @@ window.removeEventListener("resize", reportViewportWidth);
                         status.set(if count == 1 {
                             "Recovered 1 unsaved draft after the previous shutdown".to_string()
                         } else {
-                            format!(
-                                "Recovered {count} unsaved drafts after the previous shutdown"
-                            )
+                            format!("Recovered {count} unsaved drafts after the previous shutdown")
                         });
                     }
                     EditorPersistenceEvent::Failed(error) => {
@@ -1289,4 +1280,3 @@ return true;
 "#
     )
 }
-

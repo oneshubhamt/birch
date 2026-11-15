@@ -1,25 +1,25 @@
 use dioxus::prelude::*;
 
-use crate::domain::{Note, Notebook};
 use crate::application::{
     context::ApplicationServices,
     settings::{
-        AUTO_FIRST_LINE_INDENT_STEP_POINTS, EditorPreferences,
-        MIN_AUTO_FIRST_LINE_INDENT_POINTS, max_auto_first_line_indent_points,
+        AUTO_FIRST_LINE_INDENT_STEP_POINTS, EditorPreferences, MIN_AUTO_FIRST_LINE_INDENT_POINTS,
+        max_auto_first_line_indent_points,
     },
 };
+use crate::domain::{Note, Notebook};
 
+use super::TagCatalogMutation;
+use super::editor_preferences::commit_editor_preferences;
 use super::editor_toolbar_support::{
     BlockStyleButton, CommandButton, FormatButton, ListCommandButton, ListStyleButton,
-    TitleTypographyCommand, TypographyFormatButton, adjust_font_size, apply_font_size_input, apply_typography,
-    begin_link_popover, exit_editor_focus, insert_link_from_popover, open_insert_menu,
-    refresh_editor_surface, toggle_editor_focus, toggle_window_fullscreen,
+    TitleTypographyCommand, TypographyFormatButton, adjust_font_size, apply_font_size_input,
+    apply_typography, begin_link_popover, exit_editor_focus, insert_link_from_popover,
+    open_insert_menu, refresh_editor_surface, toggle_editor_focus, toggle_window_fullscreen,
 };
-use super::editor_preferences::commit_editor_preferences;
 use super::note_metadata::{NoteMetadata, NoteMetadataActions, NoteMetadataView};
-use super::synchronization::EditorSession;
-use super::TagCatalogMutation;
 use super::right_panel::RightPanelMode;
+use super::synchronization::EditorSession;
 use super::{EditorPopover, FormatAction};
 
 #[derive(Clone, PartialEq)]

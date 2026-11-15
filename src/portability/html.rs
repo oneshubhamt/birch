@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 use crate::{
-    editor_document::parse_validated_document,
-    link::is_safe_href,
+    editor_document::parse_validated_document, link::is_safe_href,
     portability::safe_relative_resource_path,
 };
 
@@ -33,7 +32,10 @@ fn apply_layouts_in_document_order(
     layouts: &[HashMap<String, String>],
     index: &mut usize,
 ) {
-    if matches!(node.get("type").and_then(Value::as_str), Some("paragraph" | "heading")) {
+    if matches!(
+        node.get("type").and_then(Value::as_str),
+        Some("paragraph" | "heading")
+    ) {
         if let Some(attrs) = layouts.get(*index) {
             apply_textblock_layout_from_attrs(node, attrs);
         }
@@ -61,32 +63,76 @@ pub(super) fn encode(
     }
     Ok(format!(
         "<!doctype html>\n<html><head><meta charset=\"utf-8\"><meta name=\"generator\" content=\"Rustnote\"><title>{}</title><style>{}</style></head><body><main class=\"rustnote-document\"><h1 class=\"rustnote-note-title\">{}</h1>{}</main></body></html>\n",
-        escape_html(if title.trim().is_empty() { "Untitled note" } else { title.trim() }),
+        escape_html(if title.trim().is_empty() {
+            "Untitled note"
+        } else {
+            title.trim()
+        }),
         EXPORT_CSS,
-        escape_html(if title.trim().is_empty() { "Untitled note" } else { title.trim() }),
+        escape_html(if title.trim().is_empty() {
+            "Untitled note"
+        } else {
+            title.trim()
+        }),
         body
     ))
 }
 
 const EXPORT_CSS: &str = "body{font-family:system-ui,-apple-system,sans-serif;max-width:760px;margin:3rem auto;padding:0 1.5rem;line-height:1.5}.rustnote-document img{max-width:100%;height:auto}.rustnote-attachment{margin:1rem 0}.rustnote-drop-cap::first-letter{float:left;font-size:3em;line-height:.8;padding:.08em .12em 0 0}table{border-collapse:collapse}td,th{border:1px solid #aaa;padding:.35rem .5rem}pre{white-space:pre-wrap}blockquote{margin-inline:1.5rem}";
 
-fn render_block(node: &Value, output: &mut String, attachment_paths: &HashMap<String, String>, note_paths: &HashMap<String, String>) -> PortabilityResult<()> {
+fn render_block(
+    node: &Value,
+    output: &mut String,
+    attachment_paths: &HashMap<String, String>,
+    note_paths: &HashMap<String, String>,
+) -> PortabilityResult<()> {
     match node.get("type").and_then(Value::as_str) {
         Some("paragraph") => {
-            output.push_str("<p"); render_layout_attrs(node, output); output.push('>'); render_inline(node, output, note_paths); output.push_str("</p>\n");
+            output.push_str("<p");
+            render_layout_attrs(node, output);
+            output.push('>');
+            render_inline(node, output, note_paths);
+            output.push_str("</p>\n");
         }
         Some("heading") => {
-            let level = node.get("attrs").and_then(Value::as_object).and_then(|attrs| attrs.get("level")).and_then(Value::as_u64).unwrap_or(1).clamp(1, 6);
-            output.push_str(&format!("<h{level}")); render_layout_attrs(node, output); output.push('>'); render_inline(node, output, note_paths); output.push_str(&format!("</h{level}>\n"));
+            let level = node
+                .get("attrs")
+                .and_then(Value::as_object)
+                .and_then(|attrs| attrs.get("level"))
+                .and_then(Value::as_u64)
+                .unwrap_or(1)
+                .clamp(1, 6);
+            output.push_str(&format!("<h{level}"));
+            render_layout_attrs(node, output);
+            output.push('>');
+            render_inline(node, output, note_paths);
+            output.push_str(&format!("</h{level}>\n"));
         }
         Some("blockquote") => {
             output.push_str("<blockquote>\n");
-            if let Some(content) = node.get("content").and_then(Value::as_array) { for child in content { render_block(child, output, attachment_paths, note_paths)?; } }
+            if let Some(content) = node.get("content").and_then(Value::as_array) {
+                for child in content {
+                    render_block(child, output, attachment_paths, note_paths)?;
+                }
+            }
             output.push_str("</blockquote>\n");
         }
         Some("code_block") => {
-            let language = node.get("attrs").and_then(Value::as_object).and_then(|attrs| attrs.get("language")).and_then(Value::as_str).unwrap_or_default();
-            output.push_str("<pre><code"); if !language.is_empty() { output.push_str(" data-language=\""); output.push_str(&escape_attr(language)); output.push('"'); } output.push('>'); output.push_str(&escape_html(&plain_text(node))); output.push_str("</code></pre>\n");
+            let language = node
+                .get("attrs")
+                .and_then(Value::as_object)
+                .and_then(|attrs| attrs.get("language"))
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            output.push_str("<pre><code");
+            if !language.is_empty() {
+                output.push_str(" data-language=\"");
+                output.push_str(&escape_attr(language));
+                output.push('"');
+            }
+            output.push('>');
+            output.push_str(&escape_html(&plain_text(node)));
+            output.push_str("</code></pre>\n");
         }
         Some("horizontal_rule") => output.push_str("<hr>\n"),
         Some("attachment") => render_attachment(node, output, attachment_paths),
@@ -94,11 +140,19 @@ fn render_block(node: &Value, output: &mut String, attachment_paths: &HashMap<St
             render_list(node, output, attachment_paths, note_paths)?;
         }
         Some("table") => render_table(node, output, attachment_paths, note_paths)?,
-        Some("math_display") => { output.push_str("<div data-rustnote-math-display=\"true\"><pre>"); output.push_str(&escape_html(&plain_text(node))); output.push_str("</pre></div>\n"); }
+        Some("math_display") => {
+            output.push_str("<div data-rustnote-math-display=\"true\"><pre>");
+            output.push_str(&escape_html(&plain_text(node)));
+            output.push_str("</pre></div>\n");
+        }
         Some("attachment_pending") => {}
         _ => {
             let text = plain_text(node);
-            if !text.is_empty() { output.push_str("<p>"); output.push_str(&escape_html(&text)); output.push_str("</p>\n"); }
+            if !text.is_empty() {
+                output.push_str("<p>");
+                output.push_str(&escape_html(&text));
+                output.push_str("</p>\n");
+            }
         }
     }
     Ok(())
@@ -110,7 +164,11 @@ fn render_inline(node: &Value, output: &mut String, note_paths: &HashMap<String,
             match child.get("type").and_then(Value::as_str) {
                 Some("text") => render_text(child, output, note_paths),
                 Some("hard_break") => output.push_str("<br>"),
-                Some("math_inline") => { output.push_str("<span data-rustnote-math-inline=\"true\">"); output.push_str(&escape_html(&plain_text(child))); output.push_str("</span>"); }
+                Some("math_inline") => {
+                    output.push_str("<span data-rustnote-math-inline=\"true\">");
+                    output.push_str(&escape_html(&plain_text(child)));
+                    output.push_str("</span>");
+                }
                 _ => output.push_str(&escape_html(&plain_text(child))),
             }
         }
@@ -119,110 +177,273 @@ fn render_inline(node: &Value, output: &mut String, note_paths: &HashMap<String,
 
 fn render_text(node: &Value, output: &mut String, note_paths: &HashMap<String, String>) {
     let text = escape_html(node.get("text").and_then(Value::as_str).unwrap_or_default());
-    let marks = node.get("marks").and_then(Value::as_array).cloned().unwrap_or_default();
+    let marks = node
+        .get("marks")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     let mut openings = Vec::new();
     let mut closings = Vec::new();
     for mark in &marks {
         match mark.get("type").and_then(Value::as_str) {
-            Some("strong") => { openings.push("<strong>".to_string()); closings.insert(0, "</strong>".to_string()); }
-            Some("em") => { openings.push("<em>".to_string()); closings.insert(0, "</em>".to_string()); }
-            Some("underline") => { openings.push("<u>".to_string()); closings.insert(0, "</u>".to_string()); }
-            Some("strike") => { openings.push("<del>".to_string()); closings.insert(0, "</del>".to_string()); }
-            Some("superscript") => { openings.push("<sup>".to_string()); closings.insert(0, "</sup>".to_string()); }
-            Some("subscript") => { openings.push("<sub>".to_string()); closings.insert(0, "</sub>".to_string()); }
+            Some("strong") => {
+                openings.push("<strong>".to_string());
+                closings.insert(0, "</strong>".to_string());
+            }
+            Some("em") => {
+                openings.push("<em>".to_string());
+                closings.insert(0, "</em>".to_string());
+            }
+            Some("underline") => {
+                openings.push("<u>".to_string());
+                closings.insert(0, "</u>".to_string());
+            }
+            Some("strike") => {
+                openings.push("<del>".to_string());
+                closings.insert(0, "</del>".to_string());
+            }
+            Some("superscript") => {
+                openings.push("<sup>".to_string());
+                closings.insert(0, "</sup>".to_string());
+            }
+            Some("subscript") => {
+                openings.push("<sub>".to_string());
+                closings.insert(0, "</sub>".to_string());
+            }
             Some("link") => {
-                let href = mark.get("attrs").and_then(Value::as_object).and_then(|attrs| attrs.get("href")).and_then(Value::as_str).unwrap_or("#");
-                openings.push(format!("<a href=\"{}\">", escape_attr(href))); closings.insert(0, "</a>".to_string());
+                let href = mark
+                    .get("attrs")
+                    .and_then(Value::as_object)
+                    .and_then(|attrs| attrs.get("href"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("#");
+                openings.push(format!("<a href=\"{}\">", escape_attr(href)));
+                closings.insert(0, "</a>".to_string());
             }
             Some("note_link") => {
-                let id = mark.get("attrs").and_then(Value::as_object).and_then(|attrs| attrs.get("noteId")).and_then(Value::as_str).unwrap_or_default();
+                let id = mark
+                    .get("attrs")
+                    .and_then(Value::as_object)
+                    .and_then(|attrs| attrs.get("noteId"))
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
                 let href = note_paths.get(id).map(String::as_str).unwrap_or("#");
-                openings.push(format!("<a data-rustnote-note-id=\"{}\" href=\"{}\">", escape_attr(id), escape_attr(href))); closings.insert(0, "</a>".to_string());
+                openings.push(format!(
+                    "<a data-rustnote-note-id=\"{}\" href=\"{}\">",
+                    escape_attr(id),
+                    escape_attr(href)
+                ));
+                closings.insert(0, "</a>".to_string());
             }
             _ => {}
         }
     }
-    for opening in openings { output.push_str(&opening); }
+    for opening in openings {
+        output.push_str(&opening);
+    }
     output.push_str(&text);
-    for closing in closings { output.push_str(&closing); }
+    for closing in closings {
+        output.push_str(&closing);
+    }
 }
 
 fn render_layout_attrs(node: &Value, output: &mut String) {
-    let Some(attrs) = node.get("attrs").and_then(Value::as_object) else { return; };
-    if let Some(value) = attrs.get("lineSpacing").and_then(Value::as_str) { output.push_str(" data-rustnote-line-spacing=\""); output.push_str(&escape_attr(value)); output.push('"'); }
-    if let Some(value) = attrs.get("textAlignment").and_then(Value::as_str).filter(|value| *value != "left") { output.push_str(" data-rustnote-text-alignment=\""); output.push_str(&escape_attr(value)); output.push('"'); }
-    for (key, html_key) in [("leftIndent", "data-rustnote-left-indent"), ("rightIndent", "data-rustnote-right-indent"), ("firstLineIndent", "data-rustnote-first-line-indent")] {
-        let value = attrs.get(key).and_then(Value::as_i64).unwrap_or(0);
-        if value > 0 { output.push(' '); output.push_str(html_key); output.push_str("=\""); output.push_str(&value.to_string()); output.push('"'); }
+    let Some(attrs) = node.get("attrs").and_then(Value::as_object) else {
+        return;
+    };
+    if let Some(value) = attrs.get("lineSpacing").and_then(Value::as_str) {
+        output.push_str(" data-rustnote-line-spacing=\"");
+        output.push_str(&escape_attr(value));
+        output.push('"');
     }
-    if attrs.get("dropCap").and_then(Value::as_bool).unwrap_or(false) { output.push_str(" data-rustnote-drop-cap=\"true\" class=\"rustnote-drop-cap\""); }
-    let alignment = attrs.get("textAlignment").and_then(Value::as_str).unwrap_or("left");
+    if let Some(value) = attrs
+        .get("textAlignment")
+        .and_then(Value::as_str)
+        .filter(|value| *value != "left")
+    {
+        output.push_str(" data-rustnote-text-alignment=\"");
+        output.push_str(&escape_attr(value));
+        output.push('"');
+    }
+    for (key, html_key) in [
+        ("leftIndent", "data-rustnote-left-indent"),
+        ("rightIndent", "data-rustnote-right-indent"),
+        ("firstLineIndent", "data-rustnote-first-line-indent"),
+    ] {
+        let value = attrs.get(key).and_then(Value::as_i64).unwrap_or(0);
+        if value > 0 {
+            output.push(' ');
+            output.push_str(html_key);
+            output.push_str("=\"");
+            output.push_str(&value.to_string());
+            output.push('"');
+        }
+    }
+    if attrs
+        .get("dropCap")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        output.push_str(" data-rustnote-drop-cap=\"true\" class=\"rustnote-drop-cap\"");
+    }
+    let alignment = attrs
+        .get("textAlignment")
+        .and_then(Value::as_str)
+        .unwrap_or("left");
     let left = attrs.get("leftIndent").and_then(Value::as_i64).unwrap_or(0);
-    let right = attrs.get("rightIndent").and_then(Value::as_i64).unwrap_or(0);
-    let first = attrs.get("firstLineIndent").and_then(Value::as_i64).unwrap_or(0);
+    let right = attrs
+        .get("rightIndent")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let first = attrs
+        .get("firstLineIndent")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
     let spacing = attrs.get("lineSpacing").and_then(Value::as_str);
     if alignment != "left" || left > 0 || right > 0 || first > 0 || spacing.is_some() {
         output.push_str(" style=\"");
-        if alignment != "left" { output.push_str("text-align:"); output.push_str(alignment); output.push(';'); }
-        if left > 0 { output.push_str(&format!("margin-inline-start:{left}pt;")); }
-        if right > 0 { output.push_str(&format!("margin-inline-end:{right}pt;")); }
-        if first > 0 { output.push_str(&format!("text-indent:{first}pt;")); }
-        if let Some(spacing) = spacing { output.push_str("line-height:"); output.push_str(spacing); output.push(';'); }
+        if alignment != "left" {
+            output.push_str("text-align:");
+            output.push_str(alignment);
+            output.push(';');
+        }
+        if left > 0 {
+            output.push_str(&format!("margin-inline-start:{left}pt;"));
+        }
+        if right > 0 {
+            output.push_str(&format!("margin-inline-end:{right}pt;"));
+        }
+        if first > 0 {
+            output.push_str(&format!("text-indent:{first}pt;"));
+        }
+        if let Some(spacing) = spacing {
+            output.push_str("line-height:");
+            output.push_str(spacing);
+            output.push(';');
+        }
         output.push('"');
     }
 }
 
-fn render_attachment(node: &Value, output: &mut String, attachment_paths: &HashMap<String, String>) {
+fn render_attachment(
+    node: &Value,
+    output: &mut String,
+    attachment_paths: &HashMap<String, String>,
+) {
     let attrs = node.get("attrs").and_then(Value::as_object);
-    let id = attrs.and_then(|a| a.get("attachmentId")).and_then(Value::as_str).unwrap_or_default();
-    let name = attrs.and_then(|a| a.get("displayName")).and_then(Value::as_str).unwrap_or("Attachment");
-    let kind = attrs.and_then(|a| a.get("kind")).and_then(Value::as_str).unwrap_or("file");
-    let caption = attrs.and_then(|a| a.get("caption")).and_then(Value::as_str).unwrap_or_default();
+    let id = attrs
+        .and_then(|a| a.get("attachmentId"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let name = attrs
+        .and_then(|a| a.get("displayName"))
+        .and_then(Value::as_str)
+        .unwrap_or("Attachment");
+    let kind = attrs
+        .and_then(|a| a.get("kind"))
+        .and_then(Value::as_str)
+        .unwrap_or("file");
+    let caption = attrs
+        .and_then(|a| a.get("caption"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     output.push_str("<figure class=\"rustnote-attachment\" data-rustnote-attachment=\"true\">");
     if let Some(path) = attachment_paths.get(id) {
         if kind == "image" {
-            output.push_str("<img src=\""); output.push_str(&escape_attr(path)); output.push_str("\" alt=\""); output.push_str(&escape_attr(name)); output.push_str("\">");
+            output.push_str("<img src=\"");
+            output.push_str(&escape_attr(path));
+            output.push_str("\" alt=\"");
+            output.push_str(&escape_attr(name));
+            output.push_str("\">");
         } else {
-            output.push_str("<a href=\""); output.push_str(&escape_attr(path)); output.push_str("\" data-rustnote-attachment-link=\"true\">"); output.push_str(&escape_html(name)); output.push_str("</a>");
+            output.push_str("<a href=\"");
+            output.push_str(&escape_attr(path));
+            output.push_str("\" data-rustnote-attachment-link=\"true\">");
+            output.push_str(&escape_html(name));
+            output.push_str("</a>");
         }
-    } else { output.push_str(&escape_html(name)); }
-    if !caption.trim().is_empty() { output.push_str("<figcaption>"); output.push_str(&escape_html(caption)); output.push_str("</figcaption>"); }
+    } else {
+        output.push_str(&escape_html(name));
+    }
+    if !caption.trim().is_empty() {
+        output.push_str("<figcaption>");
+        output.push_str(&escape_html(caption));
+        output.push_str("</figcaption>");
+    }
     output.push_str("</figure>\n");
 }
 
-fn render_list(node: &Value, output: &mut String, attachment_paths: &HashMap<String, String>, note_paths: &HashMap<String, String>) -> PortabilityResult<()> {
-    let kind = node.get("type").and_then(Value::as_str).unwrap_or("bullet_list");
+fn render_list(
+    node: &Value,
+    output: &mut String,
+    attachment_paths: &HashMap<String, String>,
+    note_paths: &HashMap<String, String>,
+) -> PortabilityResult<()> {
+    let kind = node
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("bullet_list");
     let tag = if kind == "ordered_list" { "ol" } else { "ul" };
-    output.push('<'); output.push_str(tag); output.push_str(">\n");
+    output.push('<');
+    output.push_str(tag);
+    output.push_str(">\n");
     if let Some(items) = node.get("content").and_then(Value::as_array) {
         for item in items {
             output.push_str("<li>");
             if kind == "task_list" {
-                let checked = item.get("attrs").and_then(Value::as_object).and_then(|a| a.get("checked")).and_then(Value::as_bool).unwrap_or(false);
+                let checked = item
+                    .get("attrs")
+                    .and_then(Value::as_object)
+                    .and_then(|a| a.get("checked"))
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
                 output.push_str(if checked { "☑ " } else { "☐ " });
             }
             if let Some(content) = item.get("content").and_then(Value::as_array) {
-                if let Some(first) = content.first() { render_inline(first, output, note_paths); }
-                for child in content.iter().skip(1) { render_block(child, output, attachment_paths, note_paths)?; }
+                if let Some(first) = content.first() {
+                    render_inline(first, output, note_paths);
+                }
+                for child in content.iter().skip(1) {
+                    render_block(child, output, attachment_paths, note_paths)?;
+                }
             }
             output.push_str("</li>\n");
         }
     }
-    output.push_str("</"); output.push_str(tag); output.push_str(">\n");
+    output.push_str("</");
+    output.push_str(tag);
+    output.push_str(">\n");
     Ok(())
 }
 
-fn render_table(node: &Value, output: &mut String, attachment_paths: &HashMap<String, String>, note_paths: &HashMap<String, String>) -> PortabilityResult<()> {
+fn render_table(
+    node: &Value,
+    output: &mut String,
+    attachment_paths: &HashMap<String, String>,
+    note_paths: &HashMap<String, String>,
+) -> PortabilityResult<()> {
     output.push_str("<table>\n");
     if let Some(rows) = node.get("content").and_then(Value::as_array) {
         for row in rows {
             output.push_str("<tr>");
             if let Some(cells) = row.get("content").and_then(Value::as_array) {
                 for cell in cells {
-                    let tag = if cell.get("type").and_then(Value::as_str) == Some("table_header") { "th" } else { "td" };
-                    output.push('<'); output.push_str(tag); output.push('>');
-                    if let Some(content) = cell.get("content").and_then(Value::as_array) { for block in content { render_block(block, output, attachment_paths, note_paths)?; } }
-                    output.push_str("</"); output.push_str(tag); output.push('>');
+                    let tag = if cell.get("type").and_then(Value::as_str) == Some("table_header") {
+                        "th"
+                    } else {
+                        "td"
+                    };
+                    output.push('<');
+                    output.push_str(tag);
+                    output.push('>');
+                    if let Some(content) = cell.get("content").and_then(Value::as_array) {
+                        for block in content {
+                            render_block(block, output, attachment_paths, note_paths)?;
+                        }
+                    }
+                    output.push_str("</");
+                    output.push_str(tag);
+                    output.push('>');
                 }
             }
             output.push_str("</tr>\n");
@@ -243,25 +464,54 @@ fn html_to_markdown(
     let mut skip_tag: Option<String> = None;
     let mut link_stack: Vec<Option<String>> = Vec::new();
     while index < html.len() {
-        let Some(open_offset) = html[index..].find('<') else { if skip_tag.is_none() { output.push_str(&decode_entities(&html[index..])); } break; };
+        let Some(open_offset) = html[index..].find('<') else {
+            if skip_tag.is_none() {
+                output.push_str(&decode_entities(&html[index..]));
+            }
+            break;
+        };
         let open = index + open_offset;
-        if skip_tag.is_none() { output.push_str(&decode_entities(&html[index..open])); }
-        let Some(close_offset) = html[open..].find('>') else { break; };
+        if skip_tag.is_none() {
+            output.push_str(&decode_entities(&html[index..open]));
+        }
+        let Some(close_offset) = html[open..].find('>') else {
+            break;
+        };
         let close = open + close_offset;
         let raw = html[open + 1..close].trim();
         let closing = raw.starts_with('/');
         let body = raw.trim_start_matches('/').trim();
-        let name = body.split_whitespace().next().unwrap_or_default().trim_end_matches('/').to_ascii_lowercase();
+        let name = body
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .trim_end_matches('/')
+            .to_ascii_lowercase();
         if let Some(skipped) = skip_tag.as_ref() {
-            if closing && &name == skipped { skip_tag = None; }
-            index = close + 1; continue;
+            if closing && &name == skipped {
+                skip_tag = None;
+            }
+            index = close + 1;
+            continue;
         }
-        if matches!(name.as_str(), "head" | "script" | "style" | "iframe" | "object" | "embed" | "form" | "svg") && !closing { skip_tag = Some(name); index = close + 1; continue; }
+        if matches!(
+            name.as_str(),
+            "head" | "script" | "style" | "iframe" | "object" | "embed" | "form" | "svg"
+        ) && !closing
+        {
+            skip_tag = Some(name);
+            index = close + 1;
+            continue;
+        }
         let attrs = parse_attrs(body.strip_prefix(&name).unwrap_or_default());
         if trusted_rustnote_html
             && !closing
             && name == "h1"
-            && attrs.get("class").is_some_and(|classes| classes.split_whitespace().any(|class| class == "rustnote-note-title"))
+            && attrs.get("class").is_some_and(|classes| {
+                classes
+                    .split_whitespace()
+                    .any(|class| class == "rustnote-note-title")
+            })
         {
             skip_tag = Some(name);
             index = close + 1;
@@ -270,7 +520,11 @@ fn html_to_markdown(
         match (closing, name.as_str()) {
             (false, "p") => {
                 ensure_blank_line(&mut output);
-                layouts.push(if trusted_rustnote_html { attrs.clone() } else { HashMap::new() });
+                layouts.push(if trusted_rustnote_html {
+                    attrs.clone()
+                } else {
+                    HashMap::new()
+                });
             }
             (true, "p") => ensure_blank_line(&mut output),
             (false, "h1" | "h2" | "h3" | "h4" | "h5" | "h6") => {
@@ -278,24 +532,48 @@ fn html_to_markdown(
                 let level = name[1..].parse::<usize>().unwrap_or(1);
                 output.push_str(&"#".repeat(level));
                 output.push(' ');
-                layouts.push(if trusted_rustnote_html { attrs.clone() } else { HashMap::new() });
+                layouts.push(if trusted_rustnote_html {
+                    attrs.clone()
+                } else {
+                    HashMap::new()
+                });
             }
             (true, "h1" | "h2" | "h3" | "h4" | "h5" | "h6") => ensure_blank_line(&mut output),
             (false, "strong" | "b") | (true, "strong" | "b") => output.push_str("**"),
             (false, "em" | "i") | (true, "em" | "i") => output.push('*'),
-            (false, "del" | "s" | "strike") | (true, "del" | "s" | "strike") => output.push_str("~~"),
+            (false, "del" | "s" | "strike") | (true, "del" | "s" | "strike") => {
+                output.push_str("~~")
+            }
             (false, "br") => output.push('\n'),
-            (false, "hr") => { ensure_blank_line(&mut output); output.push_str("---\n\n"); }
-            (false, "blockquote") => { ensure_blank_line(&mut output); output.push_str("> "); }
+            (false, "hr") => {
+                ensure_blank_line(&mut output);
+                output.push_str("---\n\n");
+            }
+            (false, "blockquote") => {
+                ensure_blank_line(&mut output);
+                output.push_str("> ");
+            }
             (true, "blockquote") => ensure_blank_line(&mut output),
-            (false, "li") => { if !output.ends_with('\n') { output.push('\n'); } output.push_str("- "); }
+            (false, "li") => {
+                if !output.ends_with('\n') {
+                    output.push('\n');
+                }
+                output.push_str("- ");
+            }
             (true, "li") => output.push('\n'),
             (false, "ul" | "ol") => ensure_blank_line(&mut output),
             (true, "ul" | "ol") => ensure_blank_line(&mut output),
-            (false, "pre") => { ensure_blank_line(&mut output); output.push_str("```\n"); }
-            (true, "pre") => { output.push_str("\n```\n\n"); }
+            (false, "pre") => {
+                ensure_blank_line(&mut output);
+                output.push_str("```\n");
+            }
+            (true, "pre") => {
+                output.push_str("\n```\n\n");
+            }
             (false, "a") => {
-                let href = attrs.get("href").and_then(|value| safe_html_link_target(value));
+                let href = attrs
+                    .get("href")
+                    .and_then(|value| safe_html_link_target(value));
                 if href.is_some() {
                     output.push('[');
                 } else if attrs.contains_key("href") {
@@ -320,21 +598,33 @@ fn html_to_markdown(
                         output.push(')');
                     } else {
                         warnings.push("Skipped a non-local HTML image resource".to_string());
-                        if let Some(alt) = attrs.get("alt").filter(|value| !value.trim().is_empty()) {
+                        if let Some(alt) = attrs.get("alt").filter(|value| !value.trim().is_empty())
+                        {
                             output.push_str(alt);
                         }
                     }
                 }
             }
-            (false, "figure") if attrs.contains_key("data-rustnote-attachment") => ensure_blank_line(&mut output),
+            (false, "figure") if attrs.contains_key("data-rustnote-attachment") => {
+                ensure_blank_line(&mut output)
+            }
             (true, "figure") => ensure_blank_line(&mut output),
-            (false, "tr") => { if !output.ends_with('\n') { output.push('\n'); } output.push('|'); }
+            (false, "tr") => {
+                if !output.ends_with('\n') {
+                    output.push('\n');
+                }
+                output.push('|');
+            }
             (true, "tr") => output.push('\n'),
             (false, "td" | "th") => output.push(' '),
             (true, "td" | "th") => output.push_str(" |"),
             _ => {}
         }
-        if raw.to_ascii_lowercase().contains("onload=") || raw.to_ascii_lowercase().contains("onclick=") { warnings.push("Ignored HTML event-handler attributes".to_string()); }
+        if raw.to_ascii_lowercase().contains("onload=")
+            || raw.to_ascii_lowercase().contains("onclick=")
+        {
+            warnings.push("Ignored HTML event-handler attributes".to_string());
+        }
         index = close + 1;
     }
     (output, layouts, warnings)
@@ -348,16 +638,19 @@ fn safe_html_link_target(value: &str) -> Option<String> {
     if is_safe_href(value) {
         return Some(value.to_string());
     }
-    safe_relative_resource_path(value)
-        .map(|path| path.to_string_lossy().replace('\\', "/"))
+    safe_relative_resource_path(value).map(|path| path.to_string_lossy().replace('\\', "/"))
 }
 
 fn is_rustnote_html(html: &str) -> bool {
     let mut index = 0_usize;
     while index < html.len() {
-        let Some(open_offset) = html[index..].find('<') else { break; };
+        let Some(open_offset) = html[index..].find('<') else {
+            break;
+        };
         let open = index + open_offset;
-        let Some(close_offset) = html[open..].find('>') else { break; };
+        let Some(close_offset) = html[open..].find('>') else {
+            break;
+        };
         let close = open + close_offset;
         let raw = html[open + 1..close].trim();
         let body = raw.trim_start_matches('/').trim();
@@ -395,40 +688,110 @@ fn html_title(html: &str) -> Option<String> {
 
 fn parse_attrs(input: &str) -> HashMap<String, String> {
     let mut attrs = HashMap::new();
-    let bytes = input.as_bytes(); let mut index = 0_usize;
+    let bytes = input.as_bytes();
+    let mut index = 0_usize;
     while index < bytes.len() {
-        while index < bytes.len() && bytes[index].is_ascii_whitespace() { index += 1; }
+        while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
         let start = index;
-        while index < bytes.len() && !bytes[index].is_ascii_whitespace() && bytes[index] != b'=' { index += 1; }
-        if start == index { index += 1; continue; }
+        while index < bytes.len() && !bytes[index].is_ascii_whitespace() && bytes[index] != b'=' {
+            index += 1;
+        }
+        if start == index {
+            index += 1;
+            continue;
+        }
         let key = input[start..index].trim().to_ascii_lowercase();
-        while index < bytes.len() && bytes[index].is_ascii_whitespace() { index += 1; }
+        while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
         let mut value = String::new();
         if index < bytes.len() && bytes[index] == b'=' {
-            index += 1; while index < bytes.len() && bytes[index].is_ascii_whitespace() { index += 1; }
+            index += 1;
+            while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+                index += 1;
+            }
             if index < bytes.len() && matches!(bytes[index], b'\'' | b'"') {
-                let quote = bytes[index]; index += 1; let value_start = index;
-                while index < bytes.len() && bytes[index] != quote { index += 1; }
-                value = decode_entities(&input[value_start..index]); if index < bytes.len() { index += 1; }
-            } else { let value_start = index; while index < bytes.len() && !bytes[index].is_ascii_whitespace() { index += 1; } value = decode_entities(&input[value_start..index]); }
+                let quote = bytes[index];
+                index += 1;
+                let value_start = index;
+                while index < bytes.len() && bytes[index] != quote {
+                    index += 1;
+                }
+                value = decode_entities(&input[value_start..index]);
+                if index < bytes.len() {
+                    index += 1;
+                }
+            } else {
+                let value_start = index;
+                while index < bytes.len() && !bytes[index].is_ascii_whitespace() {
+                    index += 1;
+                }
+                value = decode_entities(&input[value_start..index]);
+            }
         }
-        if !key.starts_with("on") { attrs.insert(key, value); }
+        if !key.starts_with("on") {
+            attrs.insert(key, value);
+        }
     }
     attrs
 }
 
-fn ensure_blank_line(output: &mut String) { while output.ends_with("\n\n\n") { output.pop(); } if !output.is_empty() && !output.ends_with("\n\n") { if !output.ends_with('\n') { output.push('\n'); } output.push('\n'); } }
-fn plain_text(node: &Value) -> String { super::document::inline_plain_text(node) }
-fn escape_html(value: &str) -> String { value.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;") }
-fn escape_attr(value: &str) -> String { escape_html(value).replace('\'', "&#39;") }
+fn ensure_blank_line(output: &mut String) {
+    while output.ends_with("\n\n\n") {
+        output.pop();
+    }
+    if !output.is_empty() && !output.ends_with("\n\n") {
+        if !output.ends_with('\n') {
+            output.push('\n');
+        }
+        output.push('\n');
+    }
+}
+fn plain_text(node: &Value) -> String {
+    super::document::inline_plain_text(node)
+}
+fn escape_html(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+fn escape_attr(value: &str) -> String {
+    escape_html(value).replace('\'', "&#39;")
+}
 fn decode_entities(value: &str) -> String {
-    let mut result = value.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&apos;", "'");
+    let mut result = value
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'");
     // Numeric entities are intentionally decoded only for Unicode scalar values.
     let mut start = 0_usize;
     while let Some(offset) = result[start..].find("&#") {
-        let open = start + offset; let Some(end_offset) = result[open..].find(';') else { break; }; let end = open + end_offset;
-        let body = &result[open + 2..end]; let decoded = body.strip_prefix('x').or_else(|| body.strip_prefix('X')).and_then(|hex| u32::from_str_radix(hex, 16).ok()).or_else(|| body.parse::<u32>().ok()).and_then(char::from_u32);
-        if let Some(character) = decoded { result.replace_range(open..=end, &character.to_string()); start = open + character.len_utf8(); } else { start = end + 1; }
+        let open = start + offset;
+        let Some(end_offset) = result[open..].find(';') else {
+            break;
+        };
+        let end = open + end_offset;
+        let body = &result[open + 2..end];
+        let decoded = body
+            .strip_prefix('x')
+            .or_else(|| body.strip_prefix('X'))
+            .and_then(|hex| u32::from_str_radix(hex, 16).ok())
+            .or_else(|| body.parse::<u32>().ok())
+            .and_then(char::from_u32);
+        if let Some(character) = decoded {
+            result.replace_range(open..=end, &character.to_string());
+            start = open + character.len_utf8();
+        } else {
+            start = end + 1;
+        }
     }
     result
 }
@@ -436,8 +799,8 @@ fn decode_entities(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
     use crate::portability::document::canonical_editor_state;
+    use serde_json::json;
 
     #[test]
     fn foreign_html_drops_script_and_rustnote_only_layout_metadata() {
@@ -454,7 +817,10 @@ mod tests {
         let state = canonical_editor_state(decoded.document).expect("canonical state");
         assert_eq!(decoded.title_hint.as_deref(), Some("Parliament"));
         assert!(state.contains("\\\"leftIndent\\\":18") || state.contains("\"leftIndent\":18"));
-        assert!(state.contains("\\\"textAlignment\\\":\\\"justify\\\"") || state.contains("\"textAlignment\":\"justify\""));
+        assert!(
+            state.contains("\\\"textAlignment\\\":\\\"justify\\\"")
+                || state.contains("\"textAlignment\":\"justify\"")
+        );
         assert_eq!(state.matches("Parliament").count(), 0);
     }
 
@@ -463,13 +829,33 @@ mod tests {
         let decoded = decode("<!doctype html><html><head><meta name='generator' content='Rustnote'></head><body><blockquote><p data-rustnote-left-indent='18'>Quoted</p></blockquote><p>Tail</p></body></html>")
             .expect("decode nested layout");
         let state = canonical_editor_state(decoded.document).expect("canonical state");
-        let document = crate::editor_document::parse_validated_document(&state).expect("validated document");
-        let blocks = document.get("content").and_then(Value::as_array).expect("top-level blocks");
+        let document =
+            crate::editor_document::parse_validated_document(&state).expect("validated document");
+        let blocks = document
+            .get("content")
+            .and_then(Value::as_array)
+            .expect("top-level blocks");
         let quoted = blocks[0]
-            .get("content").and_then(Value::as_array).and_then(|content| content.first())
+            .get("content")
+            .and_then(Value::as_array)
+            .and_then(|content| content.first())
             .expect("quoted paragraph");
-        assert_eq!(quoted.get("attrs").and_then(Value::as_object).and_then(|attrs| attrs.get("leftIndent")).and_then(Value::as_i64), Some(18));
-        assert_eq!(blocks[1].get("attrs").and_then(Value::as_object).and_then(|attrs| attrs.get("leftIndent")).and_then(Value::as_i64), Some(0));
+        assert_eq!(
+            quoted
+                .get("attrs")
+                .and_then(Value::as_object)
+                .and_then(|attrs| attrs.get("leftIndent"))
+                .and_then(Value::as_i64),
+            Some(18)
+        );
+        assert_eq!(
+            blocks[1]
+                .get("attrs")
+                .and_then(Value::as_object)
+                .and_then(|attrs| attrs.get("leftIndent"))
+                .and_then(Value::as_i64),
+            Some(0)
+        );
     }
 
     #[test]
@@ -491,7 +877,8 @@ mod tests {
                     "nodeSchemaVersion": 2
                 }
             }]
-        })).expect("canonical attachment fixture");
+        }))
+        .expect("canonical attachment fixture");
         let attachments = HashMap::from([("a1".to_string(), "Topic.assets/image.png".to_string())]);
         let exported = encode("Topic", &state, &attachments, &HashMap::new()).expect("export");
         assert!(exported.contains("Topic.assets/image.png"));

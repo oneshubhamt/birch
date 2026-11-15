@@ -1,11 +1,10 @@
 use std::path::Path;
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
-use std::{
-    env,
-    os::unix::fs::PermissionsExt,
-    sync::OnceLock,
-};
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
+use std::{env, os::unix::fs::PermissionsExt, sync::OnceLock};
 
 #[cfg(any(
     target_os = "macos",
@@ -18,7 +17,10 @@ use std::{
 use std::process::{Command, Output};
 
 #[cfg(target_os = "macos")]
-pub(super) fn image_properties(path: &Path, format: Option<&str>) -> super::PlatformImageProperties {
+pub(super) fn image_properties(
+    path: &Path,
+    format: Option<&str>,
+) -> super::PlatformImageProperties {
     if !is_heif_format(format) {
         return super::PlatformImageProperties::default();
     }
@@ -41,9 +43,17 @@ pub(super) fn image_properties(path: &Path, format: Option<&str>) -> super::Plat
     let mut has_alpha = None;
     for line in text.lines().map(str::trim) {
         if let Some(value) = line.strip_prefix("pixelWidth:") {
-            width = value.trim().parse::<usize>().ok().filter(|value| *value > 0);
+            width = value
+                .trim()
+                .parse::<usize>()
+                .ok()
+                .filter(|value| *value > 0);
         } else if let Some(value) = line.strip_prefix("pixelHeight:") {
-            height = value.trim().parse::<usize>().ok().filter(|value| *value > 0);
+            height = value
+                .trim()
+                .parse::<usize>()
+                .ok()
+                .filter(|value| *value > 0);
         } else if let Some(value) = line.strip_prefix("hasAlpha:") {
             has_alpha = parse_bool(value);
         }
@@ -55,7 +65,10 @@ pub(super) fn image_properties(path: &Path, format: Option<&str>) -> super::Plat
 }
 
 #[cfg(target_os = "windows")]
-pub(super) fn image_properties(path: &Path, format: Option<&str>) -> super::PlatformImageProperties {
+pub(super) fn image_properties(
+    path: &Path,
+    format: Option<&str>,
+) -> super::PlatformImageProperties {
     if !is_heif_format(format) {
         return super::PlatformImageProperties::default();
     }
@@ -101,8 +114,14 @@ try {
     }
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
-pub(super) fn image_properties(path: &Path, format: Option<&str>) -> super::PlatformImageProperties {
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
+pub(super) fn image_properties(
+    path: &Path,
+    format: Option<&str>,
+) -> super::PlatformImageProperties {
     if !is_heif_format(format) {
         return super::PlatformImageProperties::default();
     }
@@ -141,7 +160,10 @@ pub(super) fn image_properties(path: &Path, format: Option<&str>) -> super::Plat
 }
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
-pub(super) fn image_properties(path: &Path, format: Option<&str>) -> super::PlatformImageProperties {
+pub(super) fn image_properties(
+    path: &Path,
+    format: Option<&str>,
+) -> super::PlatformImageProperties {
     if !is_heif_format(format) {
         return super::PlatformImageProperties::default();
     }
@@ -172,12 +194,23 @@ fn is_heif_format(format: Option<&str>) -> bool {
 ))]
 fn parse_dimensions(value: &str) -> Option<(usize, usize)> {
     let (width, height) = value.trim().split_once('x')?;
-    let width = width.trim().parse::<usize>().ok().filter(|value| *value > 0)?;
-    let height = height.trim().parse::<usize>().ok().filter(|value| *value > 0)?;
+    let width = width
+        .trim()
+        .parse::<usize>()
+        .ok()
+        .filter(|value| *value > 0)?;
+    let height = height
+        .trim()
+        .parse::<usize>()
+        .ok()
+        .filter(|value| *value > 0)?;
     Some((width, height))
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 fn parse_heif_info_properties(text: &str) -> Option<super::PlatformImageProperties> {
     let primary = text
         .lines()
@@ -305,20 +338,34 @@ try {
 
     let mut command = Command::new("powershell.exe");
     command
-        .args(["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", SCRIPT])
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            SCRIPT,
+        ])
         .env("RUSTNOTE_IMAGE_SOURCE", source)
         .env("RUSTNOTE_IMAGE_DESTINATION", destination)
         .env(
             "RUSTNOTE_IMAGE_MAX_EDGE",
-            max_long_edge.map(|value| value.to_string()).unwrap_or_default(),
+            max_long_edge
+                .map(|value| value.to_string())
+                .unwrap_or_default(),
         );
     let output = command
         .output()
         .map_err(|error| format!("Could not start the Windows image converter: {error}"))?;
     command_result(output, "Windows image converter").map_err(|error| {
-        if source.extension().and_then(|value| value.to_str()).is_some_and(|value| {
-            value.eq_ignore_ascii_case("heic") || value.eq_ignore_ascii_case("heif")
-        }) {
+        if source
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| {
+                value.eq_ignore_ascii_case("heic") || value.eq_ignore_ascii_case("heif")
+            })
+        {
             super::PlatformError::operation(format!(
                 "{error}. HEIC/HEIF on Windows requires the system HEIF/HEVC codec"
             ))
@@ -328,7 +375,10 @@ try {
     })
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 pub(super) fn render_image_to_png(
     source: &Path,
     destination: &Path,
@@ -389,9 +439,8 @@ pub(super) fn render_image_to_png(
     destination: &Path,
     max_long_edge: Option<u32>,
 ) -> super::PlatformResult<()> {
-    let adapter = super::mobile::adapter().ok_or_else(|| {
-        "Rustnote's mobile platform adapter has not been registered".to_string()
-    })?;
+    let adapter = super::mobile::adapter()
+        .ok_or_else(|| "Rustnote's mobile platform adapter has not been registered".to_string())?;
     adapter.render_image_to_png(source, destination, max_long_edge)
 }
 
@@ -401,7 +450,9 @@ pub(super) fn render_image_to_png(
     _destination: &Path,
     _max_long_edge: Option<u32>,
 ) -> super::PlatformResult<()> {
-    Err(super::PlatformError::Unsupported("Image rendition conversion is not supported on this platform"))
+    Err(super::PlatformError::Unsupported(
+        "Image rendition conversion is not supported on this platform",
+    ))
 }
 
 #[cfg(any(
@@ -424,7 +475,10 @@ fn command_result(output: Output, label: &str) -> super::PlatformResult<()> {
     }))
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 #[derive(Clone, Copy, Debug)]
 struct LinuxImageTools {
     identify: Option<&'static str>,
@@ -433,25 +487,31 @@ struct LinuxImageTools {
     heif_info: bool,
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 fn linux_image_tools() -> LinuxImageTools {
     static TOOLS: OnceLock<LinuxImageTools> = OnceLock::new();
     *TOOLS.get_or_init(|| {
         let magick = executable_on_path("magick");
         LinuxImageTools {
-            identify: magick.then_some("magick").or_else(|| {
-                executable_on_path("identify").then_some("identify")
-            }),
-            convert: magick.then_some("magick").or_else(|| {
-                executable_on_path("convert").then_some("convert")
-            }),
+            identify: magick
+                .then_some("magick")
+                .or_else(|| executable_on_path("identify").then_some("identify")),
+            convert: magick
+                .then_some("magick")
+                .or_else(|| executable_on_path("convert").then_some("convert")),
             heif_convert: executable_on_path("heif-convert"),
             heif_info: executable_on_path("heif-info"),
         }
     })
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 fn executable_on_path(command: &str) -> bool {
     let Some(path) = env::var_os("PATH") else {
         return false;
@@ -464,7 +524,10 @@ fn executable_on_path(command: &str) -> bool {
     })
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 fn run_heif_convert(source: &Path, destination: &Path) -> super::PlatformResult<()> {
     let output = Command::new("heif-convert")
         .arg(source)
@@ -474,7 +537,10 @@ fn run_heif_convert(source: &Path, destination: &Path) -> super::PlatformResult<
     command_result(output, "Linux HEIF converter")
 }
 
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "android", target_os = "ios"))
+))]
 fn run_imagemagick(
     executable: &str,
     source: &Path,
@@ -484,7 +550,9 @@ fn run_imagemagick(
     let mut command = Command::new(executable);
     command.arg(source).arg("-auto-orient");
     if let Some(max_long_edge) = max_long_edge {
-        command.arg("-resize").arg(format!("{max_long_edge}x{max_long_edge}>"));
+        command
+            .arg("-resize")
+            .arg(format!("{max_long_edge}x{max_long_edge}>"));
     }
     let output = command
         .arg(destination)

@@ -222,16 +222,23 @@ fn note_entries(
             );
         }
     } else {
-        entries.push(EntityActionEntry::action("Rename", "Aa", EntityAction::Rename));
-        entries.push(EntityActionEntry::action("Tags…", "#", EntityAction::EditTags));
+        entries.push(EntityActionEntry::action(
+            "Rename",
+            "Aa",
+            EntityAction::Rename,
+        ));
+        entries.push(EntityActionEntry::action(
+            "Tags…",
+            "#",
+            EntityAction::EditTags,
+        ));
         entries.push(EntityActionEntry::action(
             "Duplicate",
             "⧉",
             EntityAction::DuplicateNote,
         ));
         entries.push(
-            EntityActionEntry::action("Encrypt note…", "🔒", EntityAction::EncryptNote)
-                .separated(),
+            EntityActionEntry::action("Encrypt note…", "🔒", EntityAction::EncryptNote).separated(),
         );
     }
 
@@ -355,8 +362,7 @@ fn tag_entries(context: &EntityActionContext) -> Vec<EntityActionEntry> {
 
 fn attachment_entries(context: &EntityActionContext) -> Vec<EntityActionEntry> {
     let mut open = EntityActionEntry::action("Open", "↗", EntityAction::Open);
-    let mut save =
-        EntityActionEntry::action("Save as…", "⇩", EntityAction::SaveAttachmentAs);
+    let mut save = EntityActionEntry::action("Save as…", "⇩", EntityAction::SaveAttachmentAs);
     let mut reveal =
         EntityActionEntry::action("Reveal in Finder", "⌖", EntityAction::RevealAttachment);
     let mut remove = EntityActionEntry::action(
@@ -440,9 +446,21 @@ mod tests {
         };
         let entries = EntityActionRegistry::entries(&context, &targets);
         assert!(entries.iter().any(|entry| entry.label == "Unpin"));
-        assert!(entries.iter().any(|entry| entry.action == Some(EntityAction::EditTags)));
-        assert!(entries.iter().any(|entry| entry.action == Some(EntityAction::DuplicateNote)));
-        assert!(entries.iter().any(|entry| entry.action == Some(EntityAction::EncryptNote)));
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::EditTags))
+        );
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::DuplicateNote))
+        );
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::EncryptNote))
+        );
         let move_entry = entries
             .iter()
             .find(|entry| entry.label == "Move to notebook")
@@ -465,11 +483,31 @@ mod tests {
             },
         };
         let entries = EntityActionRegistry::entries(&context, &EntityActionTargets::default());
-        assert!(entries.iter().any(|entry| entry.action == Some(EntityAction::UnlockNote)));
-        assert!(!entries.iter().any(|entry| entry.action == Some(EntityAction::Rename)));
-        assert!(!entries.iter().any(|entry| entry.action == Some(EntityAction::EditTags)));
-        assert!(!entries.iter().any(|entry| entry.action == Some(EntityAction::DuplicateNote)));
-        assert!(!entries.iter().any(|entry| entry.action == Some(EntityAction::RemoveNoteEncryption)));
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::UnlockNote))
+        );
+        assert!(
+            !entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::Rename))
+        );
+        assert!(
+            !entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::EditTags))
+        );
+        assert!(
+            !entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::DuplicateNote))
+        );
+        assert!(
+            !entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::RemoveNoteEncryption))
+        );
     }
 
     #[test]
@@ -484,13 +522,22 @@ mod tests {
             },
         };
         let entries = EntityActionRegistry::entries(&context, &EntityActionTargets::default());
-        assert!(entries.iter().any(|entry| entry.action == Some(EntityAction::LockNote)));
-        assert!(entries
-            .iter()
-            .any(|entry| entry.action == Some(EntityAction::RemoveNoteEncryption)));
-        assert!(!entries.iter().any(|entry| entry.action == Some(EntityAction::Rename)));
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::LockNote))
+        );
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::RemoveNoteEncryption))
+        );
+        assert!(
+            !entries
+                .iter()
+                .any(|entry| entry.action == Some(EntityAction::Rename))
+        );
     }
-
 
     #[test]
     fn note_move_stays_discoverable_but_disabled_without_other_notebooks() {

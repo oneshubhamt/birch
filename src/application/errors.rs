@@ -1,13 +1,13 @@
 use std::fmt::{self, Display, Formatter};
 
+use crate::media_compat::MediaCompatibilityError;
+use crate::native::{NativeError, staging::PdfExportStagingError};
+use crate::storage::StorageError;
 use crate::{
     application::executor::{ApplicationExecutionError, ExecutionFailure},
     autosave::AutosaveError,
     editor_document::DocumentValidationError,
 };
-use crate::native::{NativeError, staging::PdfExportStagingError};
-use crate::media_compat::MediaCompatibilityError;
-use crate::storage::StorageError;
 
 #[derive(Debug)]
 pub(crate) enum DataAccessError {
@@ -54,9 +54,9 @@ impl Display for EditorError {
             Self::Autosave(error) => Display::fmt(error, formatter),
             Self::InvalidDocument(error) => Display::fmt(error, formatter),
             Self::Execution(error) => Display::fmt(error, formatter),
-            Self::PersistenceListenerRestarted => formatter.write_str(
-                "autosave event listener was unexpectedly restarted",
-            ),
+            Self::PersistenceListenerRestarted => {
+                formatter.write_str("autosave event listener was unexpectedly restarted")
+            }
         }
     }
 }
@@ -103,7 +103,9 @@ impl Display for AttachmentError {
             Self::Autosave(error) => Display::fmt(error, formatter),
             Self::Native(error) => Display::fmt(error, formatter),
             Self::MediaCompatibility(error) => Display::fmt(error, formatter),
-            Self::InvalidRequest(message) | Self::Unavailable(message) => formatter.write_str(message),
+            Self::InvalidRequest(message) | Self::Unavailable(message) => {
+                formatter.write_str(message)
+            }
             Self::Execution(error) => Display::fmt(error, formatter),
         }
     }
@@ -179,7 +181,6 @@ impl ExecutionFailure for ExportError {
     }
 }
 
-
 #[derive(Debug)]
 pub(crate) enum PortabilityError {
     Storage(StorageError),
@@ -205,11 +206,15 @@ impl std::error::Error for PortabilityError {
 }
 
 impl From<StorageError> for PortabilityError {
-    fn from(error: StorageError) -> Self { Self::Storage(error) }
+    fn from(error: StorageError) -> Self {
+        Self::Storage(error)
+    }
 }
 
 impl ExecutionFailure for PortabilityError {
-    fn from_execution_error(error: ApplicationExecutionError) -> Self { Self::Execution(error) }
+    fn from_execution_error(error: ApplicationExecutionError) -> Self {
+        Self::Execution(error)
+    }
 }
 
 #[derive(Debug)]

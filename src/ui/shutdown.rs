@@ -8,12 +8,14 @@ use crate::application::executor::{
 use dioxus_desktop::{DesktopContext, WindowCloseBehaviour};
 
 use crate::{
+    application::errors::DataAccessError,
     application::{
-        editor::EditorService, errors::EditorError,
-        privacy::{PrivacyOperationService, PrivacyPublicationService}, runtime::RuntimeService,
+        editor::EditorService,
+        errors::EditorError,
+        privacy::{PrivacyOperationService, PrivacyPublicationService},
+        runtime::RuntimeService,
     },
     domain::Note,
-    application::errors::DataAccessError,
 };
 
 use super::synchronization::{
@@ -68,19 +70,27 @@ impl std::error::Error for CloseDurabilityError {
 }
 
 impl From<SynchronizationError> for CloseDurabilityError {
-    fn from(error: SynchronizationError) -> Self { Self::Synchronization(error) }
+    fn from(error: SynchronizationError) -> Self {
+        Self::Synchronization(error)
+    }
 }
 
 impl From<EditorError> for CloseDurabilityError {
-    fn from(error: EditorError) -> Self { Self::Editor(error) }
+    fn from(error: EditorError) -> Self {
+        Self::Editor(error)
+    }
 }
 
 impl From<DataAccessError> for CloseDurabilityError {
-    fn from(error: DataAccessError) -> Self { Self::Data(error) }
+    fn from(error: DataAccessError) -> Self {
+        Self::Data(error)
+    }
 }
 
 impl ExecutionFailure for CloseDurabilityError {
-    fn from_execution_error(error: ApplicationExecutionError) -> Self { Self::Execution(error) }
+    fn from_execution_error(error: ApplicationExecutionError) -> Self {
+        Self::Execution(error)
+    }
 }
 
 pub(super) struct CloseDurabilityRequest {

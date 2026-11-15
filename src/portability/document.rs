@@ -154,10 +154,15 @@ pub(crate) fn rebase_imported_resources(
     }
 
     fn walk(value: &mut Value, mapping: &HashMap<String, String>) {
-        let Some(object) = value.as_object_mut() else { return; };
+        let Some(object) = value.as_object_mut() else {
+            return;
+        };
         if object.get("type").and_then(Value::as_str) == Some(PORTABLE_RESOURCE_NODE)
             && let Some(attrs) = object.get_mut("attrs").and_then(Value::as_object_mut)
-            && let Some(old) = attrs.get("token").and_then(Value::as_str).map(str::to_string)
+            && let Some(old) = attrs
+                .get("token")
+                .and_then(Value::as_str)
+                .map(str::to_string)
             && let Some(new) = mapping.get(&old)
         {
             attrs.insert("token".to_string(), json!(new));
@@ -175,8 +180,13 @@ pub(crate) fn resolve_import_placeholders(
     document: &mut Value,
     resources: &HashMap<String, ResourceResolution>,
 ) -> PortabilityResult<()> {
-    fn walk(value: &mut Value, resources: &HashMap<String, ResourceResolution>) -> PortabilityResult<()> {
-        let Some(object) = value.as_object_mut() else { return Ok(()); };
+    fn walk(
+        value: &mut Value,
+        resources: &HashMap<String, ResourceResolution>,
+    ) -> PortabilityResult<()> {
+        let Some(object) = value.as_object_mut() else {
+            return Ok(());
+        };
         if object.get("type").and_then(Value::as_str) == Some(PORTABLE_RESOURCE_NODE) {
             let token = object
                 .get("attrs")
@@ -223,11 +233,16 @@ pub(crate) fn rewrite_note_link_placeholders(
     resolve: &impl Fn(&str) -> Option<NoteId>,
 ) {
     fn walk(value: &mut Value, resolve: &impl Fn(&str) -> Option<NoteId>) {
-        let Some(object) = value.as_object_mut() else { return; };
+        let Some(object) = value.as_object_mut() else {
+            return;
+        };
         if let Some(marks) = object.get_mut("marks").and_then(Value::as_array_mut) {
             for mark in marks.iter_mut() {
-                let Some(mark_object) = mark.as_object_mut() else { continue; };
-                if mark_object.get("type").and_then(Value::as_str) != Some(PORTABLE_NOTE_LINK_MARK) {
+                let Some(mark_object) = mark.as_object_mut() else {
+                    continue;
+                };
+                if mark_object.get("type").and_then(Value::as_str) != Some(PORTABLE_NOTE_LINK_MARK)
+                {
                     continue;
                 }
                 let target = mark_object
@@ -254,7 +269,9 @@ pub(crate) fn rewrite_note_link_placeholders(
 }
 
 pub(crate) fn apply_textblock_layout_from_attrs(node: &mut Value, attrs: &HashMap<String, String>) {
-    let Some(node_attrs) = node.get_mut("attrs").and_then(Value::as_object_mut) else { return; };
+    let Some(node_attrs) = node.get_mut("attrs").and_then(Value::as_object_mut) else {
+        return;
+    };
     if let Some(value) = attrs.get("data-rustnote-line-spacing")
         && matches!(value.as_str(), "1" | "1.15" | "1.5" | "1.75" | "2")
     {
@@ -270,11 +287,17 @@ pub(crate) fn apply_textblock_layout_from_attrs(node: &mut Value, attrs: &HashMa
         ("data-rustnote-right-indent", "rightIndent", 144_i64),
         ("data-rustnote-first-line-indent", "firstLineIndent", 72_i64),
     ] {
-        if let Some(value) = attrs.get(source).and_then(|value| value.parse::<i64>().ok()) {
+        if let Some(value) = attrs
+            .get(source)
+            .and_then(|value| value.parse::<i64>().ok())
+        {
             node_attrs.insert(target.to_string(), json!(value.clamp(0, maximum)));
         }
     }
-    if attrs.get("data-rustnote-drop-cap").is_some_and(|value| value == "true") {
+    if attrs
+        .get("data-rustnote-drop-cap")
+        .is_some_and(|value| value == "true")
+    {
         node_attrs.insert("firstLineIndent".to_string(), json!(0));
         node_attrs.insert("dropCap".to_string(), json!(true));
     }
@@ -288,7 +311,9 @@ pub(crate) fn inline_plain_text(node: &Value) -> String {
 
 fn collect_inline_text(node: &Value, output: &mut String) {
     match node.get("type").and_then(Value::as_str) {
-        Some("text") => output.push_str(node.get("text").and_then(Value::as_str).unwrap_or_default()),
+        Some("text") => {
+            output.push_str(node.get("text").and_then(Value::as_str).unwrap_or_default())
+        }
         Some("hard_break") => output.push('\n'),
         _ => {
             if let Some(content) = node.get("content").and_then(Value::as_array) {
@@ -311,11 +336,16 @@ pub(crate) fn remap_canonical_editor_state(
         note_ids: &HashMap<String, NoteId>,
         attachment_ids: &HashMap<String, String>,
     ) {
-        let Some(object) = value.as_object_mut() else { return; };
+        let Some(object) = value.as_object_mut() else {
+            return;
+        };
         match object.get("type").and_then(Value::as_str) {
             Some("attachment") => {
                 if let Some(attrs) = object.get_mut("attrs").and_then(Value::as_object_mut)
-                    && let Some(old) = attrs.get("attachmentId").and_then(Value::as_str).map(str::to_string)
+                    && let Some(old) = attrs
+                        .get("attachmentId")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
                     && let Some(new) = attachment_ids.get(&old)
                 {
                     attrs.insert("attachmentId".to_string(), json!(new));
@@ -324,17 +354,31 @@ pub(crate) fn remap_canonical_editor_state(
             Some("text") => {
                 if let Some(marks) = object.get_mut("marks").and_then(Value::as_array_mut) {
                     for mark in marks {
-                        let Some(mark_object) = mark.as_object_mut() else { continue; };
-                        let kind = mark_object.get("type").and_then(Value::as_str).unwrap_or_default().to_string();
-                        if let Some(attrs) = mark_object.get_mut("attrs").and_then(Value::as_object_mut) {
+                        let Some(mark_object) = mark.as_object_mut() else {
+                            continue;
+                        };
+                        let kind = mark_object
+                            .get("type")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string();
+                        if let Some(attrs) =
+                            mark_object.get_mut("attrs").and_then(Value::as_object_mut)
+                        {
                             if matches!(kind.as_str(), "note_link" | "media_link")
-                                && let Some(old) = attrs.get("noteId").and_then(Value::as_str).map(str::to_string)
+                                && let Some(old) = attrs
+                                    .get("noteId")
+                                    .and_then(Value::as_str)
+                                    .map(str::to_string)
                                 && let Some(new) = note_ids.get(&old)
                             {
                                 attrs.insert("noteId".to_string(), json!(new.as_str()));
                             }
                             if kind == "media_link"
-                                && let Some(old) = attrs.get("attachmentId").and_then(Value::as_str).map(str::to_string)
+                                && let Some(old) = attrs
+                                    .get("attachmentId")
+                                    .and_then(Value::as_str)
+                                    .map(str::to_string)
                                 && let Some(new) = attachment_ids.get(&old)
                             {
                                 attrs.insert("attachmentId".to_string(), json!(new));
@@ -346,7 +390,9 @@ pub(crate) fn remap_canonical_editor_state(
             _ => {}
         }
         if let Some(content) = object.get_mut("content").and_then(Value::as_array_mut) {
-            for child in content { walk(child, note_ids, attachment_ids); }
+            for child in content {
+                walk(child, note_ids, attachment_ids);
+            }
         }
     }
     walk(&mut document, note_ids, attachment_ids);

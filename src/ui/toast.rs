@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-use super::{ToastKind, ToastMessage};
 use super::privacy::PrivacyPublicationToken;
+use super::{ToastKind, ToastMessage};
 
 #[component]
 pub(super) fn ToastViewport(message: ToastMessage, ondismiss: EventHandler<()>) -> Element {
@@ -127,7 +127,6 @@ pub(super) fn is_error_message(message: &str) -> bool {
         || normalized.contains("error")
         || normalized.starts_with("incorrect password")
 }
-
 
 /// Central handoff for status text derived from an unlocked protected note.
 /// The token is linearized at the actual global-state publication boundary,
