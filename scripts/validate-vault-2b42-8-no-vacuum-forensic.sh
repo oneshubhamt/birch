@@ -34,7 +34,6 @@ def segment(text, start, end):
 protection = read("src/storage/protection.rs")
 profiler = read("src/vault_profile.rs")
 runner = read("scripts/run-browser-behavior-tests.mjs")
-implementation = read("VAULT_2B42_8_NO_VACUUM_FORENSIC.md")
 qa = read("QA_VAULT_2B42_8_NO_VACUUM_FORENSIC.md")
 
 # 1. The experiment is closed: production has one canonical path, with no
@@ -120,13 +119,7 @@ require(production_test, [
 ], "production forensic regression")
 require(runner, ["vault-no-vacuum-forensic-contract.test.mjs"], "behavior runner")
 
-# 8. Documentation records the native decision evidence and final production
-# choice instead of leaving the experiment open-ended.
-require(implementation, [
-    "Native decision result: PASS",
-    "Production decision: remove per-Protect `VACUUM`",
-    "secure_delete + FTS5 rebuild + verified WAL TRUNCATE",
-], "2b.42.8 implementation record")
+# 8. Historical decision evidence is provenance; QA-report removal is Q4.
 require(qa, [
     "Native macOS forensic test: PASS",
     "Production VACUUM removed",

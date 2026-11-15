@@ -7,7 +7,6 @@ BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
 [[ "$BUILD_ID" == "2b.1" || "$BUILD_ID" == "2b.2" || "$BUILD_ID" == "2b.3" || "$BUILD_ID" == "2b.4" || "$BUILD_ID" == "2b.5" || "$BUILD_ID" == "2b.6" || "$BUILD_ID" == "2b.7" || "$BUILD_ID" == "2b.8" || "$BUILD_ID" == "2b.9" || "$BUILD_ID" == "2b.10" || "$BUILD_ID" == "2b.11" || "$BUILD_ID" == "2b.12" || "$BUILD_ID" == "2b.13" || "$BUILD_ID" == "2b.14" || "$BUILD_ID" == "2b.15" || "$BUILD_ID" == "2b.16" || "$BUILD_ID" == "2b.17" || "$BUILD_ID" == "2b.18" || "$BUILD_ID" == "2b.19" || "$BUILD_ID" == "2b.20" || "$BUILD_ID" == "2b.21" || "$BUILD_ID" == "2b.22" || "$BUILD_ID" == "2b.23" || "$BUILD_ID" == "2b.24" || "$BUILD_ID" == "2b.25" || "$BUILD_ID" == "2b.26" || "$BUILD_ID" == "2b.27" || "$BUILD_ID" == "2b.28" || "$BUILD_ID" == "2b.29" || "$BUILD_ID" == "2b.30" || "$BUILD_ID" == "2b.31" || "$BUILD_ID" == "2b.32" || "$BUILD_ID" == "2b.33" || "$BUILD_ID" == "2b.34" || "$BUILD_ID" == "2b.35" || "$BUILD_ID" == "2b.36" || "$BUILD_ID" == "2b.37" || "$BUILD_ID" == "2b.38" || "$BUILD_ID" == "2b.39" || "$BUILD_ID" == "2b.40" || "$BUILD_ID" == "2b.41" || "$BUILD_ID" == "2b.43" ]] || { echo "Unexpected Rustnote source build: $BUILD_ID" >&2; exit 1; }
 
 for required in \
-  VAULT_2B1_AUDIT_PLAN.md \
   src/security/sensitive_data.rs \
   src/security/vault_object_spec.rs \
   src/storage/vault_objects.rs; do
@@ -35,13 +34,7 @@ objects = Path('src/storage/vault_objects.rs').read_text()
 vault = Path('crates/rustnote-vault/src/lib.rs').read_text()
 note_domain = Path('src/domain/note.rs').read_text()
 protection = Path('src/storage/protection.rs').read_text()
-plan = Path('VAULT_2B1_AUDIT_PLAN.md').read_text()
 
-require(plan, [
-    'Current note private state', 'Private metadata', 'Current attachment metadata',
-    'Revision history', 'Revision attachment references', 'Blob mapping',
-    'Public structural state', 'Explicit pass boundary',
-], '2b.1 pre-edit audit')
 
 require(sensitive, [
     'pub(crate) const SENSITIVE_NOTE_DATA_SPEC_VERSION: u16 = 1;',

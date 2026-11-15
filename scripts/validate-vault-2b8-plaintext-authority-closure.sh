@@ -7,7 +7,6 @@ BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
 case "$BUILD_ID" in 2b.8|2b.9|2b.10|2b.11|2b.12|2b.13|2b.14|2b.15|2b.16|2b.17|2b.18|2b.19|2b.20|2b.21|2b.22|2b.23|2b.24|2b.25|2b.26|2b.27|2b.28|2b.29|2b.30|2b.31|2b.32|2b.33|2b.34|2b.35|2b.36|2b.37|2b.38|2b.39|2b.40|2b.41|2b.43) ;; *) echo "Expected build 2b.8+" >&2; exit 1 ;; esac
 
 for required in \
-  VAULT_2B8_PLAINTEXT_AUTHORITY_CLOSURE_PLAN.md \
   src/app_paths.rs \
   src/native/output.rs \
   src/security/plaintext.rs \

@@ -30,7 +30,6 @@ sync = read('src/ui/synchronization.rs')
 privacy = read('src/ui/privacy.rs')
 coord = read('src/security/privacy_coordinator.rs')
 runner = read('scripts/run-browser-behavior-tests.mjs')
-implementation = read('VAULT_2B42_9_CLEANUP.md')
 qa = read('QA_VAULT_2B42_9_CLEANUP.md')
 
 # 1. No dead-code lint suppression remains in production Rust.
@@ -164,12 +163,7 @@ require(read('src/storage/protection.rs'), [
 # 13. Dependency-free behavior runner includes the cleanup contract.
 require(runner, ['vault-cleanup-2b42-9-contract.test.mjs'], 'behavior runner')
 
-# 14. Pass documentation records scope, preservation, and native gate.
-require(implementation, [
-    'Behavior-preserving cleanup',
-    'No backward-compatibility migration paths retained',
-    'Current crash recovery preserved',
-], '2b.42.9 implementation record')
+# 14. Historical implementation evidence is provenance; QA-report removal is Q4.
 require(qa, [
     'Dependency-free QA',
     'Native Rust gate: pending on macOS',

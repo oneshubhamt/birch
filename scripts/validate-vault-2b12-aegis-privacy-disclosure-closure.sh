@@ -8,10 +8,7 @@ BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
 [[ "$BUILD_ID" == "2b.12" || "$BUILD_ID" == "2b.13" || "$BUILD_ID" == "2b.14" || "$BUILD_ID" == "2b.15" || "$BUILD_ID" == "2b.16" || "$BUILD_ID" == "2b.17" || "$BUILD_ID" == "2b.18" || "$BUILD_ID" == "2b.19" || "$BUILD_ID" == "2b.20" || "$BUILD_ID" == "2b.21" || "$BUILD_ID" == "2b.22" || "$BUILD_ID" == "2b.23" || "$BUILD_ID" == "2b.24" || "$BUILD_ID" == "2b.25" || "$BUILD_ID" == "2b.26" || "$BUILD_ID" == "2b.27" || "$BUILD_ID" == "2b.28" || "$BUILD_ID" == "2b.29" || "$BUILD_ID" == "2b.30" || "$BUILD_ID" == "2b.31" || "$BUILD_ID" == "2b.32" || "$BUILD_ID" == "2b.33" || "$BUILD_ID" == "2b.34" || "$BUILD_ID" == "2b.35" || "$BUILD_ID" == "2b.36" || "$BUILD_ID" == "2b.37" || "$BUILD_ID" == "2b.38" || "$BUILD_ID" == "2b.39" || "$BUILD_ID" == "2b.40" || "$BUILD_ID" == "2b.41" || "$BUILD_ID" == "2b.43" ]] || { echo "Unexpected Rustnote source build: $BUILD_ID" >&2; exit 1; }
 
 for required in \
-  VAULT_2B12_AEGIS_PRIVACY_DISCLOSURE_CLOSURE.md \
-  QA_VAULT_2B12_CLOSURE.md \
-  SECURITY_ENCRYPTION_E0_CONTRACT.md \
-  SECURITY_ENCRYPTION_E1_CONTRACT.md; do
+  QA_VAULT_2B12_CLOSURE.md; do
   [[ -f "$required" ]] || { echo "Missing 2b.12 closure file: $required" >&2; exit 1; }
 done
 
@@ -21,8 +18,6 @@ import re
 
 vault_manifest = Path('crates/rustnote-vault/Cargo.toml').read_text()
 vault = Path('crates/rustnote-vault/src/lib.rs').read_text()
-e0 = Path('SECURITY_ENCRYPTION_E0_CONTRACT.md').read_text()
-e1 = Path('SECURITY_ENCRYPTION_E1_CONTRACT.md').read_text()
 app_vault = Path('src/application/vault.rs').read_text()
 backup = Path('src/storage/backup_repository.rs').read_text()
 capabilities = Path('src/storage/capabilities.rs').read_text()
@@ -83,21 +78,6 @@ for marker in ('pub memory_kib:', 'pub time_cost:', 'pub lanes:'):
     if marker in vault:
         raise SystemExit(f'2b.12 fixed Argon2 policy must not expose constructible parameter fields: {marker}')
 
-for marker in (
-    '2b.12 product decision override — AEGIS-256 fixed profile',
-    'AEGIS-256 with a 256-bit key, 256-bit nonce and full 256-bit authentication tag',
-    'Comparative AEGIS/XChaCha/AES benchmarking remains an optional engineering diagnostic',
-    '64 MiB memory, 3 passes, 4 lanes, 128-bit random salt and a 256-bit derived wrapping key',
-):
-    if marker not in e0:
-        raise SystemExit(f'2b.12 E0 product-decision record missing: {marker}')
-for marker in (
-    'Argon2idParams::V1_INTERACTIVE',
-    '64 MiB, time cost 3, lanes 4',
-    'same v1 resource profile',
-):
-    if marker not in e1:
-        raise SystemExit(f'2b.12 E1 fixed-profile record missing: {marker}')
 
 for marker in (
     'pub(crate) struct ProtectNoteOutcome',

@@ -15,7 +15,6 @@ portability = (root/'src/storage/portability.rs').read_text()
 journal = (root/'src/autosave/emergency_journal.rs').read_text()
 coordinator = (root/'src/security/privacy_coordinator.rs').read_text()
 protection = (root/'src/storage/protection.rs').read_text()
-contract = (root/'SECURITY_ENCRYPTION_E3_CONTRACT.md').read_text()
 
 prod_cfg = '#[cfg(not(any(test, feature = "internal-test-support")))]'
 test_cfg = '#[cfg(any(test, feature = "internal-test-support"))]'
@@ -76,8 +75,6 @@ for marker in (
     assert marker in retained, marker
 assert retained.index('.admission') < retained.index('state.library_transition.is_some()') < retained.index('let operation_guard = self.lock_storage()?;') < retained.index('drop(state);')
 
-assert 'Lock first revokes future Vault reads and then waits for all permit-bearing operations to end' in contract
-assert 'Whole-library producer revocation.' in contract
 
 scrub = protection[protection.index('fn scrub_managed_plaintext_residue_after_hashes'):protection.index('pub(crate) fn protected_note_ids_for_privacy_recovery')]
 for marker in (
