@@ -48,7 +48,7 @@ The governing [E0](../SECURITY_ENCRYPTION_E0_CONTRACT.md), [E1](../SECURITY_ENCR
 
 - **2b.43.1:** planned key-root authority and failure semantics ([contract](../BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md)).
 - **2b.43.2:** planned encrypted backup repository **v3** byte-level format ([contract](../BACKUP_2B43_2_BYTE_FORMAT_CONTRACT.md)).
-- **2b.43.3:** staged implementation of backup authority and OS protector source ([report](../BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md)).
+- **2b.43.3:** staged implementation of backup authority and OS protector source; see the [backup authority reconciliation](contracts/BACKUP_AUTHORITY.md) and current source.
 - **Active repository writer:** `src/storage/backup_repository.rs` still sets `REPOSITORY_FORMAT_VERSION: u32 = 2`. The staged backup key authority is explicitly marked as awaiting storage integration in `src/security/mod.rs`.
 - **2b.43.4:** managed encrypted-backup persistence/restore cutover remains future work in this baseline. Final integrated failure, recovery and Keychain behavior are **not** established by static source checks.
 

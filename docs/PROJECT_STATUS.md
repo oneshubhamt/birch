@@ -13,10 +13,10 @@
 | Encrypted backup v3 | `BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md`, `BACKUP_2B43_2_BYTE_FORMAT_CONTRACT.md` | Governing intended key model/byte format; not proof of an active v3 writer |
 | CI | `.github/workflows/ci.yml` | Source/browser and native macOS jobs are configured; configured is not synonymous with passing |
 
-**Next integration milestone relative to this baseline:** 2b.43.4, encrypted managed-backup persistence and restore. The [2b.43.3 implementation report](../BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md) explicitly excludes that cutover.
+**Next integration milestone relative to this baseline:** 2b.43.4, encrypted managed-backup persistence and restore. The [backup authority map](contracts/BACKUP_AUTHORITY.md) and current source explicitly separate staged 2b.43.3 key authority from the still-active v2 repository writer.
 
 ## Historical QA and outstanding gates
 
-The [2026-11-05 bootstrap report](BOOTSTRAP_QA.md) records passing source validators and dependency-free browser checks in its original preparation environment. It also records that native macOS compilation, strict Clippy/full Rust tests, actual Keychain/device behavior, and dependency-backed ProseMirror tests were not verified there. **This documentation pass has not rerun those tests, inspected live CI run results, or validated a deployed application.**
+The 2026-11-05 bootstrap report is retained as Git-only historical evidence in the [archive](ARCHIVE.md). It recorded source/browser checks in its original environment while leaving native macOS compilation, strict Clippy/full Rust tests, actual Keychain/device behavior and dependency-backed ProseMirror verification outstanding. **This documentation project has not rerun those tests, inspected live CI run results, or validated a deployed application.**
 
 The current source is an active-development snapshot, **not a signed or security-certified production release**. The OS key-store, unlocked process, private-data lifetime, backups, and release distribution require separate threat-model checks. There is no automatically configured app signing, notarization, publishing, or migration pipeline. See [QA and release gates](QA.md) and [security policy](../SECURITY.md).

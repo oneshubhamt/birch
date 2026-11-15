@@ -113,7 +113,7 @@ These records must not be interpreted as proof that encrypted managed-backup v3 
 
 Exactly **35** QA reports remain in the working tree because current validator scripts read their filenames/content directly. That is a QA-architecture dependency, not a documentation preference. The other **69** reports are safe to remove from the working tree after this consolidation because their exact originals are retained in Git and no current script/test requires them.
 
-Batch 4 does **not** redesign those validators; the [Consolidation and Preservation Plan](../CONSOLIDATION_PLAN.md) explicitly defers executable-suite redesign. The remaining report dependencies belong to the later QA-refinement work.
+The documentation-consolidation project does **not** redesign those validators. The remaining report dependencies are recorded in the [archive/no-loss map](../ARCHIVE.md) and belong to the separate QA-refinement work.
 
 ## Complete 104-report ledger
 

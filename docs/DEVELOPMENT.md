@@ -71,4 +71,4 @@ The output is a **local unsigned development bundle**. No automated Apple signin
 
 ## Change protocol
 
-Before changing code: inspect current source and governing contracts; state objectives, invariants and performance/security implications; implement a coherent minimal change; independently check acceptance criteria; run targeted behavioral/negative tests; then execute broader QA after substantial changes. Do not move root-level historical pass documents as incidental cleanup: source validators may reference their exact filenames. See [Contributing](../CONTRIBUTING.md) and [documentation preservation rules](CONSOLIDATION_PLAN.md).
+Before changing code: inspect current source and governing contracts; state objectives, invariants and performance/security implications; implement a coherent minimal change; independently check acceptance criteria; run targeted behavioral/negative tests; then execute broader QA after substantial changes. Do not move root-level historical pass documents as incidental cleanup: source validators may reference their exact filenames. See [Contributing](../CONTRIBUTING.md) and the [archive/no-loss map](ARCHIVE.md).

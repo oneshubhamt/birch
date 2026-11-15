@@ -24,16 +24,14 @@ Use the [contract authority index](contracts/README.md) to navigate the E0–E3 
 
 ## Detailed contracts and historical evidence
 
-E0–E3 security rules remain in [E0](../SECURITY_ENCRYPTION_E0_CONTRACT.md), [E1](../SECURITY_ENCRYPTION_E1_CONTRACT.md), [E2](../SECURITY_ENCRYPTION_E2_CONTRACT.md), and [E3](../SECURITY_ENCRYPTION_E3_CONTRACT.md). The planned encrypted-backup key model and byte format are in [2b.43.1](../BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md) and [2b.43.2](../BACKUP_2B43_2_BYTE_FORMAT_CONTRACT.md), with the staged source implementation documented in [2b.43.3](../BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md). These detailed contracts **are not superseded by a brief overview**.
+E0–E3 security rules remain in [E0](../SECURITY_ENCRYPTION_E0_CONTRACT.md), [E1](../SECURITY_ENCRYPTION_E1_CONTRACT.md), [E2](../SECURITY_ENCRYPTION_E2_CONTRACT.md), and [E3](../SECURITY_ENCRYPTION_E3_CONTRACT.md). The planned encrypted-backup key model and byte format are in [2b.43.1](../BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md) and [2b.43.2](../BACKUP_2B43_2_BYTE_FORMAT_CONTRACT.md), with staged 2b.43.3 source status reconciled in the [backup authority map](contracts/BACKUP_AUTHORITY.md). These detailed contracts **are not superseded by a brief overview**.
 
-Pass-specific root records are being collapsed into current-purpose documentation. Batch 3 has already consolidated the Vault/security implementation series; exact deleted originals remain accessible from the immutable baseline links in [DOCUMENT_INVENTORY.md](DOCUMENT_INVENTORY.md). Files that remain at old root paths should be assumed to be temporary validator dependencies or not-yet-consolidated batches, not preferred documentation.
+Pass-specific history is consolidated into the Vault/security, QA and native-toolchain ledgers. Exact deleted originals remain accessible from immutable Git links in the [archive/no-loss map](ARCHIVE.md). Files that remain at pass-numbered root paths are validator compatibility fixtures, not preferred documentation.
 
-[Initial publication instructions](REPOSITORY_SETUP.md) and [the 2026-11-05 bootstrap QA report](BOOTSTRAP_QA.md) describe **historical repository setup**, not instructions to republish a populated `main` or evidence that current checks have passed.
+Initial repository-publication instructions and the 2026-11-05 bootstrap QA report are preserved as Git-only historical evidence; see the [archive/no-loss map](ARCHIVE.md).
 
-## Consolidation tracking
+## Historical archive
 
-- [Frozen inventory of 239 original Markdown files](DOCUMENT_INVENTORY.md)
-- [Batch protocol and loss-prevention rules](CONSOLIDATION_PLAN.md)
-- [Source-to-destination and outstanding-finding register](CONSOLIDATION_REGISTER.md)
+- [Final archive and 239-file no-loss mapping](ARCHIVE.md)
 
 **Interpretation:** The current code describes implemented behavior; a governing contract describes intended behavior; a QA report describes only the tests performed on its stated version and environment. Treat conflicts as findings, not as permission to silently change the contract.

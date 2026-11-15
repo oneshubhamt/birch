@@ -31,9 +31,9 @@ Start with the **[documentation index](docs/README.md)**, which separates curren
 - [Contribution and review discipline](CONTRIBUTING.md)
 - [Third-party notices and licences](THIRD_PARTY_NOTICES.md)
 
-The [consolidation plan](docs/CONSOLIDATION_PLAN.md), [frozen inventory](docs/DOCUMENT_INVENTORY.md) and [change register](docs/CONSOLIDATION_REGISTER.md) track documentation refactoring without losing source history.
+The final [archive and no-loss map](docs/ARCHIVE.md) records the 239-file baseline, immutable historical locations, remaining validator fixtures and consolidation evidence.
 
-**Do not treat historical QA reports as verification of the current branch.** Pass-specific history is being consolidated into current-purpose documentation; exact baseline originals remain available through Git and the frozen inventory. A small number of root historical files remain temporarily only where current validators still read them directly.
+**Do not treat historical QA reports as verification of the current branch.** Pass-specific history has been consolidated into current-purpose documentation. Exact baseline originals remain available through Git. Root pass-numbered files that remain are compatibility fixtures because current validators still read them directly.
 
 ## Licence
 
