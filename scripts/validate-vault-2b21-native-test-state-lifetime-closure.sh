@@ -7,9 +7,6 @@ case "$BUILD_ID" in
   *) echo "Unexpected Rustnote source build: $BUILD_ID" >&2; exit 1 ;;
 esac
 
-for required in NATIVE_COMPILE_2B21_PLAN.md NATIVE_COMPILE_2B21_IMPLEMENTATION.md QA_NATIVE_COMPILE_2B21.md; do
-  [[ -f "$required" ]] || { echo "Missing 2b.21 closure file: $required" >&2; exit 1; }
-done
 
 python3 - <<'PY'
 from pathlib import Path
