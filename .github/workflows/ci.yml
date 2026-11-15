@@ -30,6 +30,10 @@ jobs:
           python-version: '3.12'
       - name: Validate source and existing contracts
         run: bash scripts/ci-source-checks.sh
+      - name: Q2 legacy vs current native source coverage
+        run: |
+          bash scripts/validate-native-q2-legacy-baseline.sh
+          bash scripts/validate-native-current.sh
       - name: Install pinned editor test dependencies
         run: npm ci --prefix editor-build --no-audit --no-fund
       - name: Run full browser behavioral tests
@@ -56,10 +60,12 @@ jobs:
         run: bash scripts/prepare-rustnote-browser-runtimes.sh
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
+      - name: Check all native targets and features
+        run: cargo check --workspace --all-targets --all-features --locked
       - name: Strict Rust Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - name: Rust unit and integration tests
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --all-features --locked
       - name: Release build
         run: cargo build --release --locked
       - name: Verify macOS deployment target
