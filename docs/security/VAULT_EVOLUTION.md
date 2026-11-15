@@ -213,7 +213,7 @@ No production defect was found. Several inherited validators were stale and were
 
 ## 6. Legacy Batch 3 source disposition
 
-The following **11 files remain temporarily at the repository root only because current QA scripts read them directly**. Their durable technical information is consolidated above; Batch 4 should remove these document dependencies from executable QA and then delete the files:
+The following **11 files remain at the repository root only because current validator scripts read them directly**. Their durable technical information is consolidated above. Removing them belongs to the separate QA-refinement effort, not documentation consolidation:
 
 ```text
 SECURITY_E0_E3_REMEDIATION_2A15.md
@@ -229,10 +229,66 @@ VAULT_2B42_8_NO_VACUUM_FORENSIC.md
 VAULT_2B42_9_CLEANUP.md
 ```
 
-All other Batch 3 root-level `VAULT_*.md` and noncontract `SECURITY_E0_E3_*.md` records are superseded by this consolidated history/current architecture and are removed from the working branch. Their exact original bytes remain available in Git history and in the frozen [baseline inventory](../DOCUMENT_INVENTORY.md).
+All other Batch 3 root-level `VAULT_*.md` and noncontract `SECURITY_E0_E3_*.md` records are superseded by this consolidated history/current architecture and are removed from the working branch. Their exact original bytes remain available in the frozen Git baseline; see the [archive/no-loss map](../ARCHIVE.md).
 
 ## 7. Evidence discipline
 
 Historical reports repeatedly distinguish **source/static closure** from native executable verification. Keep that distinction. A report that says a validator passed is evidence for that revision and environment, not automatic proof for the current branch.
 
 The consolidated current architecture should be checked against current source, while old defect narratives are retained here only when they explain a durable rule, supersession or known evidence boundary.
+
+## 8. Complete 51-file immutable ledger
+
+| Original | Working-tree disposition |
+| --- | --- |
+| [`SECURITY_E0_E3_CLOSURE_2A6.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A6.md) | Git-only after consolidation |
+| [`SECURITY_E0_E3_CLOSURE_2A7.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A7.md) | Git-only after consolidation |
+| [`SECURITY_E0_E3_CLOSURE_2A8.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A8.md) | Git-only after consolidation |
+| [`SECURITY_E0_E3_CLOSURE_2A9.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A9.md) | Git-only after consolidation |
+| [`SECURITY_E0_E3_CLOSURE_2A10.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A10.md) | Git-only after consolidation |
+| [`SECURITY_E0_E3_CLOSURE_2A11.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A11.md) | Git-only after consolidation |
+| [`SECURITY_E0_E3_CLOSURE_2A12.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A12.md) | Git-only after consolidation |
+| [`SECURITY_E0_E3_CLOSURE_2A13.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A13.md) | Git-only after consolidation |
+| [`SECURITY_E0_E3_CLOSURE_2A14.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A14.md) | Git-only after consolidation |
+| [`SECURITY_E0_E3_CLOSURE_2A19.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_CLOSURE_2A19.md) | **Retained temporarily — validator exact-path dependency** |
+| [`SECURITY_E0_E3_REMEDIATION_2A15.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_REMEDIATION_2A15.md) | **Retained temporarily — validator exact-path dependency** |
+| [`SECURITY_E0_E3_REMEDIATION_2A16.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_REMEDIATION_2A16.md) | **Retained temporarily — validator exact-path dependency** |
+| [`SECURITY_E0_E3_REMEDIATION_2A17.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_REMEDIATION_2A17.md) | **Retained temporarily — validator exact-path dependency** |
+| [`SECURITY_E0_E3_REMEDIATION_2A18.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/SECURITY_E0_E3_REMEDIATION_2A18.md) | **Retained temporarily — validator exact-path dependency** |
+| [`VAULT_2B1_2B4_FINAL_CLOSURE_AUDIT_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B1_2B4_FINAL_CLOSURE_AUDIT_PLAN.md) | Git-only after consolidation |
+| [`VAULT_2B1_2B4_FINAL_OBJECTIVE_CLOSURE.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B1_2B4_FINAL_OBJECTIVE_CLOSURE.md) | Git-only after consolidation |
+| [`VAULT_2B1_AUDIT_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B1_AUDIT_PLAN.md) | **Retained temporarily — validator exact-path dependency** |
+| [`VAULT_2B1_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B1_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B2_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B2_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B3_2B4_REVISION_RESTORE_PUBLICATION_REMEDIATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B3_2B4_REVISION_RESTORE_PUBLICATION_REMEDIATION.md) | Git-only after consolidation |
+| [`VAULT_2B3_AUDIT_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B3_AUDIT_PLAN.md) | Git-only after consolidation |
+| [`VAULT_2B3_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B3_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B4_AUDIT_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B4_AUDIT_PLAN.md) | Git-only after consolidation |
+| [`VAULT_2B4_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B4_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B5_AUDIT_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B5_AUDIT_PLAN.md) | Git-only after consolidation |
+| [`VAULT_2B5_FINAL_AUDIT_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B5_FINAL_AUDIT_PLAN.md) | Git-only after consolidation |
+| [`VAULT_2B5_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B5_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B6_AUDIT_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B6_AUDIT_PLAN.md) | Git-only after consolidation |
+| [`VAULT_2B6_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B6_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B7_CLOSURE_AUDIT_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B7_CLOSURE_AUDIT_PLAN.md) | Git-only after consolidation |
+| [`VAULT_2B7_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B7_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B8_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B8_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B8_PLAINTEXT_AUTHORITY_CLOSURE_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B8_PLAINTEXT_AUTHORITY_CLOSURE_PLAN.md) | **Retained temporarily — validator exact-path dependency** |
+| [`VAULT_2B9_BACKUP_OWNERSHIP_CLOSURE_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B9_BACKUP_OWNERSHIP_CLOSURE_PLAN.md) | Git-only after consolidation |
+| [`VAULT_2B9_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B9_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B10_CROSS_CUTTING_INVARIANT_CLOSURE_PLAN.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B10_CROSS_CUTTING_INVARIANT_CLOSURE_PLAN.md) | Git-only after consolidation |
+| [`VAULT_2B10_IMPLEMENTATION.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B10_IMPLEMENTATION.md) | Git-only after consolidation |
+| [`VAULT_2B11_ATOMIC_PRIVACY_AUTHORITY_CLOSURE.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B11_ATOMIC_PRIVACY_AUTHORITY_CLOSURE.md) | **Retained temporarily — validator exact-path dependency** |
+| [`VAULT_2B12_AEGIS_PRIVACY_DISCLOSURE_CLOSURE.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B12_AEGIS_PRIVACY_DISCLOSURE_CLOSURE.md) | **Retained temporarily — validator exact-path dependency** |
+| [`VAULT_2B42_1_SCOPED_PUBLICATION_CORE.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_1_SCOPED_PUBLICATION_CORE.md) | Git-only after consolidation |
+| [`VAULT_2B42_2_NAVIGATION_SOURCE_TARGET.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_2_NAVIGATION_SOURCE_TARGET.md) | Git-only after consolidation |
+| [`VAULT_2B42_3_NOTE_LOCAL_UI.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_3_NOTE_LOCAL_UI.md) | Git-only after consolidation |
+| [`VAULT_2B42_4_MULTI_NOTE_UI.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_4_MULTI_NOTE_UI.md) | Git-only after consolidation |
+| [`VAULT_2B42_5_VAULT_ACTION_CONTROLLER.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_5_VAULT_ACTION_CONTROLLER.md) | Git-only after consolidation |
+| [`VAULT_2B42_6_LIBRARY_WIDE_OPERATIONS.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_6_LIBRARY_WIDE_OPERATIONS.md) | Git-only after consolidation |
+| [`VAULT_2B42_7_PROFILING.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_7_PROFILING.md) | Git-only after consolidation |
+| [`VAULT_2B42_8_NO_VACUUM_FORENSIC.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_8_NO_VACUUM_FORENSIC.md) | **Retained temporarily — validator exact-path dependency** |
+| [`VAULT_2B42_9_CLEANUP.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_9_CLEANUP.md) | **Retained temporarily — validator exact-path dependency** |
+| [`VAULT_2B42_10_INDEPENDENT_CLOSURE.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_10_INDEPENDENT_CLOSURE.md) | Git-only after consolidation |
+| [`VAULT_2B42_10_WIP_HANDOFF.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_10_WIP_HANDOFF.md) | Git-only after consolidation |
+| [`VAULT_2B42_11_FINAL_QA_PACKAGE.md`](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/VAULT_2B42_11_FINAL_QA_PACKAGE.md) | Git-only after consolidation |

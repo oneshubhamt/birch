@@ -6,7 +6,7 @@
 
 1. **[2b.43.1 — key authority](../../BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md)** defines threat model, ownership, device binding, fail-closed key-loss paths, legacy cleanup, restore and performance. It does not itself implement backups.
 2. **[2b.43.2 — precise byte format](../../BACKUP_2B43_2_BYTE_FORMAT_CONTRACT.md)** is explicitly **subordinate to 2b.43.1**; it fixes canonical versions, wire bytes, lengths, domain strings, serialization, identity vectors, parser rules, crash-commit semantics and test obligations. It is a specification, not a deployed reader/writer.
-3. **[2b.43.3 — implementation report](../../BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md)** reports staged key authority and platform protector source. It does not override either governing contract, and it expressly leaves backup storage integration to later passes.
+3. **[2b.43.3 — implementation report](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md)** reports staged key authority and platform protector source. It does not override either governing contract, and it expressly leaves backup storage integration to later passes.
 4. **Current code:** `src/security/backup_key_authority.rs` declares `BACKUP_REPOSITORY_FORMAT_VERSION = 3` for staged key headers; `src/storage/backup_repository.rs` still declares **`REPOSITORY_FORMAT_VERSION = 2`** and `INDEX_FILE_NAME = "repository.json"`. These are **different layers**, not contradictory evidence of an active v3 backup writer. `src/security/mod.rs` and `src/platform/mod.rs` explicitly mark their staged modules with temporary `#[expect(dead_code)]`.
 
 ## Key management and threat boundaries (2b.43.1)
@@ -162,7 +162,7 @@ The report's **explicit exclusions** remain authoritative for *the 2b.43.3 pass*
 | `24. Mandatory implementation tests derived from this format` | 879–916 | Governing exact v3 format; subordinate to 2b.43.1 |
 | `25. Definition of Done for 2b.43.2` | 917–941 | Governing exact v3 format; subordinate to 2b.43.1 |
 
-### 2b.43.3: [original source](../../BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md), Git blob `2d2acf1dfcdd5acdcb9e233ae6dd6d075f30631c`
+### 2b.43.3: [original source](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/BACKUP_2B43_3_SECURE_KEY_STORE_IMPLEMENTATION.md), Git blob `2d2acf1dfcdd5acdcb9e233ae6dd6d075f30631c`
 
 | Original clause or section | Source lines | Authority treatment |
 | --- | ---: | --- |

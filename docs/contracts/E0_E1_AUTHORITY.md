@@ -61,6 +61,6 @@ The row status **Governing** means the heading is part of the original contract 
 - Original E0/E1 contracts were read in full, including the internal 2b.12 override. No original contract was edited.
 - This is a **traceability map**, not an independently executable AEGIS or Argon2id audit. Deeper matching of `RNVOBJ01`/`RNVKEY01`/`RNVBLB01` implementation against every byte-level clause is a separate source/code-test review.
 - A later BackupKeyAuthority uses a distinct repository-key hierarchy and its own domains, **not** the Vault-note key envelope. Do not conflate E1 Vault blob chunk-size flexibility with the **fixed 1 MiB** v3 managed-backup format.
-- The original [1a.34 design context](../../E0_E3_ORIGINAL_ARCHITECTURE_CONTEXT.md) is historic design provenance, not authority to reverse the explicit 2b.12 AEGIS selection.
+- The original [1a.34 design context](https://github.com/oneshubhamt/birch/blob/514b797fb0a6a128050cf75ac2428fc12095106a/E0_E3_ORIGINAL_ARCHITECTURE_CONTEXT.md) is historic design provenance, not authority to reverse the explicit 2b.12 AEGIS selection.
 
 **Preservation gate:** Source file paths and blob SHAs must remain exactly those listed above; all original sections remain addressable.
