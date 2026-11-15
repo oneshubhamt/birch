@@ -9,7 +9,7 @@ Audited branch baseline: `working` at `d96fe9c722561fc46b79e552583b151f5b095442`
 Repository inventory at the audited baseline:
 
 - 458 tracked files.
-- 132 Markdown files, 110 of them at repository root.
+- 132 Markdown files at the audited baseline, 110 of them at repository root. This Q1 audit artifact is the sole added Markdown file, so `working` contains 133 Markdown files after Q1.
 - 86 `scripts/validate-*.sh` validators, totalling 551,530 bytes.
 - 98 files under `scripts/`, totalling 603,606 bytes.
 - 17 files under `tests/`, totalling 156,269 bytes.
@@ -27,7 +27,9 @@ The 100 compatibility fixtures are exactly:
 | `NATIVE_COMPILE_2B*_PLAN.md` + `NATIVE_COMPILE_2B*_IMPLEMENTATION.md` | 54 | 27 pass pairs |
 | `QA_*.md` | 35 | 27 native QA records + 8 other QA records |
 | historical `SECURITY_E0_E3_*` + `VAULT_*` records | 11 | remediation/closure/plan evidence |
-| **Total** | **100** | Removing these eventually leaves 32 Markdown files |
+| **Total** | **100** | From the 132-file audited baseline, removing these leaves 32 pre-Q1 Markdown files |
+
+Because Q1 adds this one durable audit artifact, removing the same 100 compatibility fixtures from the post-Q1 branch would leave 33 Markdown files unless this audit is later consolidated into an existing durable QA document or retired after Q6.
 
 The six normative contracts are intentionally outside that 100:
 
@@ -350,7 +352,7 @@ Acceptance: streamlined QA is demonstrably equal or stronger than the old suite 
 | --- | --- | --- |
 | Audit current QA surface de novo | PASS | Full `scripts/`, `tests/`, workflow and recursive repository inventory inspected |
 | Map validator/test/script -> Markdown dependencies | PASS | 43 direct validator readers; no direct test/non-validator-script readers; 107 distinct Markdown inputs classified |
-| Identify exact historical compatibility burden | PASS | 54 native + 35 QA + 11 Vault/security = 100; 132 -> 32 Markdown endpoint validated |
+| Identify exact historical compatibility burden | PASS | 54 native + 35 QA + 11 Vault/security = 100; audited baseline 132 -> 32, or post-Q1 133 -> 33 while this audit artifact remains |
 | Distinguish legitimate vs weak links | PASS | Provenance/existence/phrase checks separated from current security/format invariants |
 | Identify validator chaining/duplication | PASS | Native, architecture, final-closure and backup-CI chaining audited |
 | Assess runtime/bloat | PASS | Repository-size metrics plus current successful Actions run timing separated into CI vs legacy-suite costs |
