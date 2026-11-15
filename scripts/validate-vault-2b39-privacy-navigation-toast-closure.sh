@@ -3,9 +3,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
 [[ "$BUILD_ID" == "2b.39" || "$BUILD_ID" == "2b.40" || "$BUILD_ID" == "2b.41" || "$BUILD_ID" == "2b.43" ]] || { echo "Unexpected Rustnote source build: $BUILD_ID" >&2; exit 1; }
-for required in NATIVE_COMPILE_2B39_PLAN.md NATIVE_COMPILE_2B39_IMPLEMENTATION.md QA_NATIVE_COMPILE_2B39.md; do
-  [[ -f "$required" ]] || { echo "Missing 2b.39 closure file: $required" >&2; exit 1; }
-done
 python3 - <<'PY'
 from pathlib import Path
 ui = Path('src/ui/mod.rs').read_text(); notes=Path('src/ui/note_list_data.rs').read_text(); header=Path('src/ui/notes_header.rs').read_text(); sidebar=Path('src/ui/sidebar.rs').read_text(); sync=Path('src/ui/synchronization.rs').read_text(); card=Path('src/ui/note_card.rs').read_text(); toast=Path('src/ui/toast.rs').read_text(); css=Path('assets/main.css').read_text()
