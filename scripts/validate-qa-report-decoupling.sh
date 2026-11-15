@@ -43,5 +43,12 @@ if violations:
         + "\n- ".join(lines)
     )
 
-print("QA report executable-dependency guard passed.")
+reports = sorted(path.as_posix() for path in Path(".").glob("QA_*.md"))
+if reports:
+    raise SystemExit(
+        "historical QA report returned after Q4:\n- "
+        + "\n- ".join(reports)
+    )
+
+print("QA report executable-dependency and absence guard passed.")
 PY
