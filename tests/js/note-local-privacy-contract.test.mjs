@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {assertRustContains} from './source-contract-helpers.mjs';
+import {assertRustContains, assertRustOrder} from './source-contract-helpers.mjs';
 
 const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
@@ -81,10 +81,14 @@ test('attachment UI authority is note-local and has no aggregate lifecycle field
 });
 
 test('note-local editor and metadata scopes bind the actual note identity', () => {
-  assertRustContains(
-    editor,
-    'capture_note_publication(&attachment_registry_privacy, &attachment_registry_note_id, editor_generation)',
-  );
+  assertRustOrder(editor, [
+    'let attachment_registry_privacy = services.privacy()',
+    'let attachment_registry_note_id = note.id.clone()',
+    'capture_note_publication(',
+    '&attachment_registry_privacy',
+    '&attachment_registry_note_id',
+    'editor_generation',
+  ]);
   assertRustContains(
     editor,
     'capture_note_publication(&services.privacy(), &draft.peek().id, editor_generation)',
