@@ -128,7 +128,15 @@ test('Vault transitions keep navigation usable and expose only an explicit locke
   assert.match(hydrateLockedSummary, /summary\.protection = NoteProtectionState::Locked/);
   assert.doesNotMatch(hydrateLockedSummary, /summary\.title\.clear\(\)/);
   assert.match(hydrateLockedSummary, /summary\.preview_text\.clear\(\)[\s\S]*?summary\.tags\.clear\(\)[\s\S]*?summary\.attachment_names\.clear\(\)/);
-  assert.match(notesHeader, /or_else\(\|\| vault_transition\.read\(\)\.as_ref\(\)\.map\(\|transition\| transition\.note_id\.clone\(\)\)\)/);
+  assertRustOrder(notesHeader, [
+    'let selected_id = selected_note',
+    '.map(|note| note.id.clone())',
+    '.or_else(|| {',
+    'vault_transition',
+    '.read()',
+    '.as_ref()',
+    '.map(|transition| transition.note_id.clone())',
+  ]);
   assert.match(editor, /h2 \{ "\{locked_label\}" \}/);
   assert.match(noteDomain, /if self\.protection\.is_locked\(\)[\s\S]*?"Locked note"/);
 
