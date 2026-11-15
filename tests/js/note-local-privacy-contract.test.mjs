@@ -93,7 +93,14 @@ test('note-local editor and metadata scopes bind the actual note identity', () =
     editor,
     'capture_note_publication(&services.privacy(), &draft.peek().id, editor_generation)',
   );
-  assert.match(metadata, /MetadataExportAction::Note\(_\) \| MetadataExportAction::NotePdf => context\.privacy_epoch[\s\S]*?capture_note_publication/);
+  assertRustOrder(metadata, [
+    'MetadataExportAction::Note(_) | MetadataExportAction::NotePdf',
+    'context.privacy_epoch',
+    'capture_note_publication(',
+    '&context.services.privacy()',
+    '&context.draft.peek().id',
+    'context.note_generation',
+  ]);
   assert.match(metadata, /publication_scope: privacy_epoch\.note_publication_scope\([\s\S]*?draft\.peek\(\)\.id\.clone\(\)/);
 });
 
