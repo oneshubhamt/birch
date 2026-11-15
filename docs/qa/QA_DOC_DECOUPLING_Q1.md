@@ -385,3 +385,10 @@ delete historical fixture
 ```
 
 Q2 should begin with the native-compile family because its 81 direct document dependencies are overwhelmingly existence-only and its substantive checks can be separated cleanly from historical pass provenance.
+
+
+## Q3 execution note
+
+Q3 reconstructed current E0–E3/Vault security invariants from the retained normative requirements, production architecture and executable tests rather than historical remediation prose. Before decoupling, GitHub-hosted side-by-side run `43749134770` executed 13 historical security/Vault entry points and the concern-based replacement suite on the same revision: **9 historical entry points still matched current source and 4 were stale/superseded**. The stale set was the 2a.16 ownership guard, 2a.17 residue guard, their aggregate E0–E3 closure wrapper, and the 2b.8 plaintext-authority guard.
+
+The replacement authority is code-driven: E0–E3 structural policies are asserted directly; the maintained JS contracts cover scoped publication/lifetime and residue architecture; and the all-feature macOS Cargo job executes crypto/tamper/KDF, privacy-admission/revocation, typed plaintext ownership, SQLite/FTS/WAL/backup residue, and crash/restart recovery tests. The four E0–E3 contract files remain human normative specifications but are no longer executable inputs. The 11 historical `SECURITY_E0_E3_*` / `VAULT_*` compatibility records are Git-only after Q3. QA-report decoupling remains Q4.

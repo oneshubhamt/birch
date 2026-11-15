@@ -32,6 +32,9 @@ for script in \
   bash "$script"
 done
 
+echo '[CI] Current security/privacy suite'
+bash scripts/validate-security-privacy-current.sh
+
 echo '[CI] Current native source/invariant suite'
 bash scripts/validate-native-current.sh
 

@@ -30,10 +30,6 @@ jobs:
           python-version: '3.12'
       - name: Validate source and existing contracts
         run: bash scripts/ci-source-checks.sh
-      - name: Q3 legacy vs current security/privacy coverage
-        run: |
-          bash scripts/validate-security-privacy-q3-legacy-baseline.sh
-          bash scripts/validate-security-privacy-current.sh
       - name: Install pinned editor test dependencies
         run: npm ci --prefix editor-build --no-audit --no-fund
       - name: Run full browser behavioral tests
