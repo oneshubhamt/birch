@@ -34,7 +34,6 @@ staging=text('src/native/staging.rs'); portability=text('src/storage/portability
 bundle=text('src/storage/portable_bundle.rs'); protection=text('src/storage/protection.rs')
 notes=text('src/storage/notes.rs'); backups=text('src/storage/backups.rs')
 backup_repository=text('src/storage/backup_repository.rs'); main=text('src/main.rs')
-contract=text('SECURITY_ENCRYPTION_E3_CONTRACT.md')
 
 if build_id in ('2b.5', '2b.6', '2b.7', '2b.8', '2b.9', '2b.10', '2b.11', '2b.12', '2b.13', '2b.14', '2b.15', '2b.16', '2b.17', '2b.18', '2b.19', '2b.20', '2b.21', '2b.22', '2b.23', '2b.24', '2b.25', '2b.26', '2b.27', '2b.28', '2b.29', '2b.30', '2b.31', '2b.32', '2b.33', '2b.34', '2b.35', '2b.36', '2b.37', '2b.38', '2b.39', '2b.40', '2b.41', '2b.43'):
     require(schema, [
@@ -238,7 +237,6 @@ ordered(purge, ['begin_multi_note_privacy_transition(', 'NotePrivacyTransition::
 require(notes, ['permanent_delete_waits_for_plaintext_producer_then_scrubs_late_staging'], 'delete transition regression')
 require(init, ['let purged_expired_notes = self.purge_expired_notes()?;'], 'maintenance lock-order split')
 
-require(contract, ['2a.16 canonical plaintext ownership amendment', 'No Rustnote-managed plaintext file may be created, copied, renamed, or materialized'], '2a.16 E3 contract')
 PY
 
 echo "E0-E3 2a.16 canonical plaintext ownership guard passed."

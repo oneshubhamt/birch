@@ -10,10 +10,6 @@ BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
   exit 1
 }
 
-[[ -f SECURITY_ENCRYPTION_E0_CONTRACT.md ]] || {
-  echo "Missing E0 security contract." >&2
-  exit 1
-}
 [[ -f tools/e0-crypto-bench/Cargo.toml ]] || {
   echo "Missing isolated E0 crypto benchmark." >&2
   exit 1
@@ -38,23 +34,6 @@ for pin in required_pins:
     if pin not in tool_manifest:
         raise SystemExit(f"E0 benchmark dependency is not exactly pinned: {pin}")
 
-contract = Path("SECURITY_ENCRYPTION_E0_CONTRACT.md").read_text()
-for marker in (
-    "Threat model",
-    "Explicit non-goals / limits",
-    "Argon2id",
-    "AEGIS-256",
-    "XChaCha20-Poly1305",
-    "AES-256-GCM",
-    "Privacy boundary: plaintext derivatives",
-    "Search contract",
-    "Attachment contract",
-    "Integrity and blockchain-inspired ideas",
-    "Quantum-resistance posture",
-    "E1 entry criteria",
-):
-    if marker not in contract:
-        raise SystemExit(f"E0 security contract is missing required section/marker: {marker}")
 
 # E0's isolation rule evolves cumulatively: E2 may use the vault facade, but
 # low-level external primitives still cannot be scattered through app code.

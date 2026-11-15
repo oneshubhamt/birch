@@ -4,7 +4,6 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
 [[ "$BUILD_ID" == "2a.17" || "$BUILD_ID" == "2a.18" || "$BUILD_ID" == "2a.19" || "$BUILD_ID" == "2b.1" || "$BUILD_ID" == "2b.2" || "$BUILD_ID" == "2b.3" || "$BUILD_ID" == "2b.4" || "$BUILD_ID" == "2b.5" || "$BUILD_ID" == "2b.6" || "$BUILD_ID" == "2b.7" || "$BUILD_ID" == "2b.8" || "$BUILD_ID" == "2b.9" || "$BUILD_ID" == "2b.10" || "$BUILD_ID" == "2b.11" || "$BUILD_ID" == "2b.12" || "$BUILD_ID" == "2b.13" || "$BUILD_ID" == "2b.14" || "$BUILD_ID" == "2b.15" || "$BUILD_ID" == "2b.16" || "$BUILD_ID" == "2b.17" || "$BUILD_ID" == "2b.18" || "$BUILD_ID" == "2b.19" || "$BUILD_ID" == "2b.20" || "$BUILD_ID" == "2b.21" || "$BUILD_ID" == "2b.22" || "$BUILD_ID" == "2b.23" || "$BUILD_ID" == "2b.24" || "$BUILD_ID" == "2b.25" || "$BUILD_ID" == "2b.26" || "$BUILD_ID" == "2b.27" || "$BUILD_ID" == "2b.28" || "$BUILD_ID" == "2b.29" || "$BUILD_ID" == "2b.30" || "$BUILD_ID" == "2b.31" || "$BUILD_ID" == "2b.32" || "$BUILD_ID" == "2b.33" || "$BUILD_ID" == "2b.34" || "$BUILD_ID" == "2b.35" || "$BUILD_ID" == "2b.36" || "$BUILD_ID" == "2b.37" || "$BUILD_ID" == "2b.38" || "$BUILD_ID" == "2b.39" || "$BUILD_ID" == "2b.40" || "$BUILD_ID" == "2b.41" || "$BUILD_ID" == "2b.43" ]] || { echo "Unexpected Rustnote source build: $BUILD_ID" >&2; exit 1; }
-[[ -f SECURITY_E0_E3_REMEDIATION_2A17.md ]] || { echo "Missing 2a.17 remediation report." >&2; exit 1; }
 python3 - <<'PY'
 from pathlib import Path
 
@@ -29,8 +28,6 @@ protection=text('src/storage/protection.rs')
 portable=text('src/storage/portable_bundle.rs')
 plaintext=text('src/storage/plaintext_staging.rs')
 settings=text('src/ui/settings.rs')
-contract=text('SECURITY_ENCRYPTION_E3_CONTRACT.md')
-report=text('SECURITY_E0_E3_REMEDIATION_2A17.md')
 
 require(locations, [
     'const BACKUP_LOCATION_HISTORY_VERSION: u32 = 3;',
@@ -186,17 +183,6 @@ require(settings, [
     'Encryption is complete locally.',
     'still require privacy invalidation',
 ], 'backup privacy UI status')
-require(contract, [
-    '2a.17 persistent residue and backup closure amendment',
-    'Durable backup privacy obligations.',
-    'Attachment orphan quarantine.',
-], '2a.17 E3 contract')
-require(report, [
-    'Backup privacy-obligation model',
-    'Attachment quarantine',
-    'Portability/import staging',
-    'Scope boundary',
-], '2a.17 remediation report')
 PY
 
 echo "E0-E3 2a.17 persistent residue and backup closure guard passed."

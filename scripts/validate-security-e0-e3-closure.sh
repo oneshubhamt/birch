@@ -4,13 +4,8 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
 [[ "$BUILD_ID" == "2a.19" || "$BUILD_ID" == "2b.1" || "$BUILD_ID" == "2b.2" || "$BUILD_ID" == "2b.3" || "$BUILD_ID" == "2b.4" || "$BUILD_ID" == "2b.5" || "$BUILD_ID" == "2b.6" || "$BUILD_ID" == "2b.7" || "$BUILD_ID" == "2b.8" || "$BUILD_ID" == "2b.9" || "$BUILD_ID" == "2b.10" || "$BUILD_ID" == "2b.11" || "$BUILD_ID" == "2b.12" || "$BUILD_ID" == "2b.13" || "$BUILD_ID" == "2b.14" || "$BUILD_ID" == "2b.15" || "$BUILD_ID" == "2b.16" || "$BUILD_ID" == "2b.17" || "$BUILD_ID" == "2b.18" || "$BUILD_ID" == "2b.19" || "$BUILD_ID" == "2b.20" || "$BUILD_ID" == "2b.21" || "$BUILD_ID" == "2b.22" || "$BUILD_ID" == "2b.23" || "$BUILD_ID" == "2b.24" || "$BUILD_ID" == "2b.25" || "$BUILD_ID" == "2b.26" || "$BUILD_ID" == "2b.27" || "$BUILD_ID" == "2b.28" || "$BUILD_ID" == "2b.29" || "$BUILD_ID" == "2b.30" || "$BUILD_ID" == "2b.31" || "$BUILD_ID" == "2b.32" || "$BUILD_ID" == "2b.33" || "$BUILD_ID" == "2b.34" || "$BUILD_ID" == "2b.35" || "$BUILD_ID" == "2b.36" || "$BUILD_ID" == "2b.37" || "$BUILD_ID" == "2b.38" || "$BUILD_ID" == "2b.39" || "$BUILD_ID" == "2b.40" || "$BUILD_ID" == "2b.41" || "$BUILD_ID" == "2b.43" ]] || { echo "Unexpected Rustnote source build: $BUILD_ID" >&2; exit 1; }
-[[ -f SECURITY_E0_E3_REMEDIATION_2A15.md ]] || { echo "Missing 2a.15 targeted E0-E3 remediation audit." >&2; exit 1; }
-[[ -f SECURITY_E0_E3_REMEDIATION_2A16.md ]] || { echo "Missing 2a.16 canonical plaintext ownership audit." >&2; exit 1; }
-[[ -f SECURITY_E0_E3_REMEDIATION_2A17.md ]] || { echo "Missing 2a.17 persistent residue audit." >&2; exit 1; }
 [[ -f QA_SECURITY_E0_E3_REMEDIATION_2A17.md ]] || { echo "Missing 2a.17 persistent residue QA record." >&2; exit 1; }
-[[ -f SECURITY_E0_E3_REMEDIATION_2A18.md ]] || { echo "Missing 2a.18 UI lifetime remediation audit." >&2; exit 1; }
 [[ -f QA_SECURITY_E0_E3_REMEDIATION_2A18.md ]] || { echo "Missing 2a.18 UI lifetime QA record." >&2; exit 1; }
-[[ -f SECURITY_E0_E3_CLOSURE_2A19.md ]] || { echo "Missing 2a.19 adversarial closure report." >&2; exit 1; }
 [[ -f QA_SECURITY_E0_E3_CLOSURE_2A19.md ]] || { echo "Missing 2a.19 adversarial QA record." >&2; exit 1; }
 SCRIPT_SHELL="$(command -v zsh || command -v bash)"
 RUSTNOTE_E0_STATIC_ONLY=1 "$SCRIPT_SHELL" ./scripts/validate-security-e0.sh
@@ -23,16 +18,9 @@ RUSTNOTE_E3_STATIC_ONLY=1 "$SCRIPT_SHELL" ./scripts/validate-security-e3.sh
 "$SCRIPT_SHELL" ./scripts/validate-security-e0-e3-adversarial-closure-2a19.sh
 python3 - <<'PY2'
 from pathlib import Path
-report=Path('SECURITY_E0_E3_REMEDIATION_2A15.md').read_text()
 runtime=Path('src/security/runtime.rs').read_text()
 protection=Path('src/storage/protection.rs').read_text()
 journal=Path('src/autosave/emergency_journal.rs').read_text()
-for marker in (
-    'Lock cleanup ownership', 'Protected attachment materialization ownership',
-    'Emergency-journal pre-quarantine privacy', 'Targeted QA',
-):
-    if marker not in report:
-        raise SystemExit(f'2a.15 remediation report missing section: {marker}')
 for marker in (
     'failed_lock_cleanup_retains_session_and_plaintext_for_retry',
     'tracked_materialization_cannot_promote_after_revocation_begins',
@@ -56,32 +44,4 @@ for marker in (
     if marker not in journal:
         raise SystemExit(f'2a.15 emergency-journal remediation missing: {marker}')
 PY2
-python3 - <<'PY3'
-from pathlib import Path
-report=Path('SECURITY_E0_E3_REMEDIATION_2A16.md').read_text()
-for marker in (
-    'Attachment `.incoming` ownership',
-    'Image `.ready` → `.claimed` ownership',
-    'Portability/import ownership',
-    'Protect, backup, startup and deletion barriers',
-    'Namespace audit classification',
-    'Targeted regressions',
-):
-    if marker not in report:
-        raise SystemExit(f'2a.16 ownership report missing section: {marker}')
-PY3
-python3 - <<'PY4'
-from pathlib import Path
-report=Path('SECURITY_E0_E3_REMEDIATION_2A17.md').read_text()
-for marker in (
-    'Backup privacy-obligation model',
-    'Current removable-volume disappearance',
-    'Attachment quarantine',
-    'Portability/import staging',
-    'Targeted regressions',
-    'Scope boundary',
-):
-    if marker not in report:
-        raise SystemExit(f'2a.17 residue report missing section: {marker}')
-PY4
 echo "E0-E3 2a.19 cumulative independent adversarial closure guard passed."

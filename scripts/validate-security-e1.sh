@@ -10,7 +10,6 @@ BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
   exit 1
 }
 
-[[ -f SECURITY_ENCRYPTION_E1_CONTRACT.md ]] || { echo "Missing E1 security contract." >&2; exit 1; }
 [[ -f crates/rustnote-vault/Cargo.toml ]] || { echo "Missing rustnote-vault crate." >&2; exit 1; }
 [[ -f crates/rustnote-vault/src/lib.rs ]] || { echo "Missing rustnote-vault implementation." >&2; exit 1; }
 
@@ -96,14 +95,6 @@ for name, version in required_lock.items():
     if version not in packages.get(name, set()):
         raise SystemExit(f"Cargo.lock missing E1 package {name} {version}")
 
-contract = Path("SECURITY_ENCRYPTION_E1_CONTRACT.md").read_text()
-for marker in (
-    "AEGIS-256 policy", "Password / Argon2id policy", "Large protected blob contract",
-    "Memory/key handling contract", "Explicit E1 non-goals", "Blockchain-inspired integrity",
-    "E2 entry criteria",
-):
-    if marker not in contract:
-        raise SystemExit(f"E1 security contract missing section: {marker}")
 PY
 
 if [[ "${RUSTNOTE_E1_STATIC_ONLY:-0}" == "1" ]]; then

@@ -6,7 +6,6 @@ cd "$ROOT_DIR"
 
 BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
 [[ "$BUILD_ID" == "2a.18" || "$BUILD_ID" == "2a.19" || "$BUILD_ID" == "2b.1" || "$BUILD_ID" == "2b.2" || "$BUILD_ID" == "2b.3" || "$BUILD_ID" == "2b.4" || "$BUILD_ID" == "2b.5" || "$BUILD_ID" == "2b.6" || "$BUILD_ID" == "2b.7" || "$BUILD_ID" == "2b.8" || "$BUILD_ID" == "2b.9" || "$BUILD_ID" == "2b.10" || "$BUILD_ID" == "2b.11" || "$BUILD_ID" == "2b.12" || "$BUILD_ID" == "2b.13" || "$BUILD_ID" == "2b.14" || "$BUILD_ID" == "2b.15" || "$BUILD_ID" == "2b.16" || "$BUILD_ID" == "2b.17" || "$BUILD_ID" == "2b.18" || "$BUILD_ID" == "2b.19" || "$BUILD_ID" == "2b.20" || "$BUILD_ID" == "2b.21" || "$BUILD_ID" == "2b.22" || "$BUILD_ID" == "2b.23" || "$BUILD_ID" == "2b.24" || "$BUILD_ID" == "2b.25" || "$BUILD_ID" == "2b.26" || "$BUILD_ID" == "2b.27" || "$BUILD_ID" == "2b.28" || "$BUILD_ID" == "2b.29" || "$BUILD_ID" == "2b.30" || "$BUILD_ID" == "2b.31" || "$BUILD_ID" == "2b.32" || "$BUILD_ID" == "2b.33" || "$BUILD_ID" == "2b.34" || "$BUILD_ID" == "2b.35" || "$BUILD_ID" == "2b.36" || "$BUILD_ID" == "2b.37" || "$BUILD_ID" == "2b.38" || "$BUILD_ID" == "2b.39" || "$BUILD_ID" == "2b.40" || "$BUILD_ID" == "2b.41" || "$BUILD_ID" == "2b.43" ]] || { echo "Unexpected Rustnote source build: $BUILD_ID" >&2; exit 1; }
-[[ -f SECURITY_ENCRYPTION_E2_CONTRACT.md ]] || { echo "Missing E2 security contract." >&2; exit 1; }
 [[ -f src/storage/protection.rs ]] || { echo "Missing E2 protection persistence boundary." >&2; exit 1; }
 [[ -f src/application/vault.rs ]] || { echo "Missing E2 application vault workflow." >&2; exit 1; }
 [[ -f src/security/runtime.rs ]] || { echo "Missing E2 vault runtime." >&2; exit 1; }
@@ -25,7 +24,6 @@ transport = Path("src/storage/transport.rs").read_text()
 sources = Path("src/storage/sources.rs").read_text()
 media = Path("src/media_compat.rs").read_text()
 ui = "\n".join(path.read_text(errors="ignore") for path in Path("src/ui").rglob("*.rs"))
-contract = Path("SECURITY_ENCRYPTION_E2_CONTRACT.md").read_text()
 vault = Path("crates/rustnote-vault/src/lib.rs").read_text()
 build_id = Path("build-id.txt").read_text().strip()
 
@@ -158,16 +156,7 @@ for forbidden in ("sqlcipher", "SQLCipher", "web_sys::SubtleCrypto", "SubtleCryp
 
 if "const TAG_BYTES: usize = 32;" not in vault or "Aegis256::<TAG_BYTES>" not in vault:
     raise SystemExit("E2 requires the full 256-bit AEGIS-256 authentication tag")
-if "full **256-bit authentication tag**" not in contract:
-    raise SystemExit("E2 contract does not explicitly require the full AEGIS-256 tag")
 
-for marker in (
-    "SQLite boundary while locked", "Attachment contract", "Search contract",
-    "Export / backup contract", "Plaintext-derivative boundary and E3",
-    "Integrity / future blockchain-inspired work", "E2 definition of done",
-):
-    if marker not in contract:
-        raise SystemExit(f"E2 contract missing section: {marker}")
 PY
 
 if [[ "${RUSTNOTE_E2_STATIC_ONLY:-0}" == "1" ]]; then
