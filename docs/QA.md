@@ -9,9 +9,9 @@ The workflow is [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Trigg
 | CI job | Environment | Gates |
 | --- | --- | --- |
 | Source and browser contracts | Ubuntu, Node.js 22, Python 3.12 | Syntax/source checks, dependency-free JS tests; `npm ci` and dependency-backed editor/browser tests |
-| Native macOS build/test | Hosted `macos-15`, Node.js 22, Python 3.12, pinned Rust 1.97.1 | Prepare browser runtimes; `cargo fmt`; strict workspace Clippy; workspace Rust tests; release build; deployment-target binary check |
+| Native macOS build/test | Hosted `macos-15`, Node.js 22, Python 3.12, pinned Rust 1.97.1 | Prepare browser runtimes; `cargo fmt`; all-target/all-feature `cargo check`; strict all-feature Clippy; all-feature workspace Rust tests; release build; deployment-target binary check |
 
-The `scripts/ci-source-checks.sh` runner checks shell and JS syntax and invokes exactly **four** baseline shell validators: version 2b.43, key-authority 2b.43.1, byte-format 2b.43.2 and secure-key-store 2b.43.3. It then invokes the dependency-free browser/contract test runner. It **does not execute all 80+ historical `validate-*.sh` scripts**. Other static/source-contract-style browser checks are run separately by the JS runner; their PASS should not be confused with an end-to-end native behavior test.
+The `scripts/ci-source-checks.sh` runner checks shell and JS syntax, invokes exactly **four** baseline shell validators (version 2b.43, key-authority 2b.43.1, byte-format 2b.43.2 and secure-key-store 2b.43.3), then runs the concern-based `validate-native-current.sh` suite. That suite owns the current Dioxus/deployment source contracts and dependency-free browser/privacy/storage contract corpus. CI **does not execute the historical pass-numbered native validator chain**. Static/source-contract PASS results are regression evidence, not substitutes for the native macOS job.
 
 See [Development](DEVELOPMENT.md) for exact commands. Record **commit, OS/version, CPU architecture, command, dependencies, exit/result, duration if measured, and untested or skipped surfaces** for every new evidence claim. Historical QA evidence is consolidated in [the 104-report ledger](qa/HISTORICAL_EVIDENCE.md). Exact baseline originals remain available through immutable Git links; only reports still read directly by validators remain at root.
 
@@ -28,7 +28,7 @@ See [Development](DEVELOPMENT.md) for exact commands. Record **commit, OS/versio
 | Vault I1–I7 / privacy authority | `validate-vault-*.sh` + Rust concurrency/ownership tests | Source/static guards + executable Rust tests | Current certification if only static mode ran |
 | Backup 2b.43 key/format authority | `validate-backup-2b43-1/2/3-*.sh` | Contract/static/source tests | Deployed encrypted-v3 writer/restore, which is not yet integrated |
 | Native build quality | `cargo fmt`, `cargo check`, strict `cargo clippy`, `cargo test` | Compiled native/toolchain QA | Supported-device matrix, signing/notarization, manual UI/adversarial behavior |
-| Feature-gated native lifetime tests | `cargo clippy/test --all-features`; notably `internal-test-support` binary tests | Compiled feature-matrix QA | **Not currently included by configured CI's Clippy/test commands** |
+| Feature-gated native lifetime tests | all-target/all-feature `cargo check`, Clippy and workspace tests; notably `internal-test-support` binary tests | Compiled feature-matrix QA | Native OS/hardware integration beyond the hosted runner |
 | macOS deployment | prepared-runtime build + Mach-O deployment validator | Native artifact inspection | Keychain privacy semantics or general application correctness |
 | Keychain/OS privacy lifetime | Manual/adversarial supported-device testing | Native integration/manual | Cannot be replaced by source grep or mock secure-store tests |
 
@@ -36,11 +36,11 @@ See [Development](DEVELOPMENT.md) for exact commands. Record **commit, OS/versio
 
 See [historical evidence](qa/HISTORICAL_EVIDENCE.md) for how older reports mixed these evidence classes.
 
-## Current native feature-coverage finding
+## Current native feature coverage
 
-The native compile history repeatedly used `--all-features` after 2b.17 introduced the zero-dependency `internal-test-support` feature. Current source still contains protected PDF Lock-lifetime binary tests gated by `#[cfg(feature = "internal-test-support")]`, while the configured macOS CI runs `cargo clippy --workspace --all-targets --locked` and `cargo test --workspace --locked` **without** `--all-features`.
+Q2 closes the earlier feature-matrix gap. The configured macOS CI now runs `cargo check --workspace --all-targets --all-features --locked`, strict Clippy with `--all-features`, and `cargo test --workspace --all-features --locked`. Feature-gated `internal-test-support` lifetime tests are therefore part of the normal hosted native gate rather than an optional follow-up.
 
-Therefore those feature-gated tests are not part of the configured CI invocation. This is recorded as a **coverage gap**, not an implementation failure. See [native toolchain history](development/NATIVE_TOOLCHAIN_HISTORY.md). Batch 5 does not alter CI.
+The production release build remains `cargo build --release --locked`, so test-support features are exercised for verification without being enabled in the shipped binary. See [native toolchain history](development/NATIVE_TOOLCHAIN_HISTORY.md).
 
 ## Manual and adversarial gates before distribution
 
@@ -51,6 +51,6 @@ Therefore those feature-gated tests are not part of the configured CI invocation
 5. Validate `Rustnote.app` on supported macOS versions and relevant Apple Silicon and Intel hardware. Audit signing/notarization separately before a distributed release.
 6. Review dependencies and secrets, run targeted QA for each changed surface, and comprehensive source/native/browser/security QA after significant cross-cutting changes.
 
-## Boundary of this documentation pass
+## QA/document decoupling status
 
-The historical `QA_*` corpus has now been consolidated as evidence history. This documentation pass **does not redesign the executable QA suite**: no validator, test, or CI behavior is changed. Report dependencies that remain in validators are recorded as technical debt for the separate QA-refinement effort.
+Q2 begins the executable-suite redesign: native pass-history documents are no longer QA inputs, the current native source suite is concern-based, and CI now owns the all-feature native matrix. Historical `QA_NATIVE_COMPILE_*.md` reports remain at root until Q4 by design. Security/Vault and other QA-report prose dependencies remain technical debt for Q3/Q4; pass-numbered validator-chain cleanup remains Q5 scope.

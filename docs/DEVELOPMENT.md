@@ -41,22 +41,22 @@ Full native Rust check sequence (macOS, after toolchain setup):
 ```sh
 ./scripts/prepare-rustnote-browser-runtimes.sh
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
+cargo check --workspace --all-targets --all-features --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked
 cargo build --release --locked
 ./scripts/validate-macos-binary-deployment-target.sh target/release/rustnote
 ```
 
-The browser preparation step produces generated runtimes needed by Rust build. The source-check runner exercises only a **small baseline subset** of historic shell validators: see [QA](QA.md). Linux-only checks do not demonstrate macOS framework compatibility, Keychain behavior or native runtime privacy.
+The browser preparation step produces generated runtimes needed by Rust build. The source-check runner executes the small baseline contract set plus the concern-based current native source/invariant suite; it does not traverse the historical pass-numbered validator chain. Linux-only checks do not demonstrate macOS framework compatibility, Keychain behavior or native runtime privacy.
 
-For changes involving feature-gated test support or security/native lifetime boundaries, also run the broader feature matrix:
+For diagnosis of concurrency-sensitive native failures, the all-feature test suite may also be rerun serially:
 
 ```sh
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-features --locked -- --test-threads=1
 ```
 
-This broader gate is **not currently part of configured CI**. The reason and native-history context are documented in [Native toolchain history](development/NATIVE_TOOLCHAIN_HISTORY.md).
+Normal CI intentionally keeps Rust's default parallel test execution because shared-process/session lifetime races are themselves useful regression coverage. Q2 exposed and repaired one such private-temporary-root creation race.
 
 ## Unsigned local app bundle
 

@@ -32,7 +32,7 @@ for script in \
   bash "$script"
 done
 
-echo '[CI] Dependency-free JS behavior tests'
-node scripts/run-browser-behavior-tests.mjs
+echo '[CI] Current native source/invariant suite'
+bash scripts/validate-native-current.sh
 
 echo '[CI] Source checks completed successfully'
