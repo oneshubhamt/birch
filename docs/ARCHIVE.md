@@ -144,3 +144,30 @@ The raw file count remains inflated by the 100 exact-path validator fixtures. Ex
 ## Evidence boundary
 
 This project reorganizes documentation only. It does not claim that current CI passed, that a signed app was produced, that cryptography was independently certified, or that backup v3 is implemented. For current verification requirements use [QA](QA.md) and [Project status](PROJECT_STATUS.md).
+
+
+## Batch 6 independent closure results
+
+The final tree was independently re-audited after all deletions and link rewrites.
+
+- **132 Markdown files remain**, down from 239 (**44.8% reduction**).
+- **110 root Markdown files remain**, down from 226 (**51.3% reduction**).
+- Markdown bytes fell from **895,754 to 536,945** (about **40.1%**), despite adding the consolidated architecture/evidence ledgers.
+- Exactly **100** root files are validator compatibility fixtures: 54 native-compile, 35 QA, 11 Vault/security. All 100 are **byte-identical to the frozen baseline**.
+- All **six normative E0–E3/backup contracts** remain present and byte-identical to baseline.
+- The remaining non-compatibility Markdown surface is **32 files** with living, normative, functional or consolidated-history purpose.
+- All **32 non-compatibility Markdown files** were checked for internal relative references: **129 relative links, zero missing targets**.
+- All **98 repository scripts** were scanned for Markdown path dependencies. Every real dependency resolves. Two lexical `ROOT/...` matches in the backup-byte-format validator are shell/Python variable expansions and resolve to the two retained backup contracts.
+- All **22 `.github/` and `tests/` files** were checked for Markdown references; no dangling historical dependency remains.
+- The three historical ledgers contain exactly **104 QA**, **58 native-compile**, and **51 Vault/security** immutable baseline links.
+- The 2b.43.2 canonical mathematical vectors were recomputed independently:
+  - library binding for `library_example_001` = `f0363a8464e6a722237fbdfdb98a0f869ef60c0bce8a5049c82267525ff54fdb`;
+  - HMAC opaque-ID vector = `910ec338f64892dfc0288e343162e996b71c39c67dd1cad13923f2d67a79cff6`;
+  - bulk encoded lengths for 0 bytes / 1 byte / 1 MiB / 1 MiB+1 = **144 / 177 / 1,048,752 / 1,048,785**.
+- The branch has **zero non-Markdown changes versus `main`**. Source, tests, scripts, CI, assets other than Markdown documentation content, Cargo configuration and runtime code are unchanged.
+
+### Closure verdict
+
+**PASS — documentation storage rationalization, no-loss traceability, precise-contract preservation, current-source reconciliation, reference integrity and documentation-only scope.**
+
+**Not executed / not claimed:** Rust compilation, Clippy, Rust tests, browser tests, native Keychain/Keystore behavior, crash/restart testing, signed application packaging, integrated encrypted-backup-v3 behavior or current CI success. Those remain separate engineering/release evidence gates.
