@@ -282,15 +282,15 @@ require(
 
 allows = []
 expects = []
-attribute_re = re.compile(r"#\\s*\\[\\s*(allow|expect)\\s*\\((.*?)\\)\\s*\\]", re.DOTALL)
+attribute_re = re.compile(r"#\s*\[\s*(allow|expect)\s*\((.*?)\)\s*\]", re.DOTALL)
 for base in [root / "src", root / "crates"]:
     for path in base.rglob("*.rs"):
         body = path.read_text(errors="ignore")
         for match in attribute_re.finditer(body):
             kind, attribute_body = match.groups()
-            if not re.search(r"\\bdead_code\\b", attribute_body):
+            if not re.search(r"\bdead_code\b", attribute_body):
                 continue
-            line_no = body.count("\\n", 0, match.start()) + 1
+            line_no = body.count("\n", 0, match.start()) + 1
             normalized = " ".join(attribute_body.split())
             item = (path.relative_to(root).as_posix(), line_no, normalized)
             if kind == "allow":
