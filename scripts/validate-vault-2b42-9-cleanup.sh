@@ -30,7 +30,6 @@ sync = read('src/ui/synchronization.rs')
 privacy = read('src/ui/privacy.rs')
 coord = read('src/security/privacy_coordinator.rs')
 runner = read('scripts/run-browser-behavior-tests.mjs')
-qa = read('QA_VAULT_2B42_9_CLEANUP.md')
 
 # 1. No dead-code lint suppression remains in production Rust.
 forbid(src_text, [
@@ -164,11 +163,5 @@ require(read('src/storage/protection.rs'), [
 require(runner, ['vault-cleanup-2b42-9-contract.test.mjs'], 'behavior runner')
 
 # 14. Historical implementation evidence is provenance; QA-report removal is Q4.
-require(qa, [
-    'Dependency-free QA',
-    'Native Rust gate: pending on macOS',
-    '2b.42.10 must not begin until the native gate is green',
-], '2b.42.9 QA record')
-
-print('Vault 2b.42.9 dead-code + architecture cleanup validation passed (14/14 contracts).')
+print('Vault 2b.42.9 current dead-code + architecture cleanup validation passed.')
 PY

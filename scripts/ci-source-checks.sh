@@ -23,6 +23,9 @@ done < <(find . -type f \( -name '*.js' -o -name '*.mjs' \) \
   -not -path './target/*' -not -path './node_modules/*' \
   -not -path './editor-build/node_modules/*' -print0)
 
+echo '[CI] QA report decoupling'
+bash scripts/validate-qa-report-decoupling.sh
+
 echo '[CI] Baseline source validators'
 for script in \
   scripts/validate-version-v0.12.6-build-2b43.sh \

@@ -34,7 +34,6 @@ def segment(text, start, end):
 protection = read("src/storage/protection.rs")
 profiler = read("src/vault_profile.rs")
 runner = read("scripts/run-browser-behavior-tests.mjs")
-qa = read("QA_VAULT_2B42_8_NO_VACUUM_FORENSIC.md")
 
 # 1. The experiment is closed: production has one canonical path, with no
 # residual mode abstraction, test-only alternate helper, runtime switch, VACUUM
@@ -120,11 +119,5 @@ require(production_test, [
 require(runner, ["vault-no-vacuum-forensic-contract.test.mjs"], "behavior runner")
 
 # 8. Historical decision evidence is provenance; QA-report removal is Q4.
-require(qa, [
-    "Native macOS forensic test: PASS",
-    "Production VACUUM removed",
-    "Final native closure gate",
-], "2b.42.8 QA record")
-
-print("2b.42.8 no-VACUUM closure validation passed (8/8 contracts).")
+print("2b.42.8 no-VACUUM current forensic/source validation passed.")
 PY

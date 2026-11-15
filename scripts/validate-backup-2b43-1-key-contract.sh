@@ -9,9 +9,8 @@ from pathlib import Path
 
 root = Path('.')
 contract = (root / 'BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md').read_text()
-qa = (root / 'QA_BACKUP_2B43_1_KEY_AUTHORITY_CONTRACT.md').read_text()
-repo = (root / 'src/storage/backup_repository.rs').read_text()
-platform = (root / 'src/platform/mod.rs').read_text()
+authority = (root / 'src/security/backup_key_authority.rs').read_text()
+secure_store = (root / 'src/platform/secure_key_store.rs').read_text()
 manifest = (root / 'Cargo.toml').read_text()
 build = (root / 'build-id.txt').read_text().strip()
 
@@ -86,20 +85,33 @@ require(contract, [
     'Only then may Protect stop resetting encrypted historical repositories.',
 ], 'safe transitional Protect rule')
 
-require(qa, [
-    '**PASS — contract/audit pass only. No production backup implementation changed.**',
-    'All fifteen 2b.43.1 Definition-of-Done items are satisfied',
-], 'QA closure record')
+require(authority, [
+    'pub(crate) const BACKUP_REPOSITORY_FORMAT_VERSION: u16 = 3;',
+    'pub(crate) struct BackupRepositoryKeysetV1',
+    'snapshot_aead_key: Zeroizing<[u8; REPOSITORY_KEY_BYTES]>',
+    'blob_aead_key: Zeroizing<[u8; REPOSITORY_KEY_BYTES]>',
+    'metadata_aead_key: Zeroizing<[u8; REPOSITORY_KEY_BYTES]>',
+    'object_id_hmac_key: Zeroizing<[u8; REPOSITORY_KEY_BYTES]>',
+    'existing_repository_open_never_recreates_missing_root',
+    'wrong_device_root_cannot_open_repository_keyset',
+    'unavailable_or_corrupt_secure_store_fails_closed',
+    'repository_and_library_context_are_authenticated',
+    'repository_keysets_are_independent_and_redacted',
+], 'implemented key-authority + fail-closed regression owners')
+
+require(secure_store, [
+    'pub(crate) trait DeviceBackupKeyProtector: Send + Sync',
+    'const KEYCHAIN_SERVICE: &str = "org.rustnote.backup-device-root";',
+    'const KEYCHAIN_ACCOUNT: &str = "device-backup-root-v1";',
+    'BackupProtectorKind::AndroidKeystoreRootV1',
+    'UnsupportedDeviceBackupKeyProtector',
+], 'secure-store authority implementations')
 
 assert 'version = "0.12.6"' in manifest, 'unexpected package version'
 assert build == '2b.43', f'unexpected build id: {build}'
 checks.append('baseline identity')
 
-# 2b.43.1 itself was contract-only; later 2b.43 implementation passes are
-# expected to consume that contract. Preserve the historical proof in the QA
-# artifact rather than incorrectly forbidding subsequent implementation.
-assert 'contract-only' in qa.lower(), '2b.43.1 QA must preserve its contract-only closure evidence'
-checks.append('historical contract-only closure evidence')
-
+# Historical pass evidence is provenance only. Current closure is owned by the
+# implemented key authority, secure-store boundary and all-feature Rust tests.
 print(f'Backup 2b.43.1 key-authority contract validation passed ({len(checks)}/{len(checks)} contracts).')
 PY
