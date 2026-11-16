@@ -2006,6 +2006,7 @@ mod vault_backup_location_tests {
             attachment_bytes
         );
         drop(restored_file);
+        drop(attachment_store);
         storage
             .lock_protected_note(&note.id)
             .expect("re-lock restored note");
