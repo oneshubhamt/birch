@@ -28,19 +28,14 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Validate source and existing contracts
-        run: bash scripts/ci-source-checks.sh
-      - name: Q5 side-by-side suite benchmark
-        run: |
-          echo '--- legacy/current pre-Q5 source runner ---'
-          python3 scripts/q5-topology-audit.py
-          /usr/bin/time -p bash scripts/ci-source-checks.sh
-          echo '--- new concern-based release suite ---'
-          /usr/bin/time -p bash scripts/qa-release.sh
+      - name: Validate concern-based source suites
+        run: /usr/bin/time -p bash scripts/qa-release.sh
+      - name: Q5 post-cleanup topology benchmark
+        run: python3 scripts/q5-topology-audit.py
       - name: Install pinned editor test dependencies
         run: npm ci --prefix editor-build --no-audit --no-fund
-      - name: Run full browser behavioral tests
-        run: node scripts/run-browser-behavior-tests.mjs --require-editor-deps
+      - name: Run dependency-backed editor behavior
+        run: node scripts/run-browser-behavior-tests.mjs --dependency-backed-only
 
   native-macos:
     name: Native macOS (build, Clippy, tests)

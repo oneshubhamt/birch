@@ -26,7 +26,7 @@ The preparation script verifies the deployment baseline, installs exact JS depen
 Source-level checks (also available on Linux with Node.js and Python):
 
 ```sh
-bash scripts/ci-source-checks.sh
+bash scripts/qa-release.sh
 ```
 
 Dependency-backed ProseMirror/browser behavior:
@@ -48,7 +48,7 @@ cargo build --release --locked
 ./scripts/validate-macos-binary-deployment-target.sh target/release/rustnote
 ```
 
-The browser preparation step produces generated runtimes needed by Rust build. The source-check runner executes the small baseline contract set plus the concern-based current native source/invariant suite; it does not traverse the historical pass-numbered validator chain. Linux-only checks do not demonstrate macOS framework compatibility, Keychain behavior or native runtime privacy.
+The browser preparation step produces generated runtimes needed by Rust build. `qa-release.sh` composes the five independent concern suites once each; it does not traverse historical pass-numbered validators or run Cargo. Dependency-backed ProseMirror/bridge behavior and the native Cargo matrix have separate single owners in CI. Linux-only checks do not demonstrate macOS framework compatibility, Keychain behavior or native runtime privacy.
 
 For diagnosis of concurrency-sensitive native failures, the all-feature test suite may also be rerun serially:
 
@@ -71,4 +71,4 @@ The output is a **local unsigned development bundle**. No automated Apple signin
 
 ## Change protocol
 
-Before changing code: inspect current source and governing contracts; state objectives, invariants and performance/security implications; implement a coherent minimal change; independently check acceptance criteria; run targeted behavioral/negative tests; then execute broader QA after substantial changes. Do not move root-level historical pass documents as incidental cleanup: source validators may reference their exact filenames. See [Contributing](../CONTRIBUTING.md) and the [archive/no-loss map](ARCHIVE.md).
+Before changing code: inspect current source and governing contracts; state objectives, invariants and performance/security implications; implement a coherent minimal change; independently check acceptance criteria; run targeted behavioral/negative tests; then execute broader QA after substantial changes. Historical pass documents and validators are provenance in Git, not executable compatibility surfaces. See [Contributing](../CONTRIBUTING.md) and the [archive/no-loss map](ARCHIVE.md).

@@ -6,7 +6,8 @@ import {fileURLToPath} from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const rootNodeModules = path.join(root, 'node_modules');
 const buildNodeModules = path.join(root, 'editor-build', 'node_modules');
-const dependencyMode = process.argv.includes('--require-editor-deps');
+const dependencyOnly = process.argv.includes('--dependency-backed-only');
+const dependencyMode = dependencyOnly || process.argv.includes('--require-editor-deps');
 let temporaryLink = false;
 
 if (!existsSync(rootNodeModules) && existsSync(buildNodeModules)) {
@@ -28,10 +29,14 @@ function pinnedEditorDependenciesAvailable() {
 
 const prosemirrorAvailable = pinnedEditorDependenciesAvailable();
 if (dependencyMode && !prosemirrorAvailable) {
-  console.error('B4 ProseMirror behavioral tests require editor-build/node_modules. Run scripts/prepare-rustnote-mac.sh or npm ci in editor-build first.');
+  console.error('Dependency-backed editor behavior requires editor-build/node_modules. Run scripts/prepare-rustnote-mac.sh or npm ci in editor-build first.');
   process.exitCode = 1;
 } else {
-  const tests = [
+  const dependencyBackedTests = [
+    path.join(root, 'tests', 'js', 'editor-prosemirror-behavior.test.mjs'),
+    path.join(root, 'tests', 'js', 'editor-bridge-behavior.test.mjs'),
+  ];
+  const dependencyFreeTests = [
     path.join(root, 'tests', 'js', 'editor-ui-contract.test.mjs'),
     path.join(root, 'tests', 'js', 'navigation-publication-contract.test.mjs'),
     path.join(root, 'tests', 'js', 'note-local-privacy-contract.test.mjs'),
@@ -47,13 +52,11 @@ if (dependencyMode && !prosemirrorAvailable) {
     path.join(root, 'tests', 'js', 'pdf-runtime-integrity.test.mjs'),
     path.join(root, 'tests', 'js', 'pdf-layout-integrity.test.mjs'),
   ];
-  if (prosemirrorAvailable) {
-    tests.unshift(
-      path.join(root, 'tests', 'js', 'editor-prosemirror-behavior.test.mjs'),
-      path.join(root, 'tests', 'js', 'editor-bridge-behavior.test.mjs'),
-    );
-  } else {
-    console.log('B4: editor-build dependencies absent; running dependency-free editor/PDF behavior tests only.');
+  const tests = dependencyOnly ? [...dependencyBackedTests] : [...dependencyFreeTests];
+  if (!dependencyOnly && prosemirrorAvailable) {
+    tests.unshift(...dependencyBackedTests);
+  } else if (!dependencyOnly && !prosemirrorAvailable) {
+    console.log('Pinned editor dependencies absent; running dependency-free browser behavior only.');
   }
   const result = spawnSync(process.execPath, ['--test', ...tests], {cwd: root, stdio: 'inherit'});
   process.exitCode = result.status ?? 1;

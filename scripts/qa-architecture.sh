@@ -75,6 +75,55 @@ for name in suite_names:
     if release.count(name) != 1:
         raise SystemExit(f"qa-release must invoke {name} exactly once")
 
+# Historical wrappers are retired. Only artifact-specific validators remain.
+allowed_validator_helpers = {
+    "validate-macos-binary-deployment-target.sh",
+    "validate-prepared-runtime.sh",
+    "validate-rustnote-macos-app.sh",
+}
+actual_validators = {path.name for path in Path("scripts").glob("validate-*.sh")}
+if actual_validators != allowed_validator_helpers:
+    raise SystemExit(
+        f"validator surface drift: actual={sorted(actual_validators)} expected={sorted(allowed_validator_helpers)}"
+    )
+
+legacy_ref = re.compile(r"scripts/(validate-[A-Za-z0-9._-]+\.sh)")
+allowed_refs = {f"scripts/{name}" for name in allowed_validator_helpers}
+bad_refs = []
+for base in exec_roots:
+    if not base.exists():
+        continue
+    for path in base.rglob("*"):
+        if not path.is_file() or path.suffix not in allowed or path == Path("scripts/qa-architecture.sh"):
+            continue
+        for reference in legacy_ref.findall(path.read_text(errors="ignore")):
+            full = f"scripts/{reference}"
+            if full not in allowed_refs:
+                bad_refs.append(f"{path}: {full}")
+if bad_refs:
+    raise SystemExit("retired validator reference returned:\n- " + "\n- ".join(sorted(set(bad_refs))))
+
+for name in (*suite_names, "qa-release.sh"):
+    text = (Path("scripts") / name).read_text()
+    if re.search(r"\bcargo\s+(?:check|clippy|test|build)\b", text):
+        raise SystemExit(f"expensive Cargo command leaked into source suite: {name}")
+    if "run-browser-behavior-tests.mjs" in text:
+        raise SystemExit(f"dependency-backed browser runner leaked into source suite: {name}")
+
+workflow = Path(".github/workflows/ci.yml").read_text()
+if workflow.count("bash scripts/qa-release.sh") != 1:
+    raise SystemExit("CI must invoke qa-release exactly once")
+if workflow.count("run-browser-behavior-tests.mjs --dependency-backed-only") != 1:
+    raise SystemExit("CI must run the dependency-backed browser owner exactly once")
+for command in (
+    "cargo check --workspace --all-targets --all-features --locked",
+    "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
+    "cargo test --workspace --all-features --locked",
+    "cargo build --release --locked",
+):
+    if workflow.count(command) != 1:
+        raise SystemExit(f"native CI command must appear exactly once: {command}")
+
 # Layering: UI cannot reach storage/native implementation; application cannot depend on UI.
 for path in Path("src/ui").rglob("*.rs"):
     text = path.read_text(errors="ignore")
