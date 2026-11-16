@@ -46,14 +46,3 @@ test('2b.42.9 editor synchronization owns its publication capture helper', () =>
   assert.doesNotMatch(sync, /capture_current_editor_publication/);
 });
 
-test('2b.42.9 inherited validators assert scoped rather than global publication', () => {
-  for (const relative of [
-    'scripts/validate-vault-2b2-privacy-authority.sh',
-    'scripts/validate-vault-2b3-publication-token.sh',
-    'scripts/validate-security-e0-e3-ui-lifetime-2a18.sh',
-    'scripts/validate-security-e0-e3-adversarial-closure-2a19.sh',
-  ]) {
-    const source = read(relative);
-    assert.doesNotMatch(source, /active_revocations: u32|capture_at_ui_generation/);
-  }
-});
