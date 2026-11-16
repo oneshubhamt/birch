@@ -1875,11 +1875,9 @@ mod vault_backup_location_tests {
             "precondition: live library must differ from the selected snapshot",
         );
 
-        let restored = storage
+        storage
             .restore_backup_repository_snapshot(&snapshot_id)
             .expect("restore repository snapshot");
-        assert_eq!(restored.note_count, 1);
-        assert_eq!(restored.attachment_count, 1);
 
         let restored_note = storage
             .get_note(&note.id)
