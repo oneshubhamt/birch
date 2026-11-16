@@ -30,10 +30,13 @@ jobs:
           python-version: '3.12'
       - name: Validate source and existing contracts
         run: bash scripts/ci-source-checks.sh
-      - name: Q5 baseline topology and source benchmark
+      - name: Q5 side-by-side suite benchmark
         run: |
+          echo '--- legacy/current pre-Q5 source runner ---'
           python3 scripts/q5-topology-audit.py
           /usr/bin/time -p bash scripts/ci-source-checks.sh
+          echo '--- new concern-based release suite ---'
+          /usr/bin/time -p bash scripts/qa-release.sh
       - name: Install pinned editor test dependencies
         run: npm ci --prefix editor-build --no-audit --no-fund
       - name: Run full browser behavioral tests
