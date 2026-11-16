@@ -56,12 +56,13 @@ suite_names = (
     "qa-backup-format.sh",
     "qa-architecture.sh",
 )
+suite_call = re.compile(r"(?:^|[;&|]\s*|\n\s*)bash\s+scripts/(qa-[a-z-]+\.sh)")
 for name in suite_names:
     text = (Path("scripts") / name).read_text()
-    for peer in suite_names:
-        if peer != name and peer in text:
-            raise SystemExit(f"{name} invokes peer concern suite {peer}")
-    if re.search(r"scripts/validate-(?:architecture|security|vault|backup|version)-", text):
+    invoked = set(suite_call.findall(text))
+    if invoked:
+        raise SystemExit(f"{name} invokes peer concern suite(s): {sorted(invoked)}")
+    if re.search(r"(?:bash\s+)?scripts/validate-(?:architecture|security|vault|backup|version)-", text):
         raise SystemExit(f"{name} depends on a pass-numbered historical validator")
 
 release = Path("scripts/qa-release.sh").read_text()
