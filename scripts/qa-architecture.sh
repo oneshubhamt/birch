@@ -103,11 +103,13 @@ for base in exec_roots:
 if bad_refs:
     raise SystemExit("retired validator reference returned:\n- " + "\n- ".join(sorted(set(bad_refs))))
 
+cargo_call = re.compile(r"(?m)^\s*(?:/usr/bin/time\s+-p\s+)?cargo\s+(?:check|clippy|test|build)\b")
+browser_call = re.compile(r"(?m)^\s*node\s+scripts/run-browser-behavior-tests\.mjs\b")
 for name in (*suite_names, "qa-release.sh"):
     text = (Path("scripts") / name).read_text()
-    if re.search(r"\bcargo\s+(?:check|clippy|test|build)\b", text):
+    if cargo_call.search(text):
         raise SystemExit(f"expensive Cargo command leaked into source suite: {name}")
-    if "run-browser-behavior-tests.mjs" in text:
+    if browser_call.search(text):
         raise SystemExit(f"dependency-backed browser runner leaked into source suite: {name}")
 
 workflow = Path(".github/workflows/ci.yml").read_text()
