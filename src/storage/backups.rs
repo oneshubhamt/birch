@@ -431,6 +431,14 @@ impl Storage {
                     None,
                 )?;
             }
+            // Durable orphan-quarantine owners are valid steady-state live-library
+            // cleanup authority, but quarantine itself is deliberately excluded
+            // from archives. Strip only those settled owner rows from the snapshot
+            // copy; all other operational/plaintext ownership rows remain and are
+            // rejected by validate_snapshot_database below.
+            super::plaintext_staging::strip_snapshot_excluded_quarantine_ownership(
+                &mut target,
+            )?;
             let journal_mode: String =
                 target.query_row("PRAGMA journal_mode = DELETE", [], |row| row.get(0))?;
             if !journal_mode.eq_ignore_ascii_case("delete") {

@@ -82,6 +82,7 @@ for forbidden in (
         raise SystemExit(f"forbidden ordinary backup-root-key source returned: {forbidden}")
 
 for marker in (
+    "repository_snapshot_restore_round_trips_note_and_attachment_through_library_restore",
     "interrupted_vault_purge_recovers_after_arbitrary_repository_children_disappear",
     "restart_recovers_after_repository_removed_before_privacy_obligation_retirement",
     "steady_state_backup_writes_fail_closed_after_namespace_marker_loss",
