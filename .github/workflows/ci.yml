@@ -28,12 +28,12 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Validate source and existing contracts
-        run: bash scripts/ci-source-checks.sh
+      - name: Validate concern-based source suites
+        run: bash scripts/qa-release.sh
       - name: Install pinned editor test dependencies
         run: npm ci --prefix editor-build --no-audit --no-fund
-      - name: Run full browser behavioral tests
-        run: node scripts/run-browser-behavior-tests.mjs --require-editor-deps
+      - name: Run dependency-backed editor behavior
+        run: node scripts/run-browser-behavior-tests.mjs --dependency-backed-only
 
   native-macos:
     name: Native macOS (build, Clippy, tests)
@@ -56,10 +56,12 @@ jobs:
         run: bash scripts/prepare-rustnote-browser-runtimes.sh
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
+      - name: Check all native targets and features
+        run: cargo check --workspace --all-targets --all-features --locked
       - name: Strict Rust Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - name: Rust unit and integration tests
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --all-features --locked
       - name: Release build
         run: cargo build --release --locked
       - name: Verify macOS deployment target

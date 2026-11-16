@@ -27,15 +27,22 @@ This is an application-level logical-residue guarantee, not a promise of physica
 
 ## SQLite WAL / free-page contract
 
-The E2 protection transaction uses SQLite `secure_delete` while sensitive rows and persistent FTS entries are removed. After commit, E3:
+**Current governing rule (2b.42.8 override).** The E2 protection transaction uses SQLite
+`secure_delete` while sensitive rows and persistent FTS entries are removed. After commit, E3:
 
-1. fully checkpoints/truncates the WAL;
-2. runs `VACUUM` on the already-sanitized logical database;
-3. fully checkpoints/truncates the WAL again.
+1. rebuilds `notes_fts` from its current live rows under `secure_delete`, so obsolete FTS5 segment content is rewritten from the sanitized logical state;
+2. performs a verified `PRAGMA wal_checkpoint(TRUNCATE)`;
+3. treats a busy/incomplete checkpoint or any managed-residue cleanup failure as a protection-finalization failure.
 
-A failed/busy checkpoint is a privacy-cleanup failure rather than being silently ignored.
+Per-Protect `VACUUM` is **not** part of the current privacy path. Native forensic regression
+testing established that `secure_delete + FTS rebuild + verified WAL TRUNCATE` removes the
+historical-only and current protected markers covered by Rustnote's managed SQLite/WAL threat
+model without the extra `VACUUM` pass. This current rule supersedes the earlier base-E3 and
+2a.10 wording that required `VACUUM`.
 
-For a library first opened after upgrading from 2a.3 with existing protected notes, E3 performs this cleanup once before normal use and records completion in Rustnote settings.
+Development-era one-time E3 migration-marker details in older amendments are retained below as
+historical rationale, not as a current backward-compatibility requirement. The current application
+baseline is validated against the canonical cleanup behavior above.
 
 ## Emergency recovery contract
 
@@ -177,7 +184,7 @@ Rustnote's note-list filter is a Rustnote-managed SQLite preference and may cont
 
 ## 2a.10 behavioral final-closure amendment — FTS forensic scrub and snapshot barrier
 
-Deleting a protected note from `notes_fts` is a logical requirement but is not, by itself, a forensic-erasure guarantee for FTS5 segment history. E3-v4 therefore rebuilds `notes_fts` from its current live rows before the final WAL truncation and `VACUUM`. The one-time privacy marker advances to `vault.e3_privacy_scrub = 4`, so libraries that previously completed the 2a.9/v3 scrub receive the stronger FTS cleanup on first 2a.10 initialization. This one-time SQLite forensic scrub also runs when there are no currently protected notes because obsolete FTS segments can outlive a previously protected/deleted or unprotected note.
+Deleting a protected note from `notes_fts` is a logical requirement but is not, by itself, a forensic-erasure guarantee for FTS5 segment history. The 2a.10 pass introduced a full `notes_fts` rebuild plus WAL cleanup and, at that time, a `VACUUM` pass and one-time migration marker. **The later 2b.42.8 override above is now governing:** the FTS rebuild and verified WAL truncation remain mandatory, while per-Protect `VACUUM` and development-era migration-marker compatibility are historical implementation steps rather than current requirements.
 
 Protected attachment placeholders must remain valid ordinary-schema rows while their sensitive metadata lives only inside the encrypted payload. Because the attachment schema requires every non-embedded attachment to have `unreferenced_at IS NOT NULL`, protection stores the transition timestamp rather than violating that invariant. Protected-note pruning continues to exclude these placeholders.
 
@@ -284,3 +291,13 @@ The 2a.19 pass re-derives E0–E3 from the original contracts and treats all ear
 **Protected revision publication lifetime.** A protected revision restore returns an opaque authorization retaining its Vault read permit. That authorization must survive the storage mutation, editor replacement/remount, projection/normalization work and the final UI publish/discard decision. The UI privacy epoch is checked after asynchronous boundaries and immediately before publication. Lock therefore either waits for the complete sensitive post-storage lifetime or causes the stale result to be discarded; it cannot complete and then be followed by publication of decrypted revision state from the revoked session.
 
 **Independent writer/residue sweep.** E3 closure again requires direct inspection of SQLite constructors and filesystem writers rather than relying only on named tests. Production SQLite connection authority remains inside `src/storage`. Security-sensitive library plaintext unlink paths may not ignore deletion failures unless an independent durable/process owner remains authoritative and startup recovery is fail-closed. The inherited 2a.15–2a.18 requirements for attachment/image/import staging, orphan quarantine, offline backup obligations, emergency journal, WAL/FTS/revision residue, stale UI caches, attachment dialog lifetime and protected attachment materialization remain mandatory.
+
+## Q6 independent closure amendment — backup snapshot/restore quarantine ownership
+
+The independent Q6 writer/ownership audit found that ordinary attachment removal can leave a valid, durably owned `attachments/.orphaned` quarantine file while the current library retains that cleanup owner. Quarantine is deliberately excluded from managed backup/archive payloads, so its ownership has two additional whole-library invariants:
+
+1. A database snapshot copy may omit only **settled quarantine ownership rows** that are positively identified as the generic library-blob owner, have no note scope, have no prepared transfer state/destination, and name a valid `.orphaned` path. Incoming attachment staging, portability/import staging, canonical cleanup ownership, prepared transfers and ambiguous rows remain snapshot blockers.
+2. Before a whole-library restore replaces the canonical SQLite database, Rustnote must strictly retire settled old-library quarantine while the outgoing database still owns those files. Failure aborts Restore before the database ownership handoff. The incoming database must never become canonical while an excluded old-library quarantine file survives without its durable owner.
+
+Executable acceptance requires both directions: a repository snapshot containing an attachment must restore the exact note/attachment bytes and reopen cleanly after the live copy removed that attachment; and an active managed plaintext staging owner must continue to make persistent snapshot creation fail closed.
+

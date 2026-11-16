@@ -11,7 +11,7 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-use rusqlite::{OptionalExtension, Transaction, TransactionBehavior, params};
+use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 
 use crate::domain::NoteId;
 
@@ -973,6 +973,34 @@ impl Storage {
         Ok(removed)
     }
 
+    /// Strictly retire settled attachment quarantine before a whole-library
+    /// database replacement. Quarantine is disposable old-library cleanup history
+    /// and is never part of an archive. Deleting it while the current database
+    /// still owns every path prevents the incoming database from orphaning those
+    /// plaintext files when the SQLite snapshot becomes canonical.
+    pub(super) fn discard_settled_orphan_quarantine_unlocked(&self) -> StorageResult<usize> {
+        let stages = self.list_managed_plaintext_stages(None)?;
+        let mut removed = 0_usize;
+        for stage in stages {
+            validate_managed_plaintext_transfer_record(&stage)?;
+            if stage.transfer_state.is_some()
+                || stage.transfer_destination.is_some()
+                || validate_orphan_blob_relative_path(&stage.relative_path).is_err()
+            {
+                continue;
+            }
+            if stage.kind != PLAINTEXT_STAGE_PORTABILITY_BLOB || stage.note_id.is_some() {
+                return Err(StorageError::Integrity(
+                    "attachment quarantine has conflicting durable plaintext ownership".to_string(),
+                ));
+            }
+            let mut owned = self.require_orphan_blob_owned_plaintext(&stage.relative_path)?;
+            self.discard_owned_plaintext(&mut owned)?;
+            removed += 1;
+        }
+        Ok(removed)
+    }
+
     pub(super) fn pending_managed_attachment_staging_paths(&self) -> StorageResult<Vec<String>> {
         let connection = self.connection()?;
         let mut statement = connection.prepare(
@@ -1232,6 +1260,53 @@ impl Storage {
 /// inside an arbitrary library transaction. This is used both by portability
 /// rollback and by whole-library restore, where the *incoming* database must
 /// already own old-library blobs at the instant it becomes canonical.
+/// Remove only settled quarantine ownership rows from an archive/snapshot copy.
+///
+/// Quarantine is cleanup history, not canonical library content, and backup
+/// artifacts intentionally do not carry the corresponding `.orphaned` files.
+/// Keeping those rows in a snapshot would make the restored database claim
+/// ownership of plaintext that is not present. Every other managed-plaintext
+/// row remains untouched so snapshot validation can fail closed on real
+/// in-progress or ambiguous work.
+pub(super) fn strip_snapshot_excluded_quarantine_ownership(
+    connection: &mut Connection,
+) -> StorageResult<usize> {
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let candidates = {
+        let mut statement = transaction.prepare(
+            "SELECT id, kind, note_id, relative_path, transfer_destination, transfer_state
+             FROM managed_plaintext_staging
+             ORDER BY created_at, id",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<NoteId>>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, Option<String>>(4)?,
+                row.get::<_, Option<String>>(5)?,
+            ))
+        })?;
+        rows.collect::<Result<Vec<_>, _>>()?
+    };
+
+    let mut removed = 0_usize;
+    for (id, kind, note_id, relative_path, transfer_destination, transfer_state) in candidates {
+        let settled_quarantine = kind == PLAINTEXT_STAGE_PORTABILITY_BLOB
+            && note_id.is_none()
+            && transfer_destination.is_none()
+            && transfer_state.is_none()
+            && validate_orphan_blob_relative_path(&relative_path).is_ok();
+        if settled_quarantine {
+            removed += transaction
+                .execute("DELETE FROM managed_plaintext_staging WHERE id = ?1", [&id])?;
+        }
+    }
+    transaction.commit()?;
+    Ok(removed)
+}
+
 pub(super) fn ensure_canonical_blob_plaintext_stage_in_transaction(
     transaction: &Transaction<'_>,
     relative_path: &str,

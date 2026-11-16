@@ -1,56 +1,78 @@
 # Quality assurance and release gates
 
-A validator PASS demonstrates only its stated assertions in its stated environment and revision. It does **not** prove cryptographic correctness, implementation completeness or a release-ready application. The [project status](PROJECT_STATUS.md) separates actual source evidence, planned work and outstanding testing.
+A QA PASS demonstrates only the assertions executed for that revision and environment. It is regression evidence, not a proof of cryptographic correctness or a substitute for supported-device testing.
 
-## Configured CI jobs
+## Current suite architecture
 
-The workflow is [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Triggers: pushes to **`main`**, pull requests, and manual dispatch. A push to this working branch alone does not trigger a workflow run under the current push filter.
+Current source QA is organized by invariant domain:
 
-| CI job | Environment | Gates |
-| --- | --- | --- |
-| Source and browser contracts | Ubuntu, Node.js 22, Python 3.12 | Syntax/source checks, dependency-free JS tests; `npm ci` and dependency-backed editor/browser tests |
-| Native macOS build/test | Hosted `macos-15`, Node.js 22, Python 3.12, pinned Rust 1.97.1 | Prepare browser runtimes; `cargo fmt`; strict workspace Clippy; workspace Rust tests; release build; deployment-target binary check |
+```text
+qa-release
+  ├── qa-toolchain
+  ├── qa-editor-browser
+  ├── qa-security-privacy
+  ├── qa-backup-format
+  └── qa-architecture
+```
 
-The `scripts/ci-source-checks.sh` runner checks shell and JS syntax and invokes exactly **four** baseline shell validators: version 2b.43, key-authority 2b.43.1, byte-format 2b.43.2 and secure-key-store 2b.43.3. It then invokes the dependency-free browser/contract test runner. It **does not execute all 80+ historical `validate-*.sh` scripts**. Other static/source-contract-style browser checks are run separately by the JS runner; their PASS should not be confused with an end-to-end native behavior test.
+The five concern suites are independently runnable and do not call one another. `qa-release.sh` is the only source-suite orchestrator and invokes each concern exactly once. Historical A/B, 2a and 2b pass chains are not part of the current executable QA surface.
 
-See [Development](DEVELOPMENT.md) for exact commands. Record **commit, OS/version, CPU architecture, command, dependencies, exit/result, duration if measured, and untested or skipped surfaces** for every new evidence claim. Historical QA evidence is consolidated in [the 104-report ledger](qa/HISTORICAL_EVIDENCE.md). Exact baseline originals remain available through immutable Git links; only reports still read directly by validators remain at root.
+| Suite | Primary responsibility |
+| --- | --- |
+| `qa-toolchain.sh` | package/build identity, pinned Rust/Dioxus/crypto dependencies, macOS deployment baseline |
+| `qa-editor-browser.sh` | canonical editor document specification plus dependency-free editor, note-list and PDF behavior |
+| `qa-security-privacy.sh` | crypto/profile owners, privacy publication/revocation, plaintext ownership, residue, crash/recovery and forensic JS contracts |
+| `qa-backup-format.sh` | staged v3 backup root/header/keyset authority plus active v2 managed-repository recovery/fail-closed owners; it does not claim v3 persistence/restore |
+| `qa-architecture.sh` | one syntax scan, documentation decoupling, suite topology, layering, modularity, typed boundaries and storage-owned search |
+| `qa-release.sh` | composition only; no invariant logic |
+
+The small remaining `validate-*.sh` helpers are artifact validators, not predecessor suites: prepared browser-runtime integrity, packaged macOS-app integrity, and Mach-O deployment-target inspection.
+
+## Configured CI
+
+The workflow is [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). It runs on pushes to `main`, pull requests, and manual dispatch.
+
+| CI job | Gates |
+| --- | --- |
+| Source and browser contracts | `qa-release.sh` once; pinned JS dependency install; dependency-backed ProseMirror/bridge behavior once |
+| Native macOS | browser-runtime preparation; `cargo fmt`; one all-target/all-feature `cargo check`; one strict all-feature Clippy; one all-feature workspace test run; one release build; Mach-O deployment inspection |
+
+The dependency-free JS files are owned by the concern suites. After `npm ci`, CI uses `run-browser-behavior-tests.mjs --dependency-backed-only` for only the two tests that require installed ProseMirror dependencies, avoiding the former second execution of the dependency-free security/editor/PDF contracts. Cargo check/Clippy/test/build remain exclusively in the native job rather than leaf source validators.
+
+## Evidence ownership
+
+- Editor grammar: `editor-spec/document-spec.json`, `validation-cases.json`, JS/Rust adapters and executable corpus validation.
+- Security/privacy: all-feature Rust tests plus maintained JS publication, residue and profiling contracts; source assertions are limited to architecture/constants/owner traceability where runtime execution is not available in the Ubuntu source job.
+- Backup authority: staged v3 root/header/keyset constants and fail-closed key authority are distinct from the active v2 managed-repository writer/restore. Q6 prevents the suite from presenting those as one completed encrypted-v3 implementation.
+- Native quality: hosted macOS all-feature compile/lint/test plus release build.
+- OS boundaries: Keychain/Keystore and supported-device behavior still require native/manual integration evidence where mocks or source structure cannot establish real OS behavior.
+
+Historical pass reports and removed validators remain available through immutable Git and [the historical evidence ledger](qa/HISTORICAL_EVIDENCE.md); they are provenance, not compatibility fixtures.
+
+## Manual/adversarial gates before distribution
+
+Native distribution still requires supported-device checks for Keychain creation/retrieval/denial/loss/corruption, privacy lock/unlock and stale publication under concurrency, interrupted filesystem operations and restart recovery, actual encrypted-backup persistence/restore once that cutover exists, and app-bundle testing across supported macOS/hardware. Signing/notarization remains a separate release concern.
+
+## Q6 independent closure audit
+
+Q6 treats the streamlined suites themselves as untrusted and reconstructs the current editor, E0–E3 security/privacy and backup requirements from the governing specifications plus production source. The durable audit is [Q6 independent closure](qa/QA_INDEPENDENT_CLOSURE_Q6.md).
+
+The audit found and repaired one substantive current managed-backup defect: a normal attachment removal can leave a valid durably owned quarantine file, and the old snapshot/restore boundary could either reject the resulting safety snapshot or lose that quarantine owner at the whole-library SQLite handoff. Current snapshot copies now omit only positively validated settled quarantine ownership, while Restore strictly retires old-library quarantine before the database switch. Executable regressions prove exact note/attachment restore plus restart and separately prove that active managed plaintext staging still blocks snapshots.
+
+Q6 status is intentionally scoped:
+
+- current editor contract and runtime behavior: **PASS**;
+- implemented E0–E3 security/privacy, ownership, publication, concurrency, crash/recovery and residue invariants: **PASS after Q6 remediation**;
+- active managed-backup repository v2 snapshot/restore behavior: **PASS after Q6 remediation**;
+- staged 2b.43 key/header/keyset/secure-store abstraction authority: **PASS as staged authority**;
+- encrypted managed-backup repository v3 persistence/restore: **DEFERRED to 2b.43.4**;
+- real macOS Keychain / Android Keystore device behavior and supported-device privacy behavior: **native/manual integration outstanding**.
+
+A Q6 PASS therefore does not claim that the planned encrypted-v3 repository cutover or real-device secure-store integration has already occurred.
 
 
-## Current test/requirement traceability
+### Q6 independent rerun — current Q5 topology
 
-| Property being checked | Primary current mechanism | Evidence type | What it does **not** establish alone |
-| --- | --- | --- | --- |
-| Package/build identity and baseline configuration | `validate-version-v0.12.6-build-2b43.sh`, Dioxus/deployment validators | Static/configuration | Runtime correctness or security |
-| Editor document grammar | `validate-editor-document-spec.mjs`, `validate-editor-document-contract.mjs`, shared corpus | Executable JS/spec contract | Native Dioxus/WebView integration |
-| Editor/PDF/browser behavior | `run-browser-behavior-tests.mjs`; dependency-backed mode with `--require-editor-deps` | Executable JS behavior/source contracts | Rust storage, Keychain, filesystem crash semantics |
-| Architecture A0–B6 | `validate-architecture-*.sh` | Predominantly source/static guards; some chained behavior tests | End-to-end native correctness merely because patterns are present |
-| E0–E3 security | `validate-security-*.sh` plus Rust tests embedded in affected modules | Static contract guards + executable Rust regressions when Cargo runs | Cryptographic proof, hostile OS, or hardware/device behavior |
-| Vault I1–I7 / privacy authority | `validate-vault-*.sh` + Rust concurrency/ownership tests | Source/static guards + executable Rust tests | Current certification if only static mode ran |
-| Backup 2b.43 key/format authority | `validate-backup-2b43-1/2/3-*.sh` | Contract/static/source tests | Deployed encrypted-v3 writer/restore, which is not yet integrated |
-| Native build quality | `cargo fmt`, `cargo check`, strict `cargo clippy`, `cargo test` | Compiled native/toolchain QA | Supported-device matrix, signing/notarization, manual UI/adversarial behavior |
-| Feature-gated native lifetime tests | `cargo clippy/test --all-features`; notably `internal-test-support` binary tests | Compiled feature-matrix QA | **Not currently included by configured CI's Clippy/test commands** |
-| macOS deployment | prepared-runtime build + Mach-O deployment validator | Native artifact inspection | Keychain privacy semantics or general application correctness |
-| Keychain/OS privacy lifetime | Manual/adversarial supported-device testing | Native integration/manual | Cannot be replaced by source grep or mock secure-store tests |
+The post-Q5 de-novo rerun adds direct behavioral coverage for protected plaintext/editable export rejection and for protected note+attachment managed-backup restore after live protected ciphertext has been retired. It also expands owner traceability so representative native regressions across ownership, publication, concurrency, crash recovery, attachments, revisions, FTS/WAL, restores and descriptor lifetimes cannot silently disappear while the aggregate Cargo suite remains otherwise green.
 
-**Static phrase/presence checks are regression guards, not behavioral proof.** Their strongest use is preventing a known architecture from silently drifting. Where a security requirement depends on ordering, concurrency, crash recovery, filesystem behavior, cryptographic round-trip, or OS integration, closure should include an executable behavioral/property test at the lowest useful boundary and a native integration test when the OS boundary matters.
-
-See [historical evidence](qa/HISTORICAL_EVIDENCE.md) for how older reports mixed these evidence classes.
-
-## Current native feature-coverage finding
-
-The native compile history repeatedly used `--all-features` after 2b.17 introduced the zero-dependency `internal-test-support` feature. Current source still contains protected PDF Lock-lifetime binary tests gated by `#[cfg(feature = "internal-test-support")]`, while the configured macOS CI runs `cargo clippy --workspace --all-targets --locked` and `cargo test --workspace --locked` **without** `--all-features`.
-
-Therefore those feature-gated tests are not part of the configured CI invocation. This is recorded as a **coverage gap**, not an implementation failure. See [native toolchain history](development/NATIVE_TOOLCHAIN_HISTORY.md). Batch 5 does not alter CI.
-
-## Manual and adversarial gates before distribution
-
-1. Exercise native macOS **Keychain** first creation, existing root retrieval, denied/unavailable store, missing/deleted/corrupt root, invalid envelope, and supported-device/OS behavior.
-2. Test privacy lock/unlock and stale async publication under concurrency, including title/body/attachments, dialogs, UI caches, temporary staging, revisions, SQLite/FTS/WAL and backups.
-3. Cover failure, cancellation, interrupted filesystem operations, process-death/restart, recovery and cleanup ownership.
-4. Test the **actual deployed** encrypted-backup persistence/restore format and fail-closed behavior **once the planned 2b.43.4 repository-v3 cutover exists**. Staged keyset tests alone are insufficient.
-5. Validate `Rustnote.app` on supported macOS versions and relevant Apple Silicon and Intel hardware. Audit signing/notarization separately before a distributed release.
-6. Review dependencies and secrets, run targeted QA for each changed surface, and comprehensive source/native/browser/security QA after significant cross-cutting changes.
-
-## Boundary of this documentation pass
-
-The historical `QA_*` corpus has now been consolidated as evidence history. This documentation pass **does not redesign the executable QA suite**: no validator, test, or CI behavior is changed. Report dependencies that remain in validators are recorded as technical debt for the separate QA-refinement effort.
+The backup suite now explicitly distinguishes **staged v3 key/header/keyset authority** from the **active v2 managed repository**. Encrypted v3 snapshot/index/manifest/blob persistence and restore remain outside current closure until the planned cutover is implemented and independently audited.

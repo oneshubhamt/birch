@@ -113,7 +113,15 @@ fn ensure_private_leaf_directory(path: &Path) -> io::Result<()> {
             }
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            fs::create_dir(path)?;
+            // Another Rustnote thread/process may create this stable private leaf
+            // after our absence check. Treat AlreadyExists as a benign race only
+            // after re-inspecting the final path below; a symlink or non-directory
+            // created by a competing actor still fails closed.
+            match fs::create_dir(path) {
+                Ok(()) => {}
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error),
+            }
             let metadata = fs::symlink_metadata(path)?;
             if metadata.file_type().is_symlink() || !metadata.is_dir() {
                 return Err(io::Error::new(
@@ -302,6 +310,38 @@ mod tests {
             "sensitive namespace must live under the per-user Rustnote temp root",
         );
         let _ = fs::remove_dir_all(path);
+    }
+
+    #[test]
+    fn concurrent_private_leaf_creation_accepts_only_the_safe_directory() {
+        use std::sync::{Arc, Barrier};
+
+        let parent = root("concurrent-leaf-parent");
+        fs::create_dir(&parent).expect("parent");
+        let path = parent.join("shared-private-leaf");
+        let workers = 32;
+        let barrier = Arc::new(Barrier::new(workers));
+        let mut threads = Vec::with_capacity(workers);
+
+        for _ in 0..workers {
+            let barrier = Arc::clone(&barrier);
+            let path = path.clone();
+            threads.push(std::thread::spawn(move || {
+                barrier.wait();
+                ensure_private_leaf_directory(&path)
+            }));
+        }
+
+        for thread in threads {
+            thread
+                .join()
+                .expect("private-leaf worker must not panic")
+                .expect("safe concurrent private-leaf creation must succeed");
+        }
+        let metadata = fs::symlink_metadata(&path).expect("private leaf metadata");
+        assert!(metadata.is_dir());
+        assert!(!metadata.file_type().is_symlink());
+        let _ = fs::remove_dir_all(parent);
     }
 
     #[cfg(unix)]

@@ -24,8 +24,7 @@ BUILD_ID="$(tr -d '[:space:]' < build-id.txt)"
   exit 1
 }
 
-./scripts/validate-macos-deployment-target.sh
-./scripts/validate-dioxus-0.7.10-baseline.sh
+./scripts/qa-toolchain.sh
 
 echo "Preparing Rustnote browser runtimes..."
 ./scripts/prepare-rustnote-browser-runtimes.sh

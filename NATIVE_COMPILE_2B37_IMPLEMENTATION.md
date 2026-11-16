@@ -1,3 +1,0 @@
-# Rustnote 2b.37 implementation
-
-The two warnings were dead-reference fallout from 2b.36 rather than missing behavior. `ui/note_card.rs` no longer imports `PrivacyPublicationToken` because the file does not use that type after selected-note republishing was simplified to the caller-owned publication lease. `EditorPane` no longer destructures a local `note_selection_generation` binding because the live generation is still passed authoritatively through `library_state.note_selection_generation`. No security, synchronization, selection, Vault transition, storage, cryptography, schema, search, attachment, or editor behavior changed. No warning suppression was added.

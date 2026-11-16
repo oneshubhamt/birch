@@ -18,8 +18,7 @@ command -v xcrun >/dev/null 2>&1 || {
   exit 1
 }
 
-./scripts/validate-macos-deployment-target.sh
-./scripts/validate-dioxus-0.7.10-baseline.sh
+./scripts/qa-toolchain.sh
 ./scripts/prepare-rustnote-browser-runtimes.sh
 
 echo "Building optimized Rustnote..."

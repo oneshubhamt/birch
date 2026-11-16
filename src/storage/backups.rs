@@ -431,6 +431,12 @@ impl Storage {
                     None,
                 )?;
             }
+            // Durable orphan-quarantine owners are valid steady-state live-library
+            // cleanup authority, but quarantine itself is deliberately excluded
+            // from archives. Strip only those settled owner rows from the snapshot
+            // copy; all other operational/plaintext ownership rows remain and are
+            // rejected by validate_snapshot_database below.
+            super::plaintext_staging::strip_snapshot_excluded_quarantine_ownership(&mut target)?;
             let journal_mode: String =
                 target.query_row("PRAGMA journal_mode = DELETE", [], |row| row.get(0))?;
             if !journal_mode.eq_ignore_ascii_case("delete") {
@@ -1217,6 +1223,12 @@ impl Storage {
     ) -> StorageResult<()> {
         self.create_restore_safety_backup_unlocked("complete archive restore")?;
 
+        // The incoming archive intentionally excludes ordinary attachment
+        // quarantine. Retire that disposable old-library plaintext while the
+        // current database still owns it; otherwise the SQLite snapshot switch
+        // would drop its durable owner row while leaving the file behind.
+        self.discard_settled_orphan_quarantine_unlocked()?;
+
         let rollback_directory = allocate_restore_stage_directory("restore-rollback")?;
         let rollback_database = rollback_directory.join(DATABASE_ARCHIVE_PATH);
         let rollback_snapshot = self.create_database_snapshot(&rollback_database);
@@ -1966,6 +1978,45 @@ mod export_tests {
         assert!(text.starts_with("Export target\n\n"));
         assert!(text.contains("Welcome to Rustnote"));
 
+        let _ = fs::remove_dir_all(root);
+    }
+    #[test]
+    fn protected_note_plaintext_and_markdown_exports_fail_closed() {
+        let (storage, root) = test_storage("protected-note-export-boundary");
+        let note = save_export_note(&storage, "Protected export target");
+        storage
+            .protect_note_with_password(&note.id, b"correct horse battery staple")
+            .expect("protect export target");
+
+        let export_parent = root.join("exports");
+        fs::create_dir_all(&export_parent).expect("create export parent");
+
+        let markdown_error = storage
+            .export_markdown_note(&export_parent, &note.id)
+            .expect_err("protected Markdown export must fail closed");
+        assert!(
+            markdown_error
+                .to_string()
+                .contains("protected notes cannot be included in plaintext Markdown exports"),
+            "unexpected protected Markdown rejection: {markdown_error}"
+        );
+
+        let text_path = export_parent.join("protected.txt");
+        let text_error = storage
+            .export_note_plain_text(&note.id, &text_path)
+            .expect_err("protected plain-text export must fail closed");
+        assert!(
+            text_error
+                .to_string()
+                .contains("protected notes cannot be included in plaintext exports"),
+            "unexpected protected text rejection: {text_error}"
+        );
+        assert!(
+            !text_path.exists(),
+            "failed protected export must not publish a plaintext destination"
+        );
+
+        drop(storage);
         let _ = fs::remove_dir_all(root);
     }
 }

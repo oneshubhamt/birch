@@ -1,3 +1,0 @@
-# Native Compile 2b.39 Implementation
-
-Implemented privacy-aware deferred navigation without weakening PrivacyCoordinator admission. Added NotesListState helpers that wait asynchronously for fresh publication authority and retry synchronization when an unrelated Vault transition invalidates an in-flight token. Selection requests remain generation-cancelled so only the latest click proceeds. New-note creation is executed at most once and waits only for publication after creation if privacy changes mid-operation. Notebook/library navigation uses the same authority. Editor session stabilization now matches the 8-second bridge readiness contract. Vault authentication failures map to clear incorrect-password messages. Toast backgrounds are opaque.

@@ -1821,6 +1821,244 @@ mod vault_backup_location_tests {
     }
 
     #[test]
+    fn repository_snapshot_restore_round_trips_note_and_attachment_through_library_restore() {
+        let root = temp_root("repository-restore-roundtrip");
+        let data = root.join("library");
+        let backups = root.join("backups");
+        let storage = Storage::at_with_backup(data.clone(), backups.clone()).expect("storage");
+
+        let mut note = storage.create_note(None).expect("create note");
+        note.title = "repository snapshot title".to_string();
+        let note = storage.save_note_owned(note).expect("save snapshot note");
+
+        let source = root.join("snapshot-attachment.txt");
+        let attachment_bytes = b"repository snapshot attachment bytes";
+        fs::write(&source, attachment_bytes).expect("write attachment source");
+        let attachment = storage
+            .add_attachment_file_as(
+                &note.id,
+                "snapshot-attachment.txt",
+                Some("text/plain"),
+                &source,
+            )
+            .expect("add snapshot attachment");
+
+        storage
+            .maybe_create_automatic_backup()
+            .expect("create repository snapshot")
+            .expect("first automatic snapshot");
+        let status = storage
+            .backup_repository_status()
+            .expect("repository status after snapshot");
+        let snapshot_id = status
+            .snapshots
+            .iter()
+            .find(|snapshot| snapshot.kind == BackupSnapshotKind::Automatic)
+            .expect("automatic snapshot")
+            .snapshot_id
+            .clone();
+
+        let mut changed = storage
+            .get_note(&note.id)
+            .expect("read current note")
+            .expect("current note exists");
+        changed.title = "mutated after snapshot".to_string();
+        storage.save_note_owned(changed).expect("save mutation");
+        storage
+            .remove_attachment(&attachment.id)
+            .expect("remove current attachment");
+        assert!(
+            storage
+                .list_attachments(&note.id)
+                .expect("list mutated attachments")
+                .is_empty(),
+            "precondition: live library must differ from the selected snapshot",
+        );
+
+        storage
+            .restore_backup_repository_snapshot(&snapshot_id)
+            .expect("restore repository snapshot");
+
+        let restored_note = storage
+            .get_note(&note.id)
+            .expect("read restored note")
+            .expect("restored note exists");
+        assert_eq!(restored_note.title, "repository snapshot title");
+
+        let restored_attachments = storage
+            .list_attachments(&note.id)
+            .expect("list restored attachments");
+        assert_eq!(restored_attachments.len(), 1);
+        assert_eq!(restored_attachments[0].id, attachment.id);
+        assert_eq!(restored_attachments[0].file_name, "snapshot-attachment.txt");
+        let restored_path = storage
+            .attachment_file_path(&restored_attachments[0])
+            .expect("restored attachment path");
+        assert_eq!(
+            fs::read(restored_path).expect("read restored attachment"),
+            attachment_bytes
+        );
+        assert!(
+            storage
+                .audit_attachments()
+                .expect("audit restored attachments")
+                .is_clean(),
+            "repository restore must leave canonical attachment ownership consistent",
+        );
+
+        drop(storage);
+        let reopened =
+            Storage::at_with_backup(data, backups).expect("reopen restored repository library");
+        let reopened_note = reopened
+            .get_note(&note.id)
+            .expect("read reopened restored note")
+            .expect("reopened restored note exists");
+        assert_eq!(reopened_note.title, "repository snapshot title");
+        assert_eq!(
+            reopened
+                .list_attachments(&note.id)
+                .expect("list reopened restored attachments")
+                .len(),
+            1,
+            "restart verification must not find an unowned orphan left by Restore",
+        );
+
+        drop(reopened);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn repository_snapshot_restore_recovers_protected_note_and_attachment_ciphertext() {
+        let root = temp_root("repository-protected-restore");
+        let data = root.join("library");
+        let backups = root.join("backups");
+        let storage = Storage::at_with_backup(data.clone(), backups.clone()).expect("storage");
+        let password = b"correct horse battery staple";
+
+        let mut note = storage.create_note(None).expect("create note");
+        note.title = "protected snapshot title".to_string();
+        let note = storage.save_note_owned(note).expect("save note");
+
+        let source = root.join("protected-snapshot.txt");
+        let attachment_bytes = b"protected repository snapshot attachment bytes";
+        fs::write(&source, attachment_bytes).expect("write attachment source");
+        let attachment = storage
+            .add_attachment_file_as(
+                &note.id,
+                "protected-snapshot.txt",
+                Some("text/plain"),
+                &source,
+            )
+            .expect("add attachment");
+
+        storage
+            .protect_note_with_password(&note.id, password)
+            .expect("protect note");
+        storage
+            .lock_protected_note(&note.id)
+            .expect("lock protected note");
+
+        storage
+            .maybe_create_automatic_backup()
+            .expect("create protected repository snapshot")
+            .expect("first automatic snapshot");
+        let status = storage
+            .backup_repository_status()
+            .expect("repository status after protected snapshot");
+        let snapshot_id = status
+            .snapshots
+            .iter()
+            .find(|snapshot| snapshot.kind == BackupSnapshotKind::Automatic)
+            .expect("automatic snapshot")
+            .snapshot_id
+            .clone();
+
+        // Remove protection after the snapshot. This retires the live protected
+        // blob, so Restore must recover the encrypted graph/blob from the
+        // managed repository rather than succeed by reusing live ciphertext.
+        let mut ordinary = storage
+            .remove_note_protection_with_password(&note.id, password)
+            .expect("remove protection after snapshot");
+        ordinary.title = "mutated after protected snapshot".to_string();
+        storage.save_note_owned(ordinary).expect("save mutation");
+
+        storage
+            .restore_backup_repository_snapshot(&snapshot_id)
+            .expect("restore protected repository snapshot");
+
+        let restored = storage
+            .unlock_protected_note(&note.id, password)
+            .expect("unlock restored protected note");
+        assert_eq!(restored.title, "protected snapshot title");
+        let restored_attachments = storage
+            .list_attachments(&note.id)
+            .expect("list restored protected attachments");
+        assert_eq!(restored_attachments.len(), 1);
+        assert_eq!(restored_attachments[0].id, attachment.id);
+        assert_eq!(restored_attachments[0].file_name, "protected-snapshot.txt");
+
+        let attachment_store = storage.attachment_store();
+        let restored_file = attachment_store
+            .attachment_file_resource(&restored_attachments[0])
+            .expect("materialize restored protected attachment");
+        assert_eq!(
+            fs::read(restored_file.path()).expect("read restored protected attachment"),
+            attachment_bytes
+        );
+        drop(restored_file);
+        drop(attachment_store);
+        storage
+            .lock_protected_note(&note.id)
+            .expect("re-lock restored note");
+
+        drop(storage);
+        let reopened =
+            Storage::at_with_backup(data, backups).expect("reopen restored protected library");
+        let reopened_note = reopened
+            .unlock_protected_note(&note.id, password)
+            .expect("unlock protected note after restart");
+        assert_eq!(reopened_note.title, "protected snapshot title");
+        assert_eq!(
+            reopened
+                .list_attachments(&note.id)
+                .expect("list protected attachments after restart")
+                .len(),
+            1
+        );
+
+        drop(reopened);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn snapshot_sanitization_does_not_hide_active_plaintext_staging() {
+        let root = temp_root("snapshot-active-plaintext-stage");
+        let storage =
+            Storage::at_with_backup(root.join("library"), root.join("backups")).expect("storage");
+        let note = storage.create_note(None).expect("create note");
+        let staging_relative_path = format!(".incoming/{}.tmp", new_id("q6-stage"));
+        let mut owner = storage
+            .reserve_attachment_owned_plaintext(&note.id, &staging_relative_path)
+            .expect("reserve active plaintext staging");
+
+        let error = storage
+            .create_safety_repository_snapshot_unlocked("Q6 active plaintext staging")
+            .expect_err("active managed plaintext staging must block snapshots");
+        assert!(
+            error
+                .to_string()
+                .contains("unresolved attachment operation"),
+            "unexpected snapshot rejection: {error}"
+        );
+
+        storage
+            .discard_owned_plaintext(&mut owner)
+            .expect("retire active staging owner");
+        drop(storage);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn vault_reset_purges_historical_owned_repository_without_deleting_parent() {
         let root = temp_root("historical-backup-reset");
         let data = root.join("library");
