@@ -399,3 +399,12 @@ The replacement authority is code-driven: E0–E3 structural policies are assert
 Q4 removed executable dependence on all 35 root `QA_*.md` reports. The deletion gate was deliberately two-stage: commit `7599016a42d748e93b1bf024d47a9929eb6c5671` retained all 35 reports while the new repository-wide executable/source guard proved zero `QA_*.md` references; hosted Actions run `43775427881` then passed that guard, the source/browser suite, all-target/all-feature Rust check, strict Clippy and the all-feature Rust test suite before deletion.
 
 The security/Vault reports were provenance or PASS-wording inputs only; their real publication, ownership, residue, forensic and crash/recovery assertions remain in code-driven validators and executable Rust/JS tests. Backup 2b.43.1 no longer treats its historical `contract-only PASS` wording as evidence: the validator now checks the implemented `BackupKeyAuthority`, secure-store boundary and fail-closed regression owners directly. The 35 reports are Git-only after Q4.
+
+
+## Q5 execution note
+
+Q5 replaced pass-history validator topology with five independent concern suites plus one composition-only release runner. A hosted side-by-side checkpoint on Actions run `43778827130` executed the pre-Q5 source runner and `qa-release.sh` on the same revision; both passed, with the old runner at **3.10 s** and the new concern suite at **2.03 s** before historical-wrapper deletion.
+
+After retirement and stronger topology checks, Actions run `43779613301` passed the concern suites, the post-cleanup topology audit and the dependency-backed editor/bridge tests. The permanent post-cleanup source suite measured **2.45 s**, about **21% faster** than the 3.10 s old-runner comparison while enforcing stricter ownership/topology rules.
+
+Static topology changed from **89 validators / 76 pass-numbered / 136 inter-validator edges / depth 32 / 10 validator-source readers / 12 Cargo occurrences / 14 browser-runner occurrences / 10,809 lines** to **3 artifact validators / 0 pass-numbered / 1 artifact-helper edge / depth 2 / 0 validator-source readers / 0 Cargo occurrences / 0 browser-runner occurrences / 363 lines**. The current concern graph itself is exactly `qa-release -> five leaves`, depth 2. Dependency-free editor/PDF/security behavior is owned by the concern suites; CI runs only the two dependency-backed ProseMirror/bridge tests after `npm ci`. Cargo check, Clippy, tests and release build each have one native-CI owner.

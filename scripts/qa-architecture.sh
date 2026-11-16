@@ -23,6 +23,7 @@ import re
 root = Path(".")
 
 # Documentation is provenance/specification, never an executable oracle.
+# The same traversal also rejects references to retired historical validators.
 exec_roots = (
     Path(".github"), Path("scripts"), Path("tests"), Path("src"), Path("crates"),
     Path("tools"), Path("editor-src"), Path("pdf-src"),
@@ -35,7 +36,15 @@ banned_docs = (
     re.compile(r"(?<!QA_)SECURITY_E0_E3_(?:REMEDIATION_2A\d+|CLOSURE_2A19)\.md"),
     re.compile(r"(?<!QA_)VAULT_2B[A-Z0-9_]+\.md"),
 )
-violations = []
+allowed_validator_helpers = {
+    "validate-macos-binary-deployment-target.sh",
+    "validate-prepared-runtime.sh",
+    "validate-rustnote-macos-app.sh",
+}
+allowed_validator_refs = {f"scripts/{name}" for name in allowed_validator_helpers}
+legacy_ref = re.compile(r"scripts/(validate-[A-Za-z0-9._-]+\.sh)")
+doc_violations = []
+validator_ref_violations = []
 for base in exec_roots:
     if not base.exists():
         continue
@@ -46,9 +55,21 @@ for base in exec_roots:
             continue
         text = path.read_text(errors="ignore")
         if any(pattern.search(text) for pattern in banned_docs):
-            violations.append(path.as_posix())
-if violations:
-    raise SystemExit("executable documentation dependency returned:\n- " + "\n- ".join(sorted(set(violations))))
+            doc_violations.append(path.as_posix())
+        for reference in legacy_ref.findall(text):
+            full = f"scripts/{reference}"
+            if full not in allowed_validator_refs:
+                validator_ref_violations.append(f"{path}: {full}")
+if doc_violations:
+    raise SystemExit(
+        "executable documentation dependency returned:\n- "
+        + "\n- ".join(sorted(set(doc_violations)))
+    )
+if validator_ref_violations:
+    raise SystemExit(
+        "retired validator reference returned:\n- "
+        + "\n- ".join(sorted(set(validator_ref_violations)))
+    )
 
 # Only qa-release composes concern suites.
 suite_names = (
@@ -76,32 +97,17 @@ for name in suite_names:
         raise SystemExit(f"qa-release must invoke {name} exactly once")
 
 # Historical wrappers are retired. Only artifact-specific validators remain.
-allowed_validator_helpers = {
-    "validate-macos-binary-deployment-target.sh",
-    "validate-prepared-runtime.sh",
-    "validate-rustnote-macos-app.sh",
-}
 actual_validators = {path.name for path in Path("scripts").glob("validate-*.sh")}
 if actual_validators != allowed_validator_helpers:
     raise SystemExit(
         f"validator surface drift: actual={sorted(actual_validators)} expected={sorted(allowed_validator_helpers)}"
     )
-
-legacy_ref = re.compile(r"scripts/(validate-[A-Za-z0-9._-]+\.sh)")
-allowed_refs = {f"scripts/{name}" for name in allowed_validator_helpers}
-bad_refs = []
-for base in exec_roots:
-    if not base.exists():
-        continue
-    for path in base.rglob("*"):
-        if not path.is_file() or path.suffix not in allowed or path == Path("scripts/qa-architecture.sh"):
-            continue
-        for reference in legacy_ref.findall(path.read_text(errors="ignore")):
-            full = f"scripts/{reference}"
-            if full not in allowed_refs:
-                bad_refs.append(f"{path}: {full}")
-if bad_refs:
-    raise SystemExit("retired validator reference returned:\n- " + "\n- ".join(sorted(set(bad_refs))))
+for retired_runner in (
+    Path("scripts/ci-source-checks.sh"),
+    Path("scripts/q5-topology-audit.py"),
+):
+    if retired_runner.exists():
+        raise SystemExit(f"temporary/historical QA runner returned: {retired_runner}")
 
 cargo_call = re.compile(r"(?m)^\s*(?:/usr/bin/time\s+-p\s+)?cargo\s+(?:check|clippy|test|build)\b")
 browser_call = re.compile(r"(?m)^\s*node\s+scripts/run-browser-behavior-tests\.mjs\b")

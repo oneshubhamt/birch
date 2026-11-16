@@ -29,9 +29,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Validate concern-based source suites
-        run: /usr/bin/time -p bash scripts/qa-release.sh
-      - name: Q5 post-cleanup topology benchmark
-        run: python3 scripts/q5-topology-audit.py
+        run: bash scripts/qa-release.sh
       - name: Install pinned editor test dependencies
         run: npm ci --prefix editor-build --no-audit --no-fund
       - name: Run dependency-backed editor behavior
