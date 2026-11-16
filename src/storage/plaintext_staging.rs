@@ -1271,10 +1271,8 @@ pub(super) fn strip_snapshot_excluded_quarantine_ownership(
             && transfer_state.is_none()
             && validate_orphan_blob_relative_path(&relative_path).is_ok();
         if settled_quarantine {
-            removed += transaction.execute(
-                "DELETE FROM managed_plaintext_staging WHERE id = ?1",
-                [&id],
-            )?;
+            removed += transaction
+                .execute("DELETE FROM managed_plaintext_staging WHERE id = ?1", [&id])?;
         }
     }
     transaction.commit()?;
