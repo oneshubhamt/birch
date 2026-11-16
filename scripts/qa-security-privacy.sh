@@ -83,9 +83,9 @@ for marker in (
 coordinator = Path("src/security/privacy_coordinator.rs").read_text()
 for marker in (
     "PrivacyCoordinator",
-    "capture_note",
-    "capture_multi_note",
-    "begin_library_operation",
+    "capture_note_publication_authorization",
+    "capture_multi_note_publication_authorization",
+    "begin_whole_library_operation",
 ):
     if marker not in coordinator:
         raise SystemExit(f"privacy authority marker missing: {marker}")
