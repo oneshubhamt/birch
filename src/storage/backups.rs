@@ -1225,6 +1225,12 @@ impl Storage {
     ) -> StorageResult<()> {
         self.create_restore_safety_backup_unlocked("complete archive restore")?;
 
+        // The incoming archive intentionally excludes ordinary attachment
+        // quarantine. Retire that disposable old-library plaintext while the
+        // current database still owns it; otherwise the SQLite snapshot switch
+        // would drop its durable owner row while leaving the file behind.
+        self.discard_settled_orphan_quarantine_unlocked()?;
+
         let rollback_directory = allocate_restore_stage_directory("restore-rollback")?;
         let rollback_database = rollback_directory.join(DATABASE_ARCHIVE_PATH);
         let rollback_snapshot = self.create_database_snapshot(&rollback_database);

@@ -1825,7 +1825,8 @@ mod vault_backup_location_tests {
         let root = temp_root("repository-restore-roundtrip");
         let data = root.join("library");
         let backups = root.join("backups");
-        let storage = Storage::at_with_backup(data, backups).expect("storage");
+        let storage =
+            Storage::at_with_backup(data.clone(), backups.clone()).expect("storage");
 
         let mut note = storage.create_note(None).expect("create note");
         note.title = "repository snapshot title".to_string();
@@ -1909,6 +1910,23 @@ mod vault_backup_location_tests {
         );
 
         drop(storage);
+        let reopened =
+            Storage::at_with_backup(data, backups).expect("reopen restored repository library");
+        let reopened_note = reopened
+            .get_note(&note.id)
+            .expect("read reopened restored note")
+            .expect("reopened restored note exists");
+        assert_eq!(reopened_note.title, "repository snapshot title");
+        assert_eq!(
+            reopened
+                .list_attachments(&note.id)
+                .expect("list reopened restored attachments")
+                .len(),
+            1,
+            "restart verification must not find an unowned orphan left by Restore",
+        );
+
+        drop(reopened);
         let _ = fs::remove_dir_all(root);
     }
 
