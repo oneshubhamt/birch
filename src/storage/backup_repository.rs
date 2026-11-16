@@ -1821,6 +1821,98 @@ mod vault_backup_location_tests {
     }
 
     #[test]
+    fn repository_snapshot_restore_round_trips_note_and_attachment_through_library_restore() {
+        let root = temp_root("repository-restore-roundtrip");
+        let data = root.join("library");
+        let backups = root.join("backups");
+        let storage = Storage::at_with_backup(data, backups).expect("storage");
+
+        let mut note = storage.create_note(None).expect("create note");
+        note.title = "repository snapshot title".to_string();
+        let note = storage.save_note_owned(note).expect("save snapshot note");
+
+        let source = root.join("snapshot-attachment.txt");
+        let attachment_bytes = b"repository snapshot attachment bytes";
+        fs::write(&source, attachment_bytes).expect("write attachment source");
+        let attachment = storage
+            .add_attachment_file_as(
+                &note.id,
+                "snapshot-attachment.txt",
+                Some("text/plain"),
+                &source,
+            )
+            .expect("add snapshot attachment");
+
+        storage
+            .maybe_create_automatic_backup()
+            .expect("create repository snapshot")
+            .expect("first automatic snapshot");
+        let status = storage
+            .backup_repository_status()
+            .expect("repository status after snapshot");
+        let snapshot_id = status
+            .snapshots
+            .iter()
+            .find(|snapshot| snapshot.kind == BackupSnapshotKind::Automatic)
+            .expect("automatic snapshot")
+            .snapshot_id
+            .clone();
+
+        let mut changed = storage
+            .get_note(&note.id)
+            .expect("read current note")
+            .expect("current note exists");
+        changed.title = "mutated after snapshot".to_string();
+        storage.save_note_owned(changed).expect("save mutation");
+        storage
+            .remove_attachment(&attachment.id)
+            .expect("remove current attachment");
+        assert!(
+            storage
+                .list_attachments(&note.id)
+                .expect("list mutated attachments")
+                .is_empty(),
+            "precondition: live library must differ from the selected snapshot",
+        );
+
+        let restored = storage
+            .restore_backup_repository_snapshot(&snapshot_id)
+            .expect("restore repository snapshot");
+        assert_eq!(restored.note_count, 1);
+        assert_eq!(restored.attachment_count, 1);
+
+        let restored_note = storage
+            .get_note(&note.id)
+            .expect("read restored note")
+            .expect("restored note exists");
+        assert_eq!(restored_note.title, "repository snapshot title");
+
+        let restored_attachments = storage
+            .list_attachments(&note.id)
+            .expect("list restored attachments");
+        assert_eq!(restored_attachments.len(), 1);
+        assert_eq!(restored_attachments[0].id, attachment.id);
+        assert_eq!(restored_attachments[0].file_name, "snapshot-attachment.txt");
+        let restored_path = storage
+            .attachment_file_path(&restored_attachments[0])
+            .expect("restored attachment path");
+        assert_eq!(
+            fs::read(restored_path).expect("read restored attachment"),
+            attachment_bytes
+        );
+        assert!(
+            storage
+                .audit_attachments()
+                .expect("audit restored attachments")
+                .is_clean(),
+            "repository restore must leave canonical attachment ownership consistent",
+        );
+
+        drop(storage);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn vault_reset_purges_historical_owned_repository_without_deleting_parent() {
         let root = temp_root("historical-backup-reset");
         let data = root.join("library");

@@ -153,6 +153,28 @@ for path in Path("src").rglob("*.rs"):
     if "rusqlite::" in path.read_text(errors="ignore"):
         raise SystemExit(f"direct SQLite authority escaped storage: {path}")
 
+# E2 cryptographic primitive isolation: application/storage/UI use rustnote-vault
+# through the security facade rather than depending on AEGIS or Argon2 directly.
+with Path("Cargo.toml").open("rb") as handle:
+    root_manifest = __import__("tomllib").load(handle)
+for primitive in ("aegis", "argon2"):
+    if primitive in root_manifest.get("dependencies", {}):
+        raise SystemExit(f"low-level crypto primitive escaped rustnote-vault: root dependency {primitive}")
+
+crypto_leaks = []
+for base in (Path("src"), Path("crates")):
+    for path in base.rglob("*.rs"):
+        if path.is_relative_to(Path("crates/rustnote-vault")):
+            continue
+        source = path.read_text(errors="ignore")
+        if re.search(r"\b(?:aegis|argon2)::", source):
+            crypto_leaks.append(path.as_posix())
+if crypto_leaks:
+    raise SystemExit(
+        "low-level crypto primitive usage escaped rustnote-vault:\n- "
+        + "\n- ".join(sorted(set(crypto_leaks)))
+    )
+
 # One executor owns blocking application work.
 for path in Path("src").rglob("*.rs"):
     if path == Path("src/application/executor.rs"):
