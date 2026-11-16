@@ -52,3 +52,21 @@ Historical pass reports and removed validators remain available through immutabl
 ## Manual/adversarial gates before distribution
 
 Native distribution still requires supported-device checks for Keychain creation/retrieval/denial/loss/corruption, privacy lock/unlock and stale publication under concurrency, interrupted filesystem operations and restart recovery, actual encrypted-backup persistence/restore once that cutover exists, and app-bundle testing across supported macOS/hardware. Signing/notarization remains a separate release concern.
+
+## Q6 independent closure audit
+
+Q6 treats the streamlined suites themselves as untrusted and reconstructs the current editor, E0–E3 security/privacy and backup requirements from the governing specifications plus production source. The durable audit is [Q6 independent closure](qa/QA_INDEPENDENT_CLOSURE_Q6.md).
+
+The audit found and repaired one substantive current managed-backup defect: a normal attachment removal can leave a valid durably owned quarantine file, and the old snapshot/restore boundary could either reject the resulting safety snapshot or lose that quarantine owner at the whole-library SQLite handoff. Current snapshot copies now omit only positively validated settled quarantine ownership, while Restore strictly retires old-library quarantine before the database switch. Executable regressions prove exact note/attachment restore plus restart and separately prove that active managed plaintext staging still blocks snapshots.
+
+Q6 status is intentionally scoped:
+
+- current editor contract and runtime behavior: **PASS**;
+- implemented E0–E3 security/privacy, ownership, publication, concurrency, crash/recovery and residue invariants: **PASS after Q6 remediation**;
+- active managed-backup repository v2 snapshot/restore behavior: **PASS after Q6 remediation**;
+- staged 2b.43 key/header/keyset/secure-store abstraction authority: **PASS as staged authority**;
+- encrypted managed-backup repository v3 persistence/restore: **DEFERRED to 2b.43.4**;
+- real macOS Keychain / Android Keystore device behavior and supported-device privacy behavior: **native/manual integration outstanding**.
+
+A Q6 PASS therefore does not claim that the planned encrypted-v3 repository cutover or real-device secure-store integration has already occurred.
+

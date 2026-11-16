@@ -83,6 +83,7 @@ for forbidden in (
 
 for marker in (
     "repository_snapshot_restore_round_trips_note_and_attachment_through_library_restore",
+    "snapshot_sanitization_does_not_hide_active_plaintext_staging",
     "interrupted_vault_purge_recovers_after_arbitrary_repository_children_disappear",
     "restart_recovers_after_repository_removed_before_privacy_obligation_retirement",
     "steady_state_backup_writes_fail_closed_after_namespace_marker_loss",
