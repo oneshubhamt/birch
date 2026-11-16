@@ -72,10 +72,10 @@ if missing:
 
 vault = Path("crates/rustnote-vault/src/lib.rs").read_text()
 for marker in (
-    "AEGIS_256_TAG_BYTES",
-    "ARGON2_MEMORY_KIB",
-    "ARGON2_TIME_COST",
-    "ARGON2_LANES",
+    "const TAG_BYTES: usize = 32;",
+    "const V1_ARGON2_MEMORY_KIB: u32 = 64 * 1024;",
+    "const V1_ARGON2_TIME_COST: u32 = 3;",
+    "const V1_ARGON2_LANES: u32 = 4;",
 ):
     if marker not in vault:
         raise SystemExit(f"security crypto profile marker missing: {marker}")
