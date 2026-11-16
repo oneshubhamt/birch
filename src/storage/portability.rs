@@ -1479,8 +1479,7 @@ mod tests {
         fs::create_dir_all(&export_root).expect("create export root");
 
         for format in PortabilityFormat::ALL {
-            let destination =
-                export_root.join(format!("protected.{}", format.extension()));
+            let destination = export_root.join(format!("protected.{}", format.extension()));
             let error = storage
                 .export_portable_scope(&scope, format, &destination)
                 .expect_err("protected portability export must fail closed");

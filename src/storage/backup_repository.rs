@@ -1954,7 +1954,9 @@ mod vault_backup_location_tests {
         storage
             .protect_note_with_password(&note.id, password)
             .expect("protect note");
-        storage.lock_protected_note(&note.id).expect("lock protected note");
+        storage
+            .lock_protected_note(&note.id)
+            .expect("lock protected note");
 
         storage
             .maybe_create_automatic_backup()
@@ -2004,7 +2006,9 @@ mod vault_backup_location_tests {
             attachment_bytes
         );
         drop(restored_file);
-        storage.lock_protected_note(&note.id).expect("re-lock restored note");
+        storage
+            .lock_protected_note(&note.id)
+            .expect("re-lock restored note");
 
         drop(storage);
         let reopened =
@@ -2028,8 +2032,8 @@ mod vault_backup_location_tests {
     #[test]
     fn snapshot_sanitization_does_not_hide_active_plaintext_staging() {
         let root = temp_root("snapshot-active-plaintext-stage");
-        let storage = Storage::at_with_backup(root.join("library"), root.join("backups"))
-            .expect("storage");
+        let storage =
+            Storage::at_with_backup(root.join("library"), root.join("backups")).expect("storage");
         let note = storage.create_note(None).expect("create note");
         let staging_relative_path = format!(".incoming/{}.tmp", new_id("q6-stage"));
         let mut owner = storage
