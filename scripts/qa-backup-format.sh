@@ -11,6 +11,7 @@ authority = Path("src/security/backup_key_authority.rs").read_text()
 secure = Path("src/platform/secure_key_store.rs").read_text()
 vault = Path("crates/rustnote-vault/src/lib.rs").read_text()
 repository = Path("src/storage/backup_repository.rs").read_text()
+security_mod = Path("src/security/mod.rs").read_text()
 all_source = "\n".join(
     path.read_text(errors="ignore")
     for root in (Path("src"), Path("crates"))
@@ -81,8 +82,27 @@ for forbidden in (
     if forbidden in all_source:
         raise SystemExit(f"forbidden ordinary backup-root-key source returned: {forbidden}")
 
+# Q6 current-state boundary: v3 root/header/keyset authority is staged, while
+# the production managed repository writer/restore remains the privacy-hardened v2
+# implementation until the explicit encrypted-repository cutover.
+for marker in (
+    "const REPOSITORY_FORMAT_VERSION: u32 = 2;",
+    'const INDEX_FILE_NAME: &str = "repository.json";',
+):
+    if marker not in repository:
+        raise SystemExit(f"active managed-backup v2 boundary drifted: {marker}")
+if "staged backup key authority awaits encrypted backup repository integration" not in security_mod:
+    raise SystemExit("staged backup key authority is no longer explicitly staged; reassess v3 integration")
+for premature in ("RNBIDX01", "RNBMAN01", "RNBSNP01", "RNBBLB01"):
+    if premature in repository:
+        raise SystemExit(
+            f"active repository appears to have begun v3 object integration ({premature}); "
+            "Q6 staged-v3 assumptions must be re-audited"
+        )
+
 for marker in (
     "repository_snapshot_restore_round_trips_note_and_attachment_through_library_restore",
+    "repository_snapshot_restore_recovers_protected_note_and_attachment_ciphertext",
     "snapshot_sanitization_does_not_hide_active_plaintext_staging",
     "interrupted_vault_purge_recovers_after_arbitrary_repository_children_disappear",
     "restart_recovers_after_repository_removed_before_privacy_obligation_retirement",
@@ -91,5 +111,5 @@ for marker in (
     if f"fn {marker}" not in repository:
         raise SystemExit(f"backup repository recovery owner missing: {marker}")
 
-print("qa-backup-format: key authority, byte format, secure-store and recovery owners passed.")
+print("qa-backup-format: staged v3 key/header/keyset authority and active v2 repository recovery owners passed; encrypted v3 persistence/restore remains intentionally unasserted.")
 PY

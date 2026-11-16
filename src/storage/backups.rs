@@ -1980,4 +1980,44 @@ mod export_tests {
 
         let _ = fs::remove_dir_all(root);
     }
+    #[test]
+    fn protected_note_plaintext_and_markdown_exports_fail_closed() {
+        let (storage, root) = test_storage("protected-note-export-boundary");
+        let note = save_export_note(&storage, "Protected export target");
+        storage
+            .protect_note_with_password(&note.id, b"correct horse battery staple")
+            .expect("protect export target");
+
+        let export_parent = root.join("exports");
+        fs::create_dir_all(&export_parent).expect("create export parent");
+
+        let markdown_error = storage
+            .export_markdown_note(&export_parent, &note.id)
+            .expect_err("protected Markdown export must fail closed");
+        assert!(
+            markdown_error
+                .to_string()
+                .contains("protected notes cannot be included in plaintext Markdown exports"),
+            "unexpected protected Markdown rejection: {markdown_error}"
+        );
+
+        let text_path = export_parent.join("protected.txt");
+        let text_error = storage
+            .export_note_plain_text(&note.id, &text_path)
+            .expect_err("protected plain-text export must fail closed");
+        assert!(
+            text_error
+                .to_string()
+                .contains("protected notes cannot be included in plaintext exports"),
+            "unexpected protected text rejection: {text_error}"
+        );
+        assert!(
+            !text_path.exists(),
+            "failed protected export must not publish a plaintext destination"
+        );
+
+        drop(storage);
+        let _ = fs::remove_dir_all(root);
+    }
+
 }

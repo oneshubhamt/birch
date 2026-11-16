@@ -1465,6 +1465,44 @@ mod tests {
     }
 
     #[test]
+    fn protected_note_portability_exports_fail_closed_for_every_format() {
+        let (storage, root) = test_storage("protected-portability-export");
+        let mut note = storage.create_note(None).expect("create note");
+        note.title = "Protected portability target".to_string();
+        let note = storage.save_note_owned(note).expect("save note");
+        storage
+            .protect_note_with_password(&note.id, b"correct horse battery staple")
+            .expect("protect note");
+
+        let scope = PortabilityScope::Note(note.id.clone());
+        let export_root = root.join("exports");
+        fs::create_dir_all(&export_root).expect("create export root");
+
+        for format in PortabilityFormat::ALL {
+            let destination =
+                export_root.join(format!("protected.{}", format.extension()));
+            let error = storage
+                .export_portable_scope(&scope, format, &destination)
+                .expect_err("protected portability export must fail closed");
+            assert!(
+                error
+                    .to_string()
+                    .contains("protected notes cannot be included in plaintext"),
+                "unexpected protected {} rejection: {error}",
+                format.label()
+            );
+            assert!(
+                !destination.exists(),
+                "failed protected {} export must not publish output",
+                format.label()
+            );
+        }
+
+        drop(storage);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn undo_import_keeps_blob_cleanup_owned_until_unlink_succeeds() {
         let (storage, root) = test_storage("portable-undo-blob-owner");
         let note = storage.create_note(None).expect("test note");

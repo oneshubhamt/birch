@@ -22,7 +22,7 @@ The five concern suites are independently runnable and do not call one another. 
 | `qa-toolchain.sh` | package/build identity, pinned Rust/Dioxus/crypto dependencies, macOS deployment baseline |
 | `qa-editor-browser.sh` | canonical editor document specification plus dependency-free editor, note-list and PDF behavior |
 | `qa-security-privacy.sh` | crypto/profile owners, privacy publication/revocation, plaintext ownership, residue, crash/recovery and forensic JS contracts |
-| `qa-backup-format.sh` | managed-backup key authority, exact format constants, secure-store boundary and recovery/fail-closed owners |
+| `qa-backup-format.sh` | staged v3 backup root/header/keyset authority plus active v2 managed-repository recovery/fail-closed owners; it does not claim v3 persistence/restore |
 | `qa-architecture.sh` | one syntax scan, documentation decoupling, suite topology, layering, modularity, typed boundaries and storage-owned search |
 | `qa-release.sh` | composition only; no invariant logic |
 
@@ -43,7 +43,7 @@ The dependency-free JS files are owned by the concern suites. After `npm ci`, CI
 
 - Editor grammar: `editor-spec/document-spec.json`, `validation-cases.json`, JS/Rust adapters and executable corpus validation.
 - Security/privacy: all-feature Rust tests plus maintained JS publication, residue and profiling contracts; source assertions are limited to architecture/constants/owner traceability where runtime execution is not available in the Ubuntu source job.
-- Backup format/key authority: implementation constants/parsers and Rust behavioral owners; historical Markdown is not an executable oracle.
+- Backup authority: staged v3 root/header/keyset constants and fail-closed key authority are distinct from the active v2 managed-repository writer/restore. Q6 prevents the suite from presenting those as one completed encrypted-v3 implementation.
 - Native quality: hosted macOS all-feature compile/lint/test plus release build.
 - OS boundaries: Keychain/Keystore and supported-device behavior still require native/manual integration evidence where mocks or source structure cannot establish real OS behavior.
 
@@ -70,3 +70,9 @@ Q6 status is intentionally scoped:
 
 A Q6 PASS therefore does not claim that the planned encrypted-v3 repository cutover or real-device secure-store integration has already occurred.
 
+
+### Q6 independent rerun — current Q5 topology
+
+The post-Q5 de-novo rerun adds direct behavioral coverage for protected plaintext/editable export rejection and for protected note+attachment managed-backup restore after live protected ciphertext has been retired. It also expands owner traceability so representative native regressions across ownership, publication, concurrency, crash recovery, attachments, revisions, FTS/WAL, restores and descriptor lifetimes cannot silently disappear while the aggregate Cargo suite remains otherwise green.
+
+The backup suite now explicitly distinguishes **staged v3 key/header/keyset authority** from the **active v2 managed repository**. Encrypted v3 snapshot/index/manifest/blob persistence and restore remain outside current closure until the planned cutover is implemented and independently audited.

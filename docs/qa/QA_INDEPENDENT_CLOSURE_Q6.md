@@ -142,3 +142,22 @@ Likewise, a Q6 PASS is not signing/notarization, hardware certification, hostile
 For the **currently implemented** editor, E0–E3 privacy/security and active managed-backup v2 behavior, the de-novo requirement → invariant → executable-owner chain is complete **after the Q6 repairs above**. The audit found a real backup/restore ownership defect precisely because it did not trust the streamlined suite's prior green status.
 
 Final Q6 closure still requires the permanent concern suites, dependency-backed browser tests, all-target/all-feature native check, strict Clippy, all-feature Rust tests, release build and deployment-target inspection to pass together on the final Q6 revision.
+
+## 2026-11-16 independent rerun against the Q5 concern architecture
+
+This rerun was performed from the governing editor specification, E0–E3 contracts and 2b.43 contracts rather than accepting this document's earlier PASS language. The earlier report was treated as provenance only.
+
+### Additional de-novo findings
+
+1. **Behavioral export evidence was incomplete, although production checks were correct.** The current storage paths already rejected protected notes from note Markdown/plain-text export, editable TXT/Markdown/HTML portability export, and Rustnote-bundle export. Q6 added direct regressions for all of those surfaces so deletion/bypass of the fail-closed boundary becomes an executable failure rather than a source-review-only fact.
+2. **Managed-backup protected-state recovery lacked a direct adversarial round trip.** Q6 now snapshots a protected note plus attachment, removes protection afterward so the live protected ciphertext is retired, mutates the ordinary note, restores the repository snapshot, then unlocks and reopens the restored protected note and attachment. This proves the active v2 repository preserves the actual Vault graph/blob state rather than passing only ordinary-note or residue tests.
+3. **Concern-suite traceability was too sparse.** Many critical native regressions were executed by the all-feature Cargo job but were not named as required owners. qa-security-privacy.sh now pins representative owners for ownership, publication, crash recovery, attachment ingest/materialization, revisions, FTS/WAL, restore handoff, exports, autosave/journal, PDF/media descriptors, native staging/temp ownership and UI privacy generations. qa-editor-browser.sh similarly pins the Rust shared-corpus/parity owners. These are presence/traceability guards; Cargo remains the single execution owner.
+4. **Backup QA wording could overstate implementation.** qa-backup-format.sh now asserts the exact current split: staged v3 root/header/keyset authority, active managed-repository v2 writer/restore, and no claim that v3 small/bulk object persistence/restore already exists. The suite deliberately fails for reassessment when the active repository begins the v3 cutover.
+
+### Added executable owners
+
+- protected_note_plaintext_and_markdown_exports_fail_closed
+- protected_note_portability_exports_fail_closed_for_every_format
+- repository_snapshot_restore_recovers_protected_note_and_attachment_ciphertext
+
+The closure judgment remains scoped to currently implemented behavior. Encrypted managed-backup v3 persistence/restore remains **DEFERRED** to the explicit cutover milestone, and real Keychain/Keystore device behavior remains **NATIVE/MANUAL**.
