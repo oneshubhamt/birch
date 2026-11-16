@@ -1928,6 +1928,34 @@ mod vault_backup_location_tests {
     }
 
     #[test]
+    fn snapshot_sanitization_does_not_hide_active_plaintext_staging() {
+        let root = temp_root("snapshot-active-plaintext-stage");
+        let storage = Storage::at_with_backup(root.join("library"), root.join("backups"))
+            .expect("storage");
+        let note = storage.create_note(None).expect("create note");
+        let staging_relative_path = format!(".incoming/{}.tmp", new_id("q6-stage"));
+        let mut owner = storage
+            .reserve_attachment_owned_plaintext(&note.id, &staging_relative_path)
+            .expect("reserve active plaintext staging");
+
+        let error = storage
+            .create_safety_repository_snapshot_unlocked("Q6 active plaintext staging")
+            .expect_err("active managed plaintext staging must block snapshots");
+        assert!(
+            error
+                .to_string()
+                .contains("unresolved attachment operation"),
+            "unexpected snapshot rejection: {error}"
+        );
+
+        storage
+            .discard_owned_plaintext(&mut owner)
+            .expect("retire active staging owner");
+        drop(storage);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn vault_reset_purges_historical_owned_repository_without_deleting_parent() {
         let root = temp_root("historical-backup-reset");
         let data = root.join("library");

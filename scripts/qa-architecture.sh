@@ -19,6 +19,7 @@ done < <(find . -type f \( -name '*.js' -o -name '*.mjs' \) \
 python3 - <<'PY'
 from pathlib import Path
 import re
+import tomllib
 
 root = Path(".")
 
@@ -156,7 +157,7 @@ for path in Path("src").rglob("*.rs"):
 # E2 cryptographic primitive isolation: application/storage/UI use rustnote-vault
 # through the security facade rather than depending on AEGIS or Argon2 directly.
 with Path("Cargo.toml").open("rb") as handle:
-    root_manifest = __import__("tomllib").load(handle)
+    root_manifest = tomllib.load(handle)
 for primitive in ("aegis", "argon2"):
     if primitive in root_manifest.get("dependencies", {}):
         raise SystemExit(f"low-level crypto primitive escaped rustnote-vault: root dependency {primitive}")
