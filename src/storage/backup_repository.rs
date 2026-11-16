@@ -1825,8 +1825,7 @@ mod vault_backup_location_tests {
         let root = temp_root("repository-restore-roundtrip");
         let data = root.join("library");
         let backups = root.join("backups");
-        let storage =
-            Storage::at_with_backup(data.clone(), backups.clone()).expect("storage");
+        let storage = Storage::at_with_backup(data.clone(), backups.clone()).expect("storage");
 
         let mut note = storage.create_note(None).expect("create note");
         note.title = "repository snapshot title".to_string();

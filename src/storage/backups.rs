@@ -436,9 +436,7 @@ impl Storage {
             // from archives. Strip only those settled owner rows from the snapshot
             // copy; all other operational/plaintext ownership rows remain and are
             // rejected by validate_snapshot_database below.
-            super::plaintext_staging::strip_snapshot_excluded_quarantine_ownership(
-                &mut target,
-            )?;
+            super::plaintext_staging::strip_snapshot_excluded_quarantine_ownership(&mut target)?;
             let journal_mode: String =
                 target.query_row("PRAGMA journal_mode = DELETE", [], |row| row.get(0))?;
             if !journal_mode.eq_ignore_ascii_case("delete") {
